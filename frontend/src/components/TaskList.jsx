@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { taskAPI } from '../services/api'
+import { supabase } from '../lib/supabase.js'
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([])
@@ -12,8 +12,13 @@ const TaskList = () => {
 
   const fetchTasks = async () => {
     try {
-      const response = await taskAPI.getTasks()
-      setTasks(response.data)
+      const { data, error } = await supabase
+        .from('api_task') // Changed from 'tasks' to 'api_task'
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      setTasks(data)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching tasks:', error)
@@ -26,9 +31,20 @@ const TaskList = () => {
     if (!newTask.title.trim()) return
 
     try {
-      await taskAPI.createTask(newTask)
+      const currentTime = new Date().toISOString()
+      const { error } = await supabase
+        .from('api_task')
+        .insert([{ 
+          title: newTask.title, 
+          description: newTask.description,
+          completed: false,
+          created_at: currentTime,
+          updated_at: currentTime 
+        }])
+      
+      if (error) throw error
       setNewTask({ title: '', description: '' })
-      fetchTasks() // Refresh the list
+      fetchTasks()
     } catch (error) {
       console.error('Error creating task:', error)
     }
@@ -36,8 +52,16 @@ const TaskList = () => {
 
   const toggleComplete = async (task) => {
     try {
-      await taskAPI.updateTask(task.id, { ...task, completed: !task.completed })
-      fetchTasks() // Refresh the list
+      const { error } = await supabase
+        .from('api_task')
+        .update({ 
+          completed: !task.completed,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', task.id)
+      
+      if (error) throw error
+      fetchTasks()
     } catch (error) {
       console.error('Error updating task:', error)
     }
@@ -45,12 +69,18 @@ const TaskList = () => {
 
   const deleteTask = async (id) => {
     try {
-      await taskAPI.deleteTask(id)
-      fetchTasks() // Refresh the list
+      const { error } = await supabase
+        .from('api_task') 
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+      fetchTasks()
     } catch (error) {
       console.error('Error deleting task:', error)
     }
   }
+
 
   if (loading) return <div className="text-center">Loading...</div>
 
