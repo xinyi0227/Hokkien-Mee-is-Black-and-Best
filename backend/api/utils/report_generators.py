@@ -1,5 +1,5 @@
 from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
@@ -10,11 +10,16 @@ from io import BytesIO
 import requests
 import datetime
 from pptx.dml.color import RGBColor
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+from reportlab.platypus import Image as RLImage
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 
 class CleaningReportGenerator:
     def create_cleaning_report(self, cleaning_log, filename):
         """Create PDF report documenting the cleaning process"""
-        
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
         styles = getSampleStyleSheet()
@@ -28,6 +33,7 @@ class CleaningReportGenerator:
             spaceAfter=30,
             textColor=colors.darkblue
         )
+
         story.append(Paragraph(f"Data Cleaning Report: {filename}", title_style))
         story.append(Spacer(1, 20))
 
@@ -42,7 +48,7 @@ class CleaningReportGenerator:
             ["Total Issues Found", str(cleaning_log['summary']['total_issues_found'])],
             ["Total Actions Taken", str(cleaning_log['summary']['total_actions_taken'])],
         ]
-        
+
         summary_table = Table(summary_data)
         summary_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -54,6 +60,7 @@ class CleaningReportGenerator:
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
+
         story.append(summary_table)
         story.append(Spacer(1, 20))
 
@@ -79,21 +86,23 @@ class CleaningReportGenerator:
             "Consider setting up automated cleaning pipelines for future datasets",
             "Document data cleaning procedures for consistency"
         ]
+
         for rec in recommendations:
             story.append(Paragraph(f"• {rec}", styles['Normal']))
 
         doc.build(story)
         return buffer.getvalue()
 
-
-
-
 class PDFGenerator:
-    def create_analysis_report(self, analysis_results, filename):
-        """Create comprehensive PDF analysis report with graphs"""
+    def create_analysis_report(self, gemini_output, filename, data_df=None):
+        """Create comprehensive business analysis report with optional chart embedding"""
+        # If data_df is provided, create enhanced report with charts
+        if data_df is not None and not data_df.empty:
+            return self.create_analysis_report_with_charts(gemini_output, data_df, filename)
         
+        # Otherwise, create text-based report
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
         styles = getSampleStyleSheet()
         story = []
 
@@ -101,304 +110,703 @@ class PDFGenerator:
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontSize=22,
-            spaceAfter=30,
+            fontSize=20,
+            spaceAfter=20,
             textColor=colors.darkblue,
             alignment=1,
             fontName='Helvetica-Bold'
         )
-        
-        executive_style = ParagraphStyle(
-            'ExecutiveStyle',
-            parent=styles['Normal'],
-            fontSize=12,
-            spaceAfter=15,
-            textColor=colors.black,
-            backColor=colors.lightgrey,
-            borderColor=colors.darkblue,
-            borderWidth=1,
-            leftIndent=10,
-            rightIndent=10,
-            topPadding=10,
-            bottomPadding=10
+
+        section_style = ParagraphStyle(
+            'SectionHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=10,
+            spaceBefore=15,
+            textColor=colors.darkblue,
+            fontName='Helvetica-Bold'
         )
 
-        # Title and Executive Summary
-        story.append(Paragraph(f"Business Intelligence Report: {filename}", title_style))
+        chart_style = ParagraphStyle(
+            'ChartRecommendation',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=5,
+            leftIndent=20,
+            textColor=colors.darkgreen,
+            fontName='Helvetica-Bold'
+        )
+
+        # Parse Gemini output
+        if isinstance(gemini_output, dict) and 'full_report' in gemini_output:
+            report_content = gemini_output['full_report']
+            chart_recommendations = gemini_output.get('chart_recommendations', [])
+        else:
+            report_content = str(gemini_output)
+            chart_recommendations = []
+
+        # Process the full report content
+        self.process_gemini_report_content(story, report_content, title_style, section_style, chart_style, styles)
+
+        # Add chart recommendations section
+        if chart_recommendations:
+            story.append(Paragraph("Recommended Visualizations", section_style))
+            for chart_rec in chart_recommendations:
+                clean_rec = chart_rec.replace('📊', '').replace('📈', '').replace('🎯', '').strip()
+                story.append(Paragraph(clean_rec, chart_style))
+            story.append(Spacer(1, 15))
+
+        # Footer
         story.append(Spacer(1, 20))
-        
-        # Executive Summary Box
-        story.append(Paragraph("Executive Summary", styles['Heading2']))
-        if 'executive_summary' in analysis_results:
-            story.append(Paragraph(analysis_results['executive_summary'], executive_style))
-        story.append(Spacer(1, 20))
-
-        # Data Overview with enhanced formatting
-        story.append(Paragraph("Data Overview", styles['Heading2']))
-        overview = analysis_results['data_overview']
-        overview_data = [
-            ["Metric", "Value", "Business Impact"],
-            ["Total Records", f"{overview['total_rows']:,}", "Large dataset enables robust analysis" if overview['total_rows'] > 1000 else "Moderate dataset size"],
-            ["Data Completeness", f"{overview['data_completeness']:.1f}%", "Excellent quality" if overview['data_completeness'] > 95 else "Good quality"],
-            ["Analysis Period", overview.get('time_period', {}).get('duration_days', 'N/A'), "Sufficient historical data" if isinstance(overview.get('time_period'), dict) else "Point-in-time analysis"],
-            ["Business Context", analysis_results.get('business_context', 'General').title(), "Industry-specific insights available"]
-        ]
-        
-        overview_table = Table(overview_data, colWidths=[2*inch, 1.5*inch, 2.5*inch])
-        overview_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.navy),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.lightblue),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP')
-        ]))
-        story.append(overview_table)
-        story.append(Spacer(1, 25))
-
-        # Key Insights with visual emphasis
-        story.append(Paragraph("Key Business Insights", styles['Heading2']))
-        if analysis_results.get('key_insights'):
-            for i, insight in enumerate(analysis_results['key_insights'], 1):
-                insight_style = ParagraphStyle(
-                    f'Insight{i}',
-                    parent=styles['Normal'],
-                    fontSize=11,
-                    spaceAfter=10,
-                    leftIndent=20,
-                    bulletIndent=10,
-                    bulletFontName='Symbol'
-                )
-                story.append(Paragraph(f"<b>{i}.</b> {insight}", insight_style))
-        story.append(Spacer(1, 20))
-
-        # Statistical Summary with business interpretation
-        if analysis_results.get('statistical_summary'):
-            story.append(Paragraph("Statistical Analysis", styles['Heading2']))
-            for col_name, stats in analysis_results['statistical_summary'].items():
-                story.append(Paragraph(f"<b>{col_name} Analysis:</b>", styles['Heading3']))
-                
-                # Interpret the statistics
-                cv = stats.get('cv', 0)
-                variability = "High variability" if cv > 30 else "Moderate variability" if cv > 15 else "Low variability"
-                trend = stats.get('trend', 'stable')
-                trend_desc = {"increasing": "📈 Upward trend", "decreasing": "📉 Downward trend", "stable": "➡️ Stable pattern"}.get(trend, "")
-                
-                stats_data = [
-                    ["Statistic", "Value", "Business Interpretation"],
-                    ["Average", f"{stats['mean']:,.2f}", f"Typical performance level"],
-                    ["Range", f"{stats['min']:,.2f} - {stats['max']:,.2f}", f"Performance varies by {((stats['max']-stats['min'])/stats['mean']*100):.1f}%"],
-                    ["Consistency", f"{variability} (CV: {cv:.1f}%)", "Higher consistency indicates predictable performance"],
-                    ["Trend", trend_desc, f"Data shows {trend} pattern over time"]
-                ]
-                
-                stats_table = Table(stats_data, colWidths=[1.5*inch, 1.5*inch, 3*inch])
-                stats_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.green),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 9),
-                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen)
-                ]))
-                story.append(stats_table)
-                story.append(Spacer(1, 15))
-
-        # Visualizations with descriptions
-        if analysis_results.get('visualizations'):
-            story.append(Paragraph("Data Visualizations", styles['Heading2']))
-            for viz in analysis_results['visualizations']:
-                # Add chart image if possible
-                try:
-                    response = requests.get(viz['url'], timeout=10)
-                    if response.status_code == 200:
-                        img_stream = BytesIO(response.content)
-                        img = Image(img_stream, width=6*inch, height=4*inch)
-                        story.append(img)
-                        story.append(Spacer(1, 10))
-                except:
-                    pass
-                
-                # Chart description
-                story.append(Paragraph(f"<b>{viz['title']}</b>", styles['Heading3']))
-                story.append(Paragraph(viz['description'], styles['Normal']))
-                story.append(Spacer(1, 15))
-
-        # Business Recommendations with priority levels
-        story.append(Paragraph("Strategic Recommendations", styles['Heading2']))
-        if analysis_results.get('business_recommendations'):
-            priorities = ["🔴 High Priority", "🟡 Medium Priority", "🟢 Low Priority", "📋 Monitor"]
-            for i, rec in enumerate(analysis_results['business_recommendations'], 1):
-                priority = priorities[(i-1) % len(priorities)]
-                rec_style = ParagraphStyle(
-                    f'Rec{i}',
-                    parent=styles['Normal'],
-                    fontSize=11,
-                    spaceAfter=12,
-                    leftIndent=15,
-                    bulletIndent=10
-                )
-                story.append(Paragraph(f"<b>{priority}</b> - {rec}", rec_style))
-
-        # Critical Metrics to Monitor
-        if analysis_results.get('critical_metrics'):
-            story.append(Spacer(1, 20))
-            story.append(Paragraph("Critical Metrics to Monitor", styles['Heading2']))
-            for i, metric in enumerate(analysis_results['critical_metrics'], 1):
-                story.append(Paragraph(f"• {metric}", styles['Normal']))
+        story.append(Paragraph("*Report generated by AI Business Analytics System*", styles['Normal']))
+        story.append(Paragraph(f"*Generated: {datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p')}*", styles['Normal']))
 
         doc.build(story)
         return buffer.getvalue()
 
-class PPTGenerator:
-    def create_analysis_presentation(self, analysis_results, filename):
-        """Create executive PowerPoint presentation"""
-        
-        prs = Presentation()
-        
-        # Slide 1: Title Slide
-        title_slide_layout = prs.slide_layouts[0]
-        slide = prs.slides.add_slide(title_slide_layout)
-        title = slide.shapes.title
-        subtitle = slide.shapes.placeholders[1]
-        
-        title.text = "Executive Business Intelligence Report"
-        subtitle.text = f"Data Analysis: {filename}\nAI-Powered Business Insights\n{datetime.datetime.now().strftime('%B %Y')}"
+    def create_analysis_report_with_charts(self, gemini_output, data_df, filename):
+        """Create comprehensive business analysis report with embedded charts"""
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
+        styles = getSampleStyleSheet()
+        story = []
 
-        # Slide 2: Executive Summary
-        bullet_slide_layout = prs.slide_layouts[1]
-        slide = prs.slides.add_slide(bullet_slide_layout)
-        shapes = slide.shapes
-        title_shape = shapes.title
-        body_shape = shapes.placeholders[1]
-        
-        title_shape.text = "Executive Summary"
-        tf = body_shape.text_frame
-        tf.text = "Key Findings:"
-        
-        if analysis_results.get('executive_summary'):
-            p = tf.add_paragraph()
-            p.text = analysis_results['executive_summary']
-            p.level = 1
-            p.font.size = Pt(16)
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=20,
+            textColor=colors.darkblue,
+            alignment=1,
+            fontName='Helvetica-Bold'
+        )
 
-        # Add data overview highlights
-        overview = analysis_results['data_overview']
-        p = tf.add_paragraph()
-        p.text = f"Analyzed {overview['total_rows']:,} records with {overview['data_completeness']:.1f}% completeness"
-        p.level = 1
-        p.font.size = Pt(14)
+        section_style = ParagraphStyle(
+            'SectionHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=10,
+            spaceBefore=15,
+            textColor=colors.darkblue,
+            fontName='Helvetica-Bold'
+        )
 
-        # Slide 3: Key Insights (Executive Focus)
-        slide = prs.slides.add_slide(bullet_slide_layout)
-        shapes = slide.shapes
-        title_shape = shapes.title
-        body_shape = shapes.placeholders[1]
-        
-        title_shape.text = "Strategic Insights"
-        tf = body_shape.text_frame
-        tf.text = "Critical Business Findings:"
-        
-        if analysis_results.get('key_insights'):
-            for insight in analysis_results['key_insights'][:4]:  # Limit to 4 for readability
-                p = tf.add_paragraph()
-                p.text = insight
-                p.level = 1
-                p.font.size = Pt(14)
+        chart_style = ParagraphStyle(
+            'ChartRecommendation',
+            parent=styles['Normal'],
+            fontSize=10,
+            spaceAfter=5,
+            leftIndent=20,
+            textColor=colors.darkgreen,
+            fontName='Helvetica-Bold'
+        )
 
-        # Slide 4: Business Impact & Recommendations
-        slide = prs.slides.add_slide(bullet_slide_layout)
-        shapes = slide.shapes
-        title_shape = shapes.title
-        body_shape = shapes.placeholders[1]
-        
-        title_shape.text = "Recommended Actions"
-        tf = body_shape.text_frame
-        tf.text = "Priority Initiatives:"
-        
-        if analysis_results.get('business_recommendations'):
-            priorities = ["HIGH PRIORITY", "MEDIUM PRIORITY", "ONGOING MONITORING"]
-            for i, rec in enumerate(analysis_results['business_recommendations'][:3]):
-                p = tf.add_paragraph()
-                priority = priorities[min(i, len(priorities)-1)]
-                p.text = f"{priority}: {rec}"
-                p.level = 1
-                p.font.size = Pt(13)
-                if i == 0:  # High priority in red
-                    p.font.color.rgb = RGBColor(204, 0, 0)
+        # Parse Gemini output
+        if isinstance(gemini_output, dict) and 'full_report' in gemini_output:
+            report_content = gemini_output['full_report']
+            chart_recommendations = gemini_output.get('chart_recommendations', [])
+        else:
+            report_content = str(gemini_output)
+            chart_recommendations = []
 
-        # Add visualization slides
-        if analysis_results.get('visualizations'):
-            for viz in analysis_results['visualizations'][:3]:  # Limit to 3 charts for executive presentation
-                blank_slide_layout = prs.slide_layouts[6]
-                slide = prs.slides.add_slide(blank_slide_layout)
-                
-                # Add title
-                left = Inches(0.5)
-                top = Inches(0.3)
-                width = Inches(9)
-                height = Inches(0.8)
-                title_box = slide.shapes.add_textbox(left, top, width, height)
-                title_frame = title_box.text_frame
-                title_frame.text = viz['title']
-                title_frame.paragraphs[0].font.size = Pt(24)
-                title_frame.paragraphs[0].font.bold = True
+        # Process the full report content
+        self.process_gemini_report_content(story, report_content, title_style, section_style, chart_style, styles)
 
-                # Add chart image
+        # Generate and embed actual charts
+        story.append(Paragraph("📊 Data Visualizations", section_style))
+        story.append(Spacer(1, 10))
+
+        # Generate multiple chart types based on your data
+        charts = self.generate_business_charts(data_df)
+
+        if charts:
+            for chart_name, chart_buffer in charts.items():
                 try:
-                    response = requests.get(viz['url'])
-                    if response.status_code == 200:
-                        img_stream = BytesIO(response.content)
-                        left = Inches(1)
-                        top = Inches(1.2)
-                        width = Inches(8)
-                        height = Inches(5.5)
-                        slide.shapes.add_picture(img_stream, left, top, width, height)
-                        
-                        # Add insight callout
-                        left = Inches(1)
-                        top = Inches(6.8)
-                        width = Inches(8)
-                        height = Inches(0.8)
-                        insight_box = slide.shapes.add_textbox(left, top, width, height)
-                        insight_frame = insight_box.text_frame
-                        insight_frame.text = f"📊 {viz['description']}"
-                        insight_frame.paragraphs[0].font.size = Pt(12)
-                        insight_frame.paragraphs[0].font.italic = True
-                except:
-                    # Add description as text if image fails
-                    left = Inches(1)
-                    top = Inches(2)
-                    width = Inches(8)
-                    height = Inches(4)
-                    desc_box = slide.shapes.add_textbox(left, top, width, height)
-                    desc_frame = desc_box.text_frame
-                    desc_frame.text = f"Chart: {viz['description']}"
-                    desc_frame.paragraphs[0].font.size = Pt(16)
+                    story.append(Paragraph(f"{chart_name}", styles['Heading3']))
+                    
+                    # Convert matplotlib chart to ReportLab Image
+                    chart_image = RLImage(chart_buffer, width=6*inch, height=4*inch)
+                    story.append(chart_image)
+                    story.append(Spacer(1, 15))
+                except Exception as e:
+                    print(f"Error embedding chart {chart_name}: {e}")
+                    story.append(Paragraph(f"Chart '{chart_name}' could not be generated", styles['Normal']))
+                    story.append(Spacer(1, 10))
+        else:
+            story.append(Paragraph("No charts could be generated from the available data.", styles['Normal']))
+            story.append(Spacer(1, 15))
 
-        # Final slide: Next Steps
-        slide = prs.slides.add_slide(bullet_slide_layout)
-        shapes = slide.shapes
-        title_shape = shapes.title
-        body_shape = shapes.placeholders[1]
+        # Footer
+        story.append(Spacer(1, 20))
+        story.append(Paragraph("*Report generated by AI Business Analytics System*", styles['Normal']))
+        story.append(Paragraph(f"*Generated: {datetime.datetime.now().strftime('%B %d, %Y at %I:%M %p')}*", styles['Normal']))
+
+        doc.build(story)
+        return buffer.getvalue()
+
+    def generate_business_charts(self, df):
+        """Generate multiple chart types for business analysis"""
+        charts = {}
         
-        title_shape.text = "Next Steps & Monitoring"
-        tf = body_shape.text_frame
-        tf.text = "Critical Metrics to Track:"
+        try:
+            print(f"Starting chart generation with DataFrame shape: {df.shape}")
+            print(f"Available columns: {df.columns.tolist()}")
+            
+            # Set matplotlib style
+            try:
+                plt.style.use('seaborn-v0_8-whitegrid')
+            except:
+                plt.style.use('default')
+            
+            # Chart 1: Any Numeric Column Trend
+            numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+            date_columns = [col for col in df.columns if 'date' in col.lower() or 'time' in col.lower()]
+            
+            if len(numeric_columns) > 0 and len(date_columns) > 0:
+                try:
+                    print(f"Creating trend chart with {numeric_columns[0]} and {date_columns[0]}")
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    
+                    df_temp = df.copy()
+                    df_temp[date_columns[0]] = pd.to_datetime(df_temp[date_columns[0]], errors='coerce')
+                    df_temp = df_temp.dropna(subset=[date_columns[0]])
+                    
+                    if len(df_temp) > 0:
+                        daily_data = df_temp.groupby(df_temp[date_columns[0]].dt.date)[numeric_columns[0]].sum()
+                        
+                        ax.plot(daily_data.index, daily_data.values, marker='o', linewidth=2, markersize=4, color='#2E86AB')
+                        ax.set_title(f'📈 {numeric_columns[0].title()} Trend Over Time', fontsize=16, fontweight='bold')
+                        ax.set_xlabel('Date', fontsize=12)
+                        ax.set_ylabel(f'{numeric_columns[0].title()}', fontsize=12)
+                        ax.grid(True, alpha=0.3)
+                        plt.xticks(rotation=45)
+                        plt.tight_layout()
+                        
+                        trend_buffer = BytesIO()
+                        plt.savefig(trend_buffer, format='png', dpi=300, bbox_inches='tight', facecolor='white')
+                        trend_buffer.seek(0)
+                        charts[f'{numeric_columns[0].title()} Trend'] = trend_buffer
+                        print("Trend chart created successfully")
+                    
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error creating trend chart: {e}")
+                    plt.close('all')
+            
+            # Chart 2: Category Distribution (any text column)
+            text_columns = df.select_dtypes(include=['object']).columns.tolist()
+            
+            if len(text_columns) > 0 and len(numeric_columns) > 0:
+                try:
+                    print(f"Creating category chart with {text_columns[0]} and {numeric_columns[0]}")
+                    fig, ax = plt.subplots(figsize=(10, 6))
+                    
+                    # Get top categories
+                    if text_columns[0] in df.columns and numeric_columns[0] in df.columns:
+                        top_categories = df.groupby(text_columns[0])[numeric_columns[0]].sum().nlargest(10)
+                        
+                        if len(top_categories) > 0:
+                            colors_bar = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', 
+                                        '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3', '#FF9F43']
+                            
+                            bars = ax.bar(range(len(top_categories)), top_categories.values, 
+                                        color=colors_bar[:len(top_categories)])
+                            
+                            ax.set_title(f'📊 Top {text_columns[0].title()} by {numeric_columns[0].title()}', fontsize=16, fontweight='bold')
+                            ax.set_xlabel(text_columns[0].title(), fontsize=12)
+                            ax.set_ylabel(numeric_columns[0].title(), fontsize=12)
+                            ax.set_xticks(range(len(top_categories)))
+                            ax.set_xticklabels(top_categories.index, rotation=45, ha='right')
+                            
+                            # Add value labels
+                            for bar in bars:
+                                height = bar.get_height()
+                                ax.text(bar.get_x() + bar.get_width()/2., height,
+                                    f'{height:,.0f}', ha='center', va='bottom', fontsize=9)
+                            
+                            plt.tight_layout()
+                            
+                            category_buffer = BytesIO()
+                            plt.savefig(category_buffer, format='png', dpi=300, bbox_inches='tight', facecolor='white')
+                            category_buffer.seek(0)
+                            charts[f'Top {text_columns[0].title()} Performance'] = category_buffer
+                            print("Category chart created successfully")
+                    
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error creating category chart: {e}")
+                    plt.close('all')
+            
+            # Chart 3: Data Distribution Pie Chart
+            if len(text_columns) > 0:
+                try:
+                    print(f"Creating pie chart for {text_columns[0]}")
+                    fig, ax = plt.subplots(figsize=(8, 8))
+                    
+                    distribution = df[text_columns[0]].value_counts().head(8)  # Top 8 categories
+                    
+                    if len(distribution) > 0:
+                        colors_pie = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD']
+                        
+                        wedges, texts, autotexts = ax.pie(distribution.values, labels=distribution.index, 
+                                                        autopct='%1.1f%%', startangle=90, 
+                                                        colors=colors_pie[:len(distribution)])
+                        
+                        ax.set_title(f'📊 {text_columns[0].title()} Distribution', fontsize=16, fontweight='bold')
+                        
+                        # Enhance text
+                        for autotext in autotexts:
+                            autotext.set_color('white')
+                            autotext.set_fontweight('bold')
+                        
+                        plt.tight_layout()
+                        
+                        pie_buffer = BytesIO()
+                        plt.savefig(pie_buffer, format='png', dpi=300, bbox_inches='tight', facecolor='white')
+                        pie_buffer.seek(0)
+                        charts[f'{text_columns[0].title()} Distribution'] = pie_buffer
+                        print("Pie chart created successfully")
+                    
+                    plt.close(fig)
+                except Exception as e:
+                    print(f"Error creating pie chart: {e}")
+                    plt.close('all')
+            
+            print(f"Successfully generated {len(charts)} charts")
+            return charts
+            
+        except Exception as e:
+            print(f"Error in generate_business_charts: {e}")
+            plt.close('all')
+            return {}
+
+    def process_gemini_report_content(self, story, report_content, title_style, section_style, chart_style, styles):
+        """Process the Gemini report content and convert to PDF format"""
+        lines = report_content.split('\n')
+        current_section = ""
         
-        if analysis_results.get('critical_metrics'):
-            for metric in analysis_results['critical_metrics']:
-                p = tf.add_paragraph()
-                p.text = metric
-                p.level = 1
-                p.font.size = Pt(14)
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Handle headers
+            if line.startswith('# '):
+                # Main title
+                title_text = line[2:].strip()
+                story.append(Paragraph(title_text, title_style))
+                story.append(Spacer(1, 20))
+            elif line.startswith('## '):
+                # Section headers
+                section_text = line[3:].strip()
+                story.append(Paragraph(section_text, section_style))
+                current_section = section_text.lower()
+            elif line.startswith('### '):
+                # Subsection headers
+                subsection_text = line[4:].strip()
+                subsection_style = ParagraphStyle(
+                    'SubsectionHeader',
+                    parent=styles['Heading3'],
+                    fontSize=12,
+                    spaceAfter=8,
+                    spaceBefore=10,
+                    textColor=colors.darkred,
+                    fontName='Helvetica-Bold'
+                )
+                story.append(Paragraph(subsection_text, subsection_style))
+            elif line.startswith('####'):
+                # Sub-subsection headers
+                subsubsection_text = line[5:].strip()
+                subsubsection_style = ParagraphStyle(
+                    'SubSubsectionHeader',
+                    parent=styles['Heading4'],
+                    fontSize=11,
+                    spaceAfter=5,
+                    spaceBefore=8,
+                    textColor=colors.purple,
+                    fontName='Helvetica-Bold'
+                )
+                story.append(Paragraph(subsubsection_text, subsubsection_style))
+            elif '📊' in line or '📈' in line or '🎯' in line:
+                # Chart recommendations
+                clean_line = line.replace('📊', '').replace('📈', '').replace('🎯', '').strip()
+                story.append(Paragraph(clean_line, chart_style))
+            elif line.startswith('- ') or line.startswith('* '):
+                # Bullet points
+                bullet_text = line[2:].strip()
+                bullet_style = ParagraphStyle(
+                    'BulletPoint',
+                    parent=styles['Normal'],
+                    fontSize=10,
+                    spaceAfter=5,
+                    leftIndent=20,
+                    bulletIndent=10
+                )
+                story.append(Paragraph(f"• {bullet_text}", bullet_style))
+            elif line.startswith(('1. ', '2. ', '3. ', '4. ', '5. ')):
+                # Numbered lists
+                numbered_style = ParagraphStyle(
+                    'NumberedList',
+                    parent=styles['Normal'],
+                    fontSize=10,
+                    spaceAfter=5,
+                    leftIndent=20
+                )
+                story.append(Paragraph(line, numbered_style))
+            elif line.startswith('**') and line.endswith('**'):
+                # Bold text
+                bold_text = line[2:-2]
+                bold_style = ParagraphStyle(
+                    'BoldText',
+                    parent=styles['Normal'],
+                    fontSize=10,
+                    spaceAfter=5,
+                    fontName='Helvetica-Bold'
+                )
+                story.append(Paragraph(bold_text, bold_style))
+            else:
+                # Regular paragraphs
+                if line:
+                    story.append(Paragraph(line, styles['Normal']))
+                    story.append(Spacer(1, 5))
+
+class PPTGenerator:
+    def create_analysis_presentation(self, gemini_output, filename, data_df=None):
+        """Create executive PowerPoint presentation with optional chart embedding"""
+        # If data_df is provided, create enhanced presentation with charts
+        if data_df is not None and not data_df.empty:
+            return self.create_analysis_presentation_with_charts(gemini_output, data_df, filename)
+        
+        # Otherwise, create text-based presentation
+        prs = Presentation()
+
+        # Parse Gemini output
+        if isinstance(gemini_output, dict) and 'full_report' in gemini_output:
+            report_content = gemini_output['full_report']
+            chart_recommendations = gemini_output.get('chart_recommendations', [])
+        else:
+            report_content = str(gemini_output)
+            chart_recommendations = []
+
+        # Extract sections from report content
+        sections = self.parse_report_sections(report_content)
+
+        # Create slides
+        self.create_title_slide(prs, sections.get('title', 'Business Analysis Report'))
+        
+        if 'executive_summary' in sections:
+            self.create_content_slide(prs, "Executive Summary", sections['executive_summary'])
+        
+        if 'key_performance_indicators' in sections:
+            self.create_content_slide(prs, "Key Performance Indicators", sections['key_performance_indicators'])
+        
+        if 'trend_analysis' in sections:
+            self.create_content_slide(prs, "Trend Analysis", sections['trend_analysis'])
+        
+        if 'product_analysis' in sections:
+            self.create_content_slide(prs, "Product Mix Analysis", sections['product_analysis'])
+        
+        if 'customer_insights' in sections:
+            self.create_content_slide(prs, "Customer Behavior Insights", sections['customer_insights'])
+        
+        if 'recommendations' in sections:
+            self.create_recommendations_slide(prs, sections['recommendations'])
+        
+        if chart_recommendations:
+            self.create_visualization_recommendations_slide(prs, chart_recommendations)
+        
+        if 'conclusion' in sections:
+            self.create_content_slide(prs, "Conclusion & Strategic Outlook", sections['conclusion'])
 
         # Save to BytesIO
         buffer = BytesIO()
         prs.save(buffer)
         return buffer.getvalue()
+
+    def create_analysis_presentation_with_charts(self, gemini_output, data_df, filename):
+        """Create executive PowerPoint presentation with embedded charts"""
+        prs = Presentation()
+        
+        # Parse Gemini output
+        if isinstance(gemini_output, dict) and 'full_report' in gemini_output:
+            report_content = gemini_output['full_report']
+            chart_recommendations = gemini_output.get('chart_recommendations', [])
+        else:
+            report_content = str(gemini_output)
+            chart_recommendations = []
+
+        # Extract sections from report content
+        sections = self.parse_report_sections(report_content)
+        
+        # Create slides
+        self.create_title_slide(prs, sections.get('title', 'Business Analysis Report'))
+        
+        if 'executive_summary' in sections:
+            self.create_content_slide(prs, "Executive Summary", sections['executive_summary'])
+        
+        # Create chart slides with actual visualizations
+        self.create_chart_slides(prs, data_df)
+        
+        # Continue with other content slides
+        if 'recommendations' in sections:
+            self.create_recommendations_slide(prs, sections['recommendations'])
+        
+        if 'conclusion' in sections:
+            self.create_content_slide(prs, "Conclusion & Strategic Outlook", sections['conclusion'])
+
+        # Save to BytesIO
+        buffer = BytesIO()
+        prs.save(buffer)
+        return buffer.getvalue()
+
+    def create_chart_slides(self, prs, df):
+        """Create slides with embedded charts using python-pptx native charts"""
+        
+        # Import required modules inside the method to avoid errors
+        from pptx.chart.data import CategoryChartData
+        from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
+        
+        # Chart Slide 1: Revenue Trend
+        if 'date' in df.columns and any(col in df.columns for col in ['revenue', 'total', 'amount', 'price']):
+            slide = prs.slides.add_slide(prs.slide_layouts[5])  # Blank slide
+            slide.shapes.title.text = "📈 Revenue Performance Trends"
+            
+            # Prepare data for chart
+            revenue_col = next((col for col in ['revenue', 'total', 'amount', 'price'] if col in df.columns), None)
+            df_temp = df.copy()
+            df_temp['date'] = pd.to_datetime(df_temp['date'])
+            monthly_data = df_temp.groupby(df_temp['date'].dt.to_period('M'))[revenue_col].sum()
+            
+            # Create chart data
+            chart_data = CategoryChartData()
+            chart_data.categories = [str(period) for period in monthly_data.index]
+            chart_data.add_series('Revenue', monthly_data.values)
+            
+            # Add chart to slide
+            x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(5)
+            chart = slide.shapes.add_chart(
+                XL_CHART_TYPE.LINE_MARKERS, x, y, cx, cy, chart_data
+            ).chart
+            
+            chart.has_legend = True
+            chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+
+        # Chart Slide 2: Top Products Bar Chart
+        if any(col in df.columns for col in ['product', 'category', 'item']):
+            slide = prs.slides.add_slide(prs.slide_layouts[5])
+            slide.shapes.title.text = "📊 Top Performing Products"
+            
+            product_col = next((col for col in ['product', 'category', 'item'] if col in df.columns), None)
+            revenue_col = next((col for col in ['revenue', 'total', 'amount', 'price'] if col in df.columns), None)
+            
+            if product_col and revenue_col:
+                top_products = df.groupby(product_col)[revenue_col].sum().nlargest(5)
+                
+                chart_data = CategoryChartData()
+                chart_data.categories = list(top_products.index)
+                chart_data.add_series('Revenue', top_products.values)
+                
+                x, y, cx, cy = Inches(1), Inches(2), Inches(8), Inches(5)
+                chart = slide.shapes.add_chart(
+                    XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data
+                ).chart
+                
+                chart.has_legend = False
+
+        # Chart Slide 3: Distribution Pie Chart
+        if any(col in df.columns for col in ['payment_method', 'payment_type', 'method']):
+            slide = prs.slides.add_slide(prs.slide_layouts[5])
+            slide.shapes.title.text = "💳 Payment Method Distribution"
+            
+            payment_col = next((col for col in ['payment_method', 'payment_type', 'method'] if col in df.columns), None)
+            
+            if payment_col:
+                payment_dist = df[payment_col].value_counts()
+                
+                chart_data = CategoryChartData()
+                chart_data.categories = list(payment_dist.index)
+                chart_data.add_series('Count', payment_dist.values)
+                
+                x, y, cx, cy = Inches(2), Inches(2), Inches(6), Inches(5)
+                chart = slide.shapes.add_chart(
+                    XL_CHART_TYPE.PIE, x, y, cx, cy, chart_data
+                ).chart
+                
+                chart.has_legend = True
+                chart.legend.position = XL_LEGEND_POSITION.RIGHT
+
+    def parse_report_sections(self, report_content):
+        """Parse the Gemini report content into sections"""
+        sections = {}
+        lines = report_content.split('\n')
+        current_section = ""
+        current_content = []
+        
+        for line in lines:
+            line = line.strip()
+            
+            if line.startswith('# '):
+                sections['title'] = line[2:].strip()
+            elif line.startswith('## '):
+                # Save previous section
+                if current_section and current_content:
+                    sections[current_section] = '\n'.join(current_content)
+                
+                # Start new section
+                section_name = line[3:].strip().lower().replace(' ', '_').replace('&', 'and')
+                current_section = section_name
+                current_content = []
+            elif line and current_section:
+                current_content.append(line)
+        
+        # Save last section
+        if current_section and current_content:
+            sections[current_section] = '\n'.join(current_content)
+            
+        return sections
+
+    def create_title_slide(self, prs, title):
+        """Create title slide"""
+        title_slide_layout = prs.slide_layouts[0]
+        slide = prs.slides.add_slide(title_slide_layout)
+        
+        slide.shapes.title.text = title
+        slide.shapes.placeholders[1].text = f"Executive Business Intelligence Report\n{datetime.datetime.now().strftime('%B %Y')}\nGenerated by AI Analytics"
+
+    def create_content_slide(self, prs, title, content):
+        """Create content slide with bullet points"""
+        bullet_slide_layout = prs.slide_layouts[1]
+        slide = prs.slides.add_slide(bullet_slide_layout)
+        
+        slide.shapes.title.text = title
+        
+        tf = slide.shapes.placeholders[1].text_frame
+        tf.clear()
+        
+        # Process content into bullet points
+        lines = content.split('\n')
+        first_paragraph = True
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if line.startswith('###'):
+                # Subsection header
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                p.text = line[3:].strip()
+                p.level = 0
+                p.font.size = Pt(16)
+                p.font.bold = True
+                p.font.color.rgb = RGBColor(0, 0, 139)
+                first_paragraph = False
+            elif line.startswith('- ') or line.startswith('* '):
+                # Bullet point
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                p.text = line[2:].strip()
+                p.level = 1
+                p.font.size = Pt(14)
+                first_paragraph = False
+            elif line.startswith(('1. ', '2. ', '3. ', '4. ', '5. ')):
+                # Numbered list
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                p.text = line
+                p.level = 1
+                p.font.size = Pt(14)
+                first_paragraph = False
+            elif '📊' in line or '📈' in line or '🎯' in line:
+                # Chart recommendation
+                clean_line = line.replace('📊', '').replace('📈', '').replace('🎯', '').strip()
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                p.text = f"💡 {clean_line}"
+                p.level = 1
+                p.font.size = Pt(12)
+                p.font.color.rgb = RGBColor(0, 128, 0)
+                first_paragraph = False
+            elif line and not line.startswith('#'):
+                # Regular content
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                p.text = line
+                p.level = 1
+                p.font.size = Pt(13)
+                first_paragraph = False
+
+    def create_recommendations_slide(self, prs, recommendations_content):
+        """Create recommendations slide with priority levels"""
+        bullet_slide_layout = prs.slide_layouts[1]
+        slide = prs.slides.add_slide(bullet_slide_layout)
+        
+        slide.shapes.title.text = "Strategic Recommendations & Action Plan"
+        
+        tf = slide.shapes.placeholders[1].text_frame
+        tf.clear()
+        
+        lines = recommendations_content.split('\n')
+        priority_colors = {
+            'immediate': RGBColor(204, 0, 0),      # Red
+            'strategic': RGBColor(255, 165, 0),    # Orange  
+            'long': RGBColor(0, 100, 0)            # Green
+        }
+        
+        current_priority = None
+        first_paragraph = True
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if 'immediate' in line.lower() or 'next 30' in line.lower():
+                current_priority = 'immediate'
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                p.text = "🔴 IMMEDIATE ACTIONS (Next 30 Days)"
+                p.level = 0
+                p.font.size = Pt(16)
+                p.font.bold = True
+                p.font.color.rgb = priority_colors['immediate']
+                first_paragraph = False
+            elif 'strategic' in line.lower() or 'quarter' in line.lower():
+                current_priority = 'strategic'
+                p = tf.add_paragraph()
+                p.text = "🟠 STRATEGIC INITIATIVES (Next Quarter)"
+                p.level = 0
+                p.font.size = Pt(16)
+                p.font.bold = True
+                p.font.color.rgb = priority_colors['strategic']
+            elif 'long' in line.lower() or 'year' in line.lower():
+                current_priority = 'long'
+                p = tf.add_paragraph()
+                p.text = "🟢 LONG-TERM GROWTH (Next Year)"
+                p.level = 0
+                p.font.size = Pt(16)
+                p.font.bold = True
+                p.font.color.rgb = priority_colors['long']
+            elif line.startswith(('1. ', '2. ', '3. ', '4. ', '5. ', '- ', '* ')):
+                p = tf.add_paragraph() if not first_paragraph else tf.paragraphs[0]
+                clean_text = line[2:] if line.startswith(('- ', '* ')) else line
+                p.text = clean_text
+                p.level = 1
+                p.font.size = Pt(13)
+                if current_priority and current_priority in priority_colors:
+                    p.font.color.rgb = priority_colors[current_priority]
+                first_paragraph = False
+
+    def create_visualization_recommendations_slide(self, prs, chart_recommendations):
+        """Create slide for visualization recommendations"""
+        bullet_slide_layout = prs.slide_layouts[1]
+        slide = prs.slides.add_slide(bullet_slide_layout)
+        
+        slide.shapes.title.text = "Recommended Data Visualizations"
+        
+        tf = slide.shapes.placeholders[1].text_frame
+        tf.text = "Key Charts & Graphs for Business Intelligence"
+        
+        for chart_rec in chart_recommendations:
+            clean_rec = chart_rec.replace('📊', '').replace('📈', '').replace('🎯', '').strip()
+            p = tf.add_paragraph()
+            p.text = f"📊 {clean_rec}"
+            p.level = 1
+            p.font.size = Pt(12)
+            p.font.color.rgb = RGBColor(0, 128, 0)
