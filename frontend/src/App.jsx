@@ -5,7 +5,7 @@ import {
     Routes,
     Route,
 } from "react-router-dom";
-import FileUpload from './components/fileUpload';
+import FileUpload from './components/FileUpload';
 import FileList from './components/fileList';
 import { useState } from 'react';
 

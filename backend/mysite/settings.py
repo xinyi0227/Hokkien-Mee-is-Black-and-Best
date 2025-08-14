@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,7 +11,7 @@ SECRET_KEY = 'django-insecure^epw8u53z!#y9iyd=m=awmx$jxdf1xc^$^c&ysyxh+8(z_ex4n'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -114,3 +115,10 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ]
 }
+
+load_dotenv()
+
+# Gemini API configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+SUPABASE_URL = os.getenv('SUPABASE_URL')  
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
