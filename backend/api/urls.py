@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import TaskListCreateView, TaskDetailView, FileUploadView, FileListView
+from . import views
 
 urlpatterns = [
     path('tasks/', views.TaskListCreateView.as_view(), name='task-list-create'),
@@ -9,5 +9,5 @@ urlpatterns = [
     path('process-file/', views.FileProcessingView.as_view(), name='process-file'),
     path('processed-reports/', views.ProcessedReportListView.as_view(), name='processed-reports-list'),
     path('processed-reports/<uuid:pk>/', views.ProcessedReportRetrieveView.as_view(), name='processed-report-detail'),
-    path('transcript/', transcript_view, name='transcript'),
+    path('transcript/', views.transcript_view, name='transcript'),
 ]
