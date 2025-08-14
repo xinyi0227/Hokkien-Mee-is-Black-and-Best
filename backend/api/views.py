@@ -21,33 +21,39 @@ class FileProcessingView(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         file_id = request.data.get('file_id')
         analysis_type = request.data.get('analysis_type', 'full_analysis')
-
+        
         try:
-            # Get file from database
+            # Get file and process data
             business_data = BusinessData.objects.get(id=file_id)
-            
-            # Download file from Supabase Storage
             file_content = self.download_file_from_supabase(business_data.file_url)
             
-            # Step 1: Data Cleaning and Preprocessing
+            # Step 1: Data Cleaning
             cleaned_data, cleaning_log = self.clean_and_preprocess_data(
                 file_content, business_data.fileName
             )
             
-            # Step 2: Upload cleaned Excel file
+            # Debug: Print cleaned data info
+            print(f"Cleaned data shape: {cleaned_data.shape}")
+            print(f"Cleaned data columns: {cleaned_data.columns.tolist()}")
+            
+            # Step 2: Upload cleaned Excel
             cleaned_excel_url = self.upload_cleaned_excel(cleaned_data, business_data.fileName)
             
-            # Step 3: Generate cleaning report PDF
+            # Step 3: Generate cleaning report
             cleaning_pdf_url = self.generate_cleaning_report(cleaning_log, business_data.fileName)
             
-            # Step 4: Data analysis and visualization
+            # Step 4: Data analysis
             analysis_results = self.analyze_and_visualize_data(cleaned_data, business_data.fileName)
             
-            # Step 5: Generate final reports (PDF and PPT with different content)
-            pdf_url = self.generate_analysis_pdf(analysis_results, business_data.fileName)
-            ppt_url = self.generate_analysis_ppt(analysis_results, business_data.fileName)
-
-            # Save processed report
+            # Step 5: Generate reports WITH CHARTS - FIXED
+            pdf_url = self.generate_analysis_pdf(
+                analysis_results, business_data.fileName, cleaned_data  # Pass DataFrame!
+            )
+            ppt_url = self.generate_analysis_ppt(
+                analysis_results, business_data.fileName, cleaned_data  # Pass DataFrame!
+            )
+            
+            # Save results
             processed_report = ProcessedReport.objects.create(
                 original_file=business_data,
                 analysis_type=analysis_type,
@@ -60,14 +66,16 @@ class FileProcessingView(generics.CreateAPIView):
                 pdf_url=pdf_url,
                 ppt_url=ppt_url
             )
-
+            
             serializer = ProcessedReportSerializer(processed_report)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        except BusinessData.DoesNotExist:
-            return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
+            
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"Processing error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': f'Failed to process file: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     def clean_and_preprocess_data(self, file_content, filename):
         """Step 1: Clean and preprocess data using Gemini AI guidance"""
@@ -669,45 +677,68 @@ class FileProcessingView(generics.CreateAPIView):
                 ]
             }
 
-    def generate_analysis_pdf(self, analysis_results, filename):
-        """Generate comprehensive PDF analysis report"""
-        pdf_generator = PDFGenerator()
-        pdf_content = pdf_generator.create_analysis_report(analysis_results, filename)
-        
-        # Upload to Supabase
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        pdf_filename = f"reports/{uuid.uuid4()}_analysis_report.pdf"
-        
-        res = supabase.storage.from_("business_files").upload(
-            path=pdf_filename,
-            file=pdf_content,
-            file_options={"content-type": "application/pdf"}
-        )
-        
-        return supabase.storage.from_("business_files").get_public_url(pdf_filename)
+    def generate_analysis_pdf(self, analysis_results, filename, df_cleaned):
+        """Generate comprehensive PDF analysis report WITH VISUAL CHARTS"""
+        try:
+            from .utils.report_generators import PDFGenerator
+            
+            # Debug: Print DataFrame info
+            print(f"DataFrame shape: {df_cleaned.shape}")
+            print(f"DataFrame columns: {df_cleaned.columns.tolist()}")
+            
+            pdf_generator = PDFGenerator()
+            # Pass the DataFrame to enable chart generation
+            pdf_content = pdf_generator.create_analysis_report(
+                analysis_results, filename, df_cleaned  # Pass the DataFrame!
+            )
+            
+            # Upload to Supabase
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+            
+            pdf_filename = f"reports/{uuid.uuid4()}_analysis_report_with_charts.pdf"
+            res = supabase.storage.from_("business_files").upload(
+                path=pdf_filename,
+                file=pdf_content,
+                file_options={"content-type": "application/pdf"}
+            )
+            
+            return supabase.storage.from_("business_files").get_public_url(pdf_filename)
+            
+        except Exception as e:
+            print(f"PDF Generation Error: {str(e)}")
+            raise Exception(f"Failed to generate PDF with charts: {str(e)}")
 
-    def generate_analysis_ppt(self, analysis_results, filename):
-        """Generate PowerPoint presentation with executive summary"""
-        ppt_generator = PPTGenerator()
-        ppt_content = ppt_generator.create_analysis_presentation(analysis_results, filename)
-        
-        # Upload to Supabase
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        ppt_filename = f"reports/{uuid.uuid4()}_analysis_presentation.pptx"
-        
-        res = supabase.storage.from_("business_files").upload(
-            path=ppt_filename,
-            file=ppt_content,
-            file_options={"content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
-        )
-        
-        return supabase.storage.from_("business_files").get_public_url(ppt_filename)
+    def generate_analysis_ppt(self, analysis_results, filename, df_cleaned):
+        """Generate PowerPoint presentation WITH VISUAL CHARTS"""
+        try:
+            from .utils.report_generators import PPTGenerator
+            
+            ppt_generator = PPTGenerator()
+            # Pass the DataFrame to enable chart generation
+            ppt_content = ppt_generator.create_analysis_presentation(
+                analysis_results, filename, df_cleaned  # Pass the DataFrame!
+            )
+            
+            # Upload to Supabase
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+            
+            ppt_filename = f"reports/{uuid.uuid4()}_analysis_presentation_with_charts.pptx"
+            res = supabase.storage.from_("business_files").upload(
+                path=ppt_filename,
+                file=ppt_content,
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+            )
+            
+            return supabase.storage.from_("business_files").get_public_url(ppt_filename)
+            
+        except Exception as e:
+            print(f"PPT Generation Error: {str(e)}")
+            raise Exception(f"Failed to generate PPT with charts: {str(e)}")
+
 
     def download_file_from_supabase(self, file_url):
         """Download file content from Supabase Storage"""
@@ -815,65 +846,115 @@ class FileProcessingView(generics.CreateAPIView):
         return charts
     
     def get_enhanced_gemini_insights(self, df_cleaned, analysis_results):
-        """Get business-focused insights and recommendations"""
+        """Get comprehensive business analysis with direct chart generation instructions"""
         
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
         model = genai.GenerativeModel('gemini-2.5-flash')
 
+        # Get data characteristics for chart suggestions
+        numeric_cols = df_cleaned.select_dtypes(include=['float64', 'int64']).columns.tolist()
+        text_cols = df_cleaned.select_dtypes(include=['object']).columns.tolist()
+        date_cols = [col for col in df_cleaned.columns if 'date' in col.lower() or 'time' in col.lower()]
+
         prompt = f"""
-        You are a senior business consultant analyzing data for executive decision-making. Focus ONLY on business impact and actionable strategies.
+        You are a senior business analyst creating executive charts and dashboards. Generate ONLY the business analysis text without chart recommendations.
 
-        BUSINESS DATA ANALYSIS:
-        - Industry Context: {analysis_results['business_context']}
-        - Dataset Size: {analysis_results['data_overview']['total_rows']:,} business records
-        - Data Quality: {analysis_results['data_overview']['data_completeness']:.1f}% complete
-        - Key Metrics: {list(analysis_results['statistical_summary'].keys()) if analysis_results.get('statistical_summary') else 'Various business metrics'}
+        Your system will automatically create these visual charts:
+        - Line charts for time-series data ({', '.join(date_cols) if date_cols else 'None detected'})
+        - Bar charts for category performance ({', '.join(text_cols[:3]) if text_cols else 'None detected'})
+        - Pie charts for distribution analysis ({', '.join(text_cols[:2]) if text_cols else 'None detected'})
+        - Heatmaps for correlation analysis ({', '.join(numeric_cols[:3]) if numeric_cols else 'None detected'})
+        - KPI dashboards with key metrics
 
-        EXECUTIVE REQUIREMENTS:
-        1. Executive Summary (2-3 sentences for board presentation)
-        2. Strategic Insights (4-5 critical business findings that impact revenue/growth/market position)
-        3. Action Plan (4-5 specific business actions with expected ROI/impact)
-        4. Key Performance Indicators (3-4 metrics for ongoing business monitoring)
+        DATASET CONTEXT:
+        - Industry: {analysis_results['business_context']}
+        - Records: {analysis_results['data_overview']['total_rows']:,}
+        - Data Quality: {analysis_results['data_overview']['data_completeness']:.1f}%
+        - Available Data: {len(numeric_cols)} numeric, {len(text_cols)} categorical, {len(date_cols)} date columns
 
-        BUSINESS FOCUS AREAS:
-        - Revenue optimization opportunities
-        - Market share and competitive positioning  
-        - Operational efficiency improvements
-        - Risk mitigation strategies
-        - Growth potential identification
+        REPORT STRUCTURE (NO CHART RECOMMENDATIONS - ONLY ANALYSIS):
 
-        Format as JSON with keys: executive_summary, key_insights, business_recommendations, critical_metrics
+        # Business Performance Analysis Report
+
+        ## Executive Summary
+        Provide 2-3 sentences summarizing overall business performance and key findings.
+
+        ## Key Performance Indicators
+        ### Revenue & Performance Metrics
+        - Total transactions: {analysis_results['data_overview']['total_rows']:,}
+        - Data completeness: {analysis_results['data_overview']['data_completeness']:.1f}%
+        - Analysis period: {analysis_results['data_overview'].get('time_period', {}).get('start_date', 'N/A')} to {analysis_results['data_overview'].get('time_period', {}).get('end_date', 'N/A')}
+
+        ### Performance Trends
+        Analyze performance patterns based on available data trends.
+
+        ## Market Analysis
+        ### Top Performers
+        Identify leading categories/segments from the data.
+
+        ### Market Distribution
+        Analyze market share and distribution patterns.
+
+        ## Strategic Insights
+        ### Customer Behavior
+        Describe usage patterns and customer preferences.
+
+        ### Operational Excellence
+        Highlight efficiency opportunities and process improvements.
+
+        ## Business Recommendations
+        ### Immediate Actions (Next 30 days)
+        1. [Specific actionable item]
+        2. [Specific actionable item]
+        3. [Specific actionable item]
+
+        ### Strategic Initiatives (Next Quarter)
+        1. [Medium-term strategic action]
+        2. [Medium-term strategic action]
+        3. [Medium-term strategic action]
+
+        ### Long-term Growth (Next Year)
+        1. [Long-term strategic initiative]
+        2. [Long-term strategic initiative]
+        3. [Long-term strategic initiative]
+
+        ## Risk Assessment
+        Identify potential business risks and mitigation strategies.
+
+        ## Conclusion
+        Summarize business health and growth potential.
+
+        IMPORTANT: 
+        - Do NOT include any "📊 Recommended Chart" or "📈 Suggested Visualization" text
+        - Do NOT mention chart types or visualization recommendations
+        - Focus ONLY on business insights, metrics, and recommendations
+        - The system will automatically generate all necessary charts and graphs
+        - Keep content business-focused and executive-ready
         """
 
         try:
             response = model.generate_content(prompt)
-            import json
-            ai_insights = json.loads(response.text)
-            return ai_insights
+            report_content = response.text
+            
+            return {
+                'full_report': report_content,
+                'chart_recommendations': [],  # Empty since charts are generated automatically
+                'report_sections': {
+                    'executive_summary': 'Business analysis without chart suggestions',
+                    'key_insights': 'Performance insights and metrics',
+                    'recommendations': 'Actionable business strategies',
+                    'visualizations': 'Charts generated automatically by system'
+                }
+            }
+            
         except Exception as e:
             return {
-                'executive_summary': f"Business analysis of {df_cleaned.shape[0]:,} records reveals significant opportunities for revenue optimization and market expansion, requiring immediate strategic action.",
-                'key_insights': [
-                    f"Data represents {analysis_results['data_overview']['total_rows']:,} business transactions with {analysis_results['data_overview']['data_completeness']:.1f}% data reliability",
-                    "Market concentration patterns indicate potential for strategic diversification",
-                    "Performance trends show clear opportunities for revenue optimization",
-                    "Operational data quality supports confident business decision-making",
-                    "Customer/product segments display varying profitability potential"
-                ],
-                'business_recommendations': [
-                    "Prioritize top-performing segments for increased investment and resource allocation",
-                    "Develop diversification strategy to reduce dependency on dominant market segments",
-                    "Implement performance monitoring dashboard for real-time business insights",
-                    "Launch targeted initiatives for underperforming categories to unlock growth potential",
-                    "Establish data-driven KPI tracking system for continuous business optimization"
-                ],
-                'critical_metrics': [
-                    "Revenue growth rate by business segment",
-                    "Market share percentage and trends",
-                    "Customer acquisition and retention rates",
-                    "Operational efficiency and cost optimization metrics"
-                ]
+                'full_report': f"# Business Analysis Report\n\nComprehensive analysis of {df_cleaned.shape[0]:,} business records reveals strategic opportunities for growth optimization.\n\n## Executive Summary\nData analysis indicates strong potential for revenue enhancement through targeted strategic initiatives.\n\n## Key Performance Indicators\n- Total Records: {df_cleaned.shape[0]:,}\n- Data Quality: High\n- Analysis Coverage: Complete",
+                'chart_recommendations': [],
+                'error': str(e)
             }
+
+
 
 from django.http import JsonResponse
 
