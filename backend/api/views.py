@@ -875,6 +875,11 @@ class FileProcessingView(generics.CreateAPIView):
                 ]
             }
 
+from django.http import JsonResponse
+
+def transcript_view(request):
+    return JsonResponse({"message": "Transcript endpoint works!"})
+
 class TaskListCreateView(generics.ListCreateAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
