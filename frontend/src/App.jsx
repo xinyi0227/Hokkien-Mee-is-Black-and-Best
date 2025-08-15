@@ -14,7 +14,7 @@ import MeetingList from './components/MeetingList';
 import MeetingSetup from "./components/MeetingSetup";
 import Login from './components/Login';
 import Details from "./components/Details";
-
+import Register from './components/Register'
 function App() {
   // file upload and listing
   const [currentUploader, setCurrentUploader] = useState('');
@@ -38,6 +38,8 @@ function App() {
           }
         />
 
+        <Route path="/register" element={<Register />} />
+        
         {/* Task list page */}
         <Route
           path="/tasks"
