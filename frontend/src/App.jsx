@@ -1,9 +1,13 @@
 // import Header from './components/header'
 import TaskList from './components/TaskList'
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import FileUpload from './components/fileUpload';
+import {
+    BrowserRouter as Router,
+    Routes,
+    Route,
+} from "react-router-dom";
+import FileUpload from './components/FileUpload';
 import FileList from './components/fileList';
-import Meeting from './components/meetingGenerator';
+import MeetingGenerator from './components/meetingGenerator';
 import MeetingGenerator2 from './components/meetingGenerator2';
 import { useState } from 'react';
 import MeetingList from './components/MeetingList';
@@ -44,15 +48,8 @@ function App() {
           }
         />
 
-        {/* Meeting route */}
-        <Route
-          path="/meeting"
-          element={
-            <div className="min-h-screen bg-gray-100">
-              <Meeting />
-            </div>
-          }
-        />
+        <Route path="/meetingGenerator" element={<div className="min-h-screen bg-gray-100">
+            <MeetingGenerator /> </div>} />
 
         <Route
           path="/MeetingGenerator2"

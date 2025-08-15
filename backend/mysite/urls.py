@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import path, include,include
 from django.http import HttpResponse  #yx add, if conflict can del
 
 def home_view(request):
@@ -28,4 +28,6 @@ urlpatterns = [
 
 
 
+    # path('api/', include('api.urls')),
 ]
+ 
