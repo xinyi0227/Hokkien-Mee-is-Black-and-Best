@@ -37,7 +37,7 @@ class ProcessedReport(models.Model):
         db_table = 'processed_reports'
 
 class Meeting(models.Model):
-    meeting_id = models.IntegerField(primary_key=True)  # Supabase uses integer ID
+    meeting_id = models.AutoField(primary_key=True)  # Supabase uses integer ID
     meeting_title = models.CharField(max_length=255)
     meeting_date = models.DateField(null=True, blank=True)  # can be null
     meeting_time = models.TimeField()
@@ -45,8 +45,8 @@ class Meeting(models.Model):
     meeting_mic1 = models.CharField(max_length=255, null=True, blank=True)
     meeting_mic2 = models.CharField(max_length=255, null=True, blank=True)
     meeting_mic3 = models.CharField(max_length=255, null=True, blank=True)
-    meeting_department = models.CharField(max_length=100)
-    meeting_participant = models.CharField(max_length=100)
+    meeting_department = models.CharField(max_length=255, blank=True, null=True)
+    meeting_participant = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

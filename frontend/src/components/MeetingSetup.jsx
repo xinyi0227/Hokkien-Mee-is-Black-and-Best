@@ -134,22 +134,51 @@ function MeetingSetup({ onSetupComplete }) {
     setStep(2);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (departments.length === 0 || participants.length === 0) {
       alert("Please fill all required fields in Step 2");
       return;
     }
 
-    onSetupComplete({
-      title,
-      meetingDate,
-      meetingTime,
-      departments: departments.map(d => d.department_id),
-      participants: participants.map(p => p.employee_id),
-      location,
-      micAssignments
-    });
+    // Prepare payload to match DB table columns
+    const payload = {
+      meeting_title: title,
+      meeting_date: meetingDate,
+      meeting_time: meetingTime,
+      meeting_location: location,
+      meeting_mic1: micAssignments.mic1,
+      meeting_mic2: micAssignments.mic2,
+      meeting_mic3: micAssignments.mic3,
+      meeting_department: departments.map(d => d.department_id).join(","), // CSV string
+      meeting_participant: participants.map(p => p.employee_id).join(","), // CSV string
+    };
+
+    try {
+      const res = await axios.post("http://localhost:8000/api/meetings/", payload);
+      console.log("Meeting saved:", res.data);
+      alert("Meeting saved successfully!");
+      // Optionally reset the form
+      setStep(1);
+      setTitle("");
+      setMeetingDate("");
+      setMeetingTime("");
+      setDepartments([]);
+      setParticipants([]);
+      setLocation("");
+      setMicAssignments({ mic1: "", mic2: "", mic3: "" });
+    } catch (err) {
+      if (err.response) {
+        console.error("Status:", err.response.status);
+        console.error("Response:", err.response.data); // backend error details
+        alert(`Error: ${JSON.stringify(err.response.data)}`);
+      } else if (err.request) {
+        console.error("No response received:", err.request);
+      } else {
+        console.error("Request setup error:", err.message);
+      }
+    }
   };
 
   // Filter participants dynamically for dropdown
@@ -201,10 +230,18 @@ function MeetingSetup({ onSetupComplete }) {
 
             <div className="mt-8 flex justify-end">
               <button
+                type="button"
+                onClick={() => window.location.href = "http://localhost:5173/meeting"}
+                className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500 mr-2"
+              >
+                Back
+              </button>
+              
+              <button
                 type="submit"
                 className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
               >
-                Next →
+                Next
               </button>
             </div>
           </form>
@@ -258,7 +295,7 @@ function MeetingSetup({ onSetupComplete }) {
                         <span className="w-20 capitalize">{mic}</span>
                         <select
                           value={micAssignments[mic]}
-                          onChange={(e) => handleMicChange(mic, e.target.value)}
+                          onChange={(e) => handleMicChange(mic, Number(e.target.value))}
                           className="w-full p-2 border rounded"
                           disabled={participants.length === 0}
                         >
@@ -266,8 +303,8 @@ function MeetingSetup({ onSetupComplete }) {
                           {participants.map((p) => (
                             <option
                               key={p.employee_id}
-                              value={p.employee_name}
-                              disabled={Object.values(micAssignments).includes(p.employee_name) && micAssignments[mic] !== p.employee_name}
+                              value={p.employee_id}
+                              disabled={Object.values(micAssignments).includes(p.employee_id) && micAssignments[mic] !== p.employee_id}
                             >
                               {p.employee_name}
                             </option>
