@@ -51,3 +51,8 @@ class MeetingSubmitSerializer(serializers.ModelSerializer):
             return timezone.localtime(obj.updated_at).strftime('%Y-%m-%d %H:%M:%S')
         return None
 
+class MeetingFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MeetingFile
+        fields = '__all__'
+

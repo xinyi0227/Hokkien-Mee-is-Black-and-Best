@@ -14,5 +14,8 @@ urlpatterns = [
     path('meetings_detail/<int:meeting_id>/', views.MeetingDetailView.as_view(), name='meeting-detail'),
     path('departments/', views.DepartmentsListView.as_view(), name='departments-list'),
     path("employees/", views.EmployeeForMeetingView.as_view(), name="employee-list"),
-    
+    path('meeting_files/', views.upload_meeting_files, name='upload-meeting-files'),
+    #path('transcript/<int:meeting_id>/', views.transcribe_meeting, name='transcribe-meeting'),
+
+
 ]
