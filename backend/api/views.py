@@ -1021,12 +1021,3 @@ class ProcessedReportListView(generics.ListAPIView):
 class ProcessedReportRetrieveView(generics.RetrieveAPIView):
     queryset = ProcessedReport.objects.all()
     serializer_class = ProcessedReportSerializer
-
-class MeetingDetailView(generics.RetrieveAPIView):
-    queryset = Meeting.objects.all()
-    serializer_class = MeetingSerializer
-    lookup_field = 'meeting_id'
-
-class EmployeeForMeetingView(generics.ListAPIView):
-    queryset = Employee.objects.all()
-    serializer_class = EmployeeSerializer
