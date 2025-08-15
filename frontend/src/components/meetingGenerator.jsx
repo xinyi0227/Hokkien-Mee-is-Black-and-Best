@@ -26,7 +26,7 @@ const Meeting = () => {
       return;
     }
 
-    fetch(`http://localhost:8000/api/meetings/${meetingId}/`)
+    fetch(`http://localhost:8000/api/meetings_detail/${meetingId}/`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch meeting data");
         return res.json();
