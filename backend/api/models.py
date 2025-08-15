@@ -46,6 +46,7 @@ class Meeting(models.Model):
     meeting_mic2 = models.CharField(max_length=255, null=True, blank=True)
     meeting_mic3 = models.CharField(max_length=255, null=True, blank=True)
     meeting_department = models.CharField(max_length=100)
+    meeting_participant = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
