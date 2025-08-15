@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 
 class Task(models.Model):
@@ -14,12 +15,64 @@ class Task(models.Model):
         ordering = ['-created_at']
 
 class BusinessData(models.Model):
-    id = models.AutoField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     fileName = models.CharField(max_length=255)
     uploader = models.CharField(max_length=255)
-    file_data = models.BinaryField(null=True, blank=True)
     file_url = models.CharField(max_length=512, null=True, blank=True)
     
     class Meta:
         db_table = 'business_data'
+
+class ProcessedReport(models.Model):
+    id = models.AutoField(primary_key=True)
+    original_file = models.ForeignKey('BusinessData', on_delete=models.CASCADE)
+    analysis_type = models.CharField(max_length=100, default='basic_analysis')
+    processed_data = models.JSONField()
+    pdf_url = models.URLField(null=True, blank=True)
+    ppt_url = models.URLField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'processed_reports'
+
+class Meeting(models.Model):
+    meeting_id = models.IntegerField(primary_key=True)  # Supabase uses integer ID
+    meeting_title = models.CharField(max_length=255)
+    meeting_date = models.DateField(null=True, blank=True)  # can be null
+    meeting_time = models.TimeField()
+    meeting_location = models.CharField(max_length=255)
+    meeting_mic1 = models.CharField(max_length=255, null=True, blank=True)
+    meeting_mic2 = models.CharField(max_length=255, null=True, blank=True)
+    meeting_mic3 = models.CharField(max_length=255, null=True, blank=True)
+    meeting_department = models.CharField(max_length=100)
+    meeting_participant = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'meeting'
+
+    def str(self):
+        return self.meeting_title
+    
+class Department(models.Model):
+    department_id = models.AutoField(primary_key=True)
+    department_name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        db_table = 'department'
+
+    def str(self):
+        return self.department_name
+    
+class Employee(models.Model):
+    employee_id = models.IntegerField(primary_key=True)  # Supabase uses integer ID
+    employee_name = models.CharField(max_length=255)
+    department_id = models.CharField(max_length=100)
+
+    def str(self):
+        return self.employee_name
+
+    class Meta:
+        db_table = 'employee'

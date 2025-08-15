@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -10,7 +11,7 @@ SECRET_KEY = 'django-insecure^epw8u53z!#y9iyd=m=awmx$jxdf1xc^$^c&ysyxh+8(z_ex4n'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -106,6 +107,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+
+
 CORS_ALLOW_ALL_ORIGINS = True  # Only for development
 
 # REST Framework settings
@@ -114,3 +120,26 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.AllowAny',
     ]
 }
+
+load_dotenv()
+
+# Gemini API configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+SUPABASE_URL = os.getenv('SUPABASE_URL')  
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+
+# Optional: allow all headers for file uploads
+CORS_ALLOW_HEADERS = list(default_headers := [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+])
+
+# Optional: allow cookies with cross-origin requests (if needed)
+CORS_ALLOW_CREDENTIALS = True
