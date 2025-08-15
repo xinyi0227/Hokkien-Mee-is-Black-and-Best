@@ -149,7 +149,7 @@ export default function MeetingList() {
             {/* Next button */}
             <div className="mt-6 flex justify-end">
               <button
-                onClick={() => navigate("/upload-audio")}
+                onClick={() => navigate("/meetingGenerator")}
                 className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
               >
                 Next →

@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import FileUpload from './components/fileUpload';
 import FileList from './components/fileList';
-import Meeting from './components/meetingGenerator';
+import MeetingGenerator from './components/meetingGenerator';
 import MeetingGenerator2 from './components/meetingGenerator2';
 import { useState } from 'react';
 
@@ -35,8 +35,8 @@ function App() {
           </div>
         } />
 
-        <Route path="/meeting" element={<div className="min-h-screen bg-gray-100">
-            <Meeting /> </div>} />
+        <Route path="/meetingGenerator" element={<div className="min-h-screen bg-gray-100">
+            <MeetingGenerator /> </div>} />
 
         <Route path="/MeetingGenerator2" element={<div className="min-h-screen bg-gray-100">
           <MeetingGenerator2 /> </div>} />
