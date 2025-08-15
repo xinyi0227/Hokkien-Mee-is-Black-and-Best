@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase.js';
+import axios from 'axios';
 
 const FileUpload = () => {
   const [files, setFiles] = useState([]);
   const [uploader, setUploader] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [processedReports, setProcessedReports] = useState([]);
 
   const fetchFiles = async () => {
     try {
@@ -86,7 +89,7 @@ const FileUpload = () => {
       
       // Delete from storage
       const { error: storageError } = await supabase.storage
-        .from('business-files')
+        .from('business_files')
         .remove([`uploads/${path}`]);
 
       if (storageError) throw storageError;
@@ -105,6 +108,27 @@ const FileUpload = () => {
       setError('Failed to delete file');
     }
   };
+
+   const processFileWithGemini = async (fileId) => {
+  setIsProcessing(true);
+  try {
+    const response = await axios.post('/api/process-file/', {
+      file_id: fileId,
+      analysis_type: 'data_cleaning_and_analysis'
+    });
+    setProcessedReports(prev => [...prev, response.data]);
+    alert('File processed successfully! Reports generated.');
+  } catch (error) {
+    console.error('Full error object:', error);
+    console.error('Error response data:', error.response?.data); // This shows backend error details
+    console.error('Error status:', error.response?.status);
+    console.error('Error headers:', error.response?.headers);
+    setError(`Failed to process file: ${error.response?.data?.error || error.message}`);
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -211,6 +235,38 @@ const FileUpload = () => {
           No files uploaded yet. Upload your first file above!
         </p>
       )}
+
+      {/* Processing Button */}
+      {files.length > 0 && (
+        <div>
+          <h3>Process Files with AI</h3>
+          {files.map(file => (
+            <div key={file.id} className="file-item">
+              <span>{file.fileName}</span>
+              <button 
+                onClick={() => processFileWithGemini(file.id)}
+                disabled={isProcessing}
+              >
+                {isProcessing ? 'Processing...' : 'Process with AI'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Processed Reports */}
+      {processedReports.length > 0 && (
+        <div>
+          <h3>Generated Reports</h3>
+          {processedReports.map(report => (
+            <div key={report.id} className="report-item">
+              <a href={report.pdf_url} download>Download PDF Report</a>
+              <a href={report.ppt_url} download>Download PPT Report</a>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 };
