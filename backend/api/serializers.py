@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task, BusinessData, ProcessedReport
+from .models import Task, BusinessData, ProcessedReport, Meeting
 
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,4 +14,9 @@ class BusinessDataSerializer(serializers.ModelSerializer):
 class ProcessedReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProcessedReport
+        fields = '__all__'
+
+class MeetingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Meeting
         fields = '__all__'
