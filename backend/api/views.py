@@ -1034,3 +1034,8 @@ class DepartmentsListView(generics.ListAPIView):
 class EmployeeForMeetingView(generics.ListAPIView):
     queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
+
+class MeetingDetailView(generics.RetrieveAPIView):
+    queryset = Meeting.objects.all()
+    serializer_class = MeetingSerializer
+    lookup_field = 'meeting_id'

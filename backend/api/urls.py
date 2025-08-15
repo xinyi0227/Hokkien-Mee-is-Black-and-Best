@@ -11,6 +11,8 @@ urlpatterns = [
     path('processed-reports/<uuid:pk>/', views.ProcessedReportRetrieveView.as_view(), name='processed-report-detail'),
     path('transcript/', views.transcript_view, name='transcript'),
     path('meetings/', views.MeetingListView.as_view(), name='meeting-list'),
+    path('meetings_detail/<int:meeting_id>/', views.MeetingDetailView.as_view(), name='meeting-detail'),
     path('departments/', views.DepartmentsListView.as_view(), name='departments-list'),
     path("employees/", views.EmployeeForMeetingView.as_view(), name="employee-list"),
+    
 ]
