@@ -107,6 +107,11 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+]
+
+
 CORS_ALLOW_ALL_ORIGINS = True  # Only for development
 
 # REST Framework settings
@@ -122,3 +127,19 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 SUPABASE_URL = os.getenv('SUPABASE_URL')  
 SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+
+# Optional: allow all headers for file uploads
+CORS_ALLOW_HEADERS = list(default_headers := [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+])
+
+# Optional: allow cookies with cross-origin requests (if needed)
+CORS_ALLOW_CREDENTIALS = True

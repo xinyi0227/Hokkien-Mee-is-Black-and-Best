@@ -1,45 +1,60 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 const Meeting = () => {
-  const [mainFile, setMainFile] = useState(null);
-  const [numIndividuals, setNumIndividuals] = useState(0);
-  const [individualFiles, setIndividualFiles] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const location = useLocation();
+  const meetingId = location.state?.meetingId;
+
+  const [meetingData, setMeetingData] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // Audio upload states
+  const [mainFile, setMainFile] = useState(null);
+  const [individualFiles, setIndividualFiles] = useState([]);
+  const [individualMapping, setIndividualMapping] = useState([]); // map mic -> employee
+  const [isUploading, setIsUploading] = useState(false);
   const [transcript, setTranscript] = useState("");
 
-  // for from meeting list  
-  const location = useLocation();
-  const meetingId = location.state?.meetingId; // get meetingId passed from previous page
-  const [meetingData, setMeetingData] = useState(null);
+  const [employees, setEmployees] = useState([]); // all employees from DB
 
-    useEffect(() => {
-    if (meetingId) {
-      // Example API call to get meeting data by ID
-      fetch(`http://localhost:8000/api/meetings/${meetingId}/`)
-        .then((res) => res.json())
-        .then((data) => setMeetingData(data))
-        .catch((err) => console.error(err));
+  // --- Fetch meeting data ---
+  useEffect(() => {
+    if (!meetingId) {
+      setError("No meeting selected.");
+      setLoading(false);
+      return;
     }
+
+    fetch(`http://localhost:8000/api/meetings/${meetingId}/`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch meeting data");
+        return res.json();
+      })
+      .then((data) => {
+        setMeetingData(data);
+
+        // Determine how many individuals based on mic fields
+        const mics = [data.meeting_mic1, data.meeting_mic2, data.meeting_mic3];
+        const micCount = mics.filter((m) => m !== null && m !== "").length;
+
+        setIndividualFiles(Array(micCount).fill(null));
+        setIndividualMapping(Array(micCount).fill(null));
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, [meetingId]);
 
-  if (!meetingId) return <p>No meeting selected.</p>;
+  // --- Fetch employee data ---
+  useEffect(() => {
+    fetch("http://localhost:8000/api/employees/") // endpoint to get all employees
+      .then((res) => res.json())
+      .then((data) => setEmployees(data))
+      .catch((err) => console.error(err));
+  }, []);
 
-
-  const handleMainFileChange = (e) => {
-    setMainFile(e.target.files[0]);
-    setError("");
-  };
-
-  const handleNumChange = (e) => {
-    let value = parseInt(e.target.value, 10);
-    if (value > 3) value = 3; // limit to max 3
-    if (value < 1) value = 1; // min 1
-    setNumIndividuals(value);
-    // Reset the array when number changes
-    setIndividualFiles(Array(value).fill(null));
-  };
+  // --- Handle file changes ---
+  const handleMainFileChange = (e) => setMainFile(e.target.files[0]);
 
   const handleIndividualFileChange = (index, file) => {
     const updatedFiles = [...individualFiles];
@@ -47,22 +62,26 @@ const Meeting = () => {
     setIndividualFiles(updatedFiles);
   };
 
+  const handleEmployeeSelect = (index, employeeId) => {
+    const updatedMapping = [...individualMapping];
+    updatedMapping[index] = employeeId;
+    setIndividualMapping(updatedMapping);
+  };
+
+  // --- Submit form ---
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!mainFile) {
-      setError("Please select the main meeting audio file");
-      return;
-    }
+    if (!mainFile) return setError("Main meeting audio is required");
 
     try {
       setIsUploading(true);
       const formData = new FormData();
       formData.append("main_audio", mainFile);
 
-      // Append individual files
       individualFiles.forEach((file, idx) => {
         if (file) {
           formData.append(`individual_audio_${idx + 1}`, file);
+          formData.append(`employee_id_${idx + 1}`, individualMapping[idx]); // map mic -> employee
         }
       });
 
@@ -81,25 +100,29 @@ const Meeting = () => {
     }
   };
 
+  if (loading) return <p>Loading meeting info...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
+
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8">Audio to Transcript</h1>
+      <h1 className="text-3xl font-bold mb-6">Meeting Generator</h1>
+
+      {meetingData && (
+        <div className="mb-6 p-6 bg-gray-50 rounded-lg">
+          <h2 className="text-2xl font-semibold mb-2">{meetingData.meeting_title}</h2>
+          <p><strong>Date:</strong> {meetingData.meeting_date || "N/A"}</p>
+          <p><strong>Time:</strong> {meetingData.meeting_time}</p>
+          <p><strong>Location:</strong> {meetingData.meeting_location}</p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Upload Audio Files</h2>
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border-l-4 border-red-500 text-red-700">
-            {error}
-          </div>
-        )}
-
-        {/* Main Meeting File */}
+        {/* Main File */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Main Meeting Audio File:
-          </label>
-          <input
+            <label className="block text-sm font-medium text-gray-700 mb-1">Main Meeting Audio:</label>
+           <input
             type="file"
             accept="audio/*"
             onChange={handleMainFileChange}
@@ -112,43 +135,33 @@ const Meeting = () => {
           />
         </div>
 
-        {/* Number of Individuals */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Number of Individual Voice Files (max 3):
-          </label>
-          <input
-            type="number"
-            min="1"
-            max="3"
-            value={numIndividuals}
-            onChange={handleNumChange}
-            className="border rounded px-3 py-2 w-20"
-          />
-        </div>
+        {/* Individual files + employee select */}
+       {individualFiles.map((_, idx) => {
+  const employeeId = meetingData[`meeting_mic${idx + 1}`];
+  const employee = employees.find(emp => emp.employee_id == employeeId);
 
-        {/* Individual File Uploads */}
-        {Array.from({ length: numIndividuals }).map((_, index) => (
-          <div key={index} className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Individual Voice File {index + 1}:
-            </label>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => handleIndividualFileChange(index, e.target.files[0])}
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-lg file:border-0
-                file:text-sm file:font-semibold
-                file:bg-green-50 file:text-green-700
-                hover:file:bg-green-100"
-            />
-          </div>
-        ))}
+  return (
+    <div key={idx} className="mb-4">
+      <label className="block text-sm font-medium text-gray-700 mb-1">
+        {employee ? `${employee.employee_name} Audio` : `Individual Audio ${idx + 1}`}:
+      </label>
+      <input
+        type="file"
+        accept="audio/*"
+        onChange={(e) => handleIndividualFileChange(idx, e.target.files[0])}
+        className="block w-full text-sm text-gray-500
+          file:mr-4 file:py-2 file:px-4
+          file:rounded-lg file:border-0
+          file:text-sm file:font-semibold
+          file:bg-green-50 file:text-green-700
+          hover:file:bg-green-100"
+      />
+    </div>
+  )
+})}
 
-        {/* Submit */}
-        <button
+
+         <button
           type="submit"
           disabled={isUploading}
           className={`flex items-center justify-center bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors ${
@@ -187,11 +200,10 @@ const Meeting = () => {
         </button>
       </form>
 
-      {/* Transcript Output */}
       {transcript && (
         <div className="p-6 bg-white rounded-lg border border-gray-200">
           <h3 className="text-lg font-semibold mb-2">Transcript:</h3>
-          <p className="text-gray-700 whitespace-pre-wrap">{transcript}</p>
+          <p className="whitespace-pre-wrap">{transcript}</p>
         </div>
       )}
     </div>
