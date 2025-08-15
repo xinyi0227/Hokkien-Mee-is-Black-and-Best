@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 
 const Meeting = () => {
   const [mainFile, setMainFile] = useState(null);
@@ -7,6 +8,24 @@ const Meeting = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
   const [transcript, setTranscript] = useState("");
+
+  // for from meeting list  
+  const location = useLocation();
+  const meetingId = location.state?.meetingId; // get meetingId passed from previous page
+  const [meetingData, setMeetingData] = useState(null);
+
+    useEffect(() => {
+    if (meetingId) {
+      // Example API call to get meeting data by ID
+      fetch(`http://localhost:8000/api/meetings/${meetingId}/`)
+        .then((res) => res.json())
+        .then((data) => setMeetingData(data))
+        .catch((err) => console.error(err));
+    }
+  }, [meetingId]);
+
+  if (!meetingId) return <p>No meeting selected.</p>;
+
 
   const handleMainFileChange = (e) => {
     setMainFile(e.target.files[0]);
