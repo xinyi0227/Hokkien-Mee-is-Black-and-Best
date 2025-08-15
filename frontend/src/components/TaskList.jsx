@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase.js'
+import Header from './header'
 
 const TaskList = () => {
   const [tasks, setTasks] = useState([])
@@ -85,6 +86,8 @@ const TaskList = () => {
   if (loading) return <div className="text-center">Loading...</div>
 
   return (
+    <>
+    <Header />
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-8">Task Manager</h1>
       
@@ -177,6 +180,7 @@ const TaskList = () => {
         </p>
       )}
     </div>
+    </>
   )
 }
 

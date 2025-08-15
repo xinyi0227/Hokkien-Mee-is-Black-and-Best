@@ -1,8 +1,13 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
+<<<<<<< HEAD
 from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department
 from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer
+=======
+from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department,MeetingFile
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer,MeetingFileSerializer
+>>>>>>> 67162ecc177f2a01a56ee900dd6ccd8a13fc40b9
 import datetime
 from supabase import create_client, Client
 import os
@@ -15,6 +20,10 @@ import requests
 import matplotlib.pyplot as plt
 import seaborn as sns
 from .utils.report_generators import PDFGenerator, PPTGenerator, CleaningReportGenerator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
+from datetime import date, datetime
 
 class FileProcessingView(generics.CreateAPIView):
 
@@ -1043,3 +1052,48 @@ class MeetingDetailView(generics.RetrieveAPIView):
     queryset = Meeting.objects.all()
     serializer_class = MeetingSerializer
     lookup_field = 'meeting_id'
+
+# --- Upload Meeting Files ---
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def upload_meeting_files(request):
+    meeting_id = request.data.get("meeting_id")
+
+    # --- Step 1: Check meeting exists ---
+    try:
+        meeting = Meeting.objects.get(meeting_id=meeting_id)
+    except Meeting.DoesNotExist:
+        return Response({"error": "Meeting not found"}, status=404)
+
+    # --- Step 2: Check if files already submitted ---
+    if MeetingFile.objects.filter(meeting=meeting).exists():
+        return Response(
+            {"error": "This meeting already has uploaded files. Upload is allowed only once."},
+            status=400
+        )
+
+    # --- Step 3: Validate required main file ---
+    main_audio = request.FILES.get("main_audio")
+    if not main_audio:
+        return Response({"error": "Main audio is required"}, status=400)
+
+    # --- Step 4: Capture current date/time ---
+    current_date = date.today()
+    current_time = datetime.now().time()
+
+    # --- Step 5: Create meeting file record ---
+    meeting_file = MeetingFile.objects.create(
+        meeting=meeting,
+        meeting_org=main_audio,
+        uploaded_date=current_date,
+        uploaded_time=current_time
+    )
+
+    # --- Step 6: Save optional individual audios ---
+    for i in range(1, 4):
+        audio = request.FILES.get(f"individual_audio_{i}")
+        if audio:
+            setattr(meeting_file, f"ind_file{i}", audio)
+    meeting_file.save()
+
+    return Response({"status": "Files uploaded successfully"})
