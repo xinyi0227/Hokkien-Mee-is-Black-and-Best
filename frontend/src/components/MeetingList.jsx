@@ -4,14 +4,15 @@ import { useNavigate } from "react-router-dom";
 export default function MeetingList() {
   const navigate = useNavigate();
   const [meetings, setMeetings] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
+  const [employees, setEmployees] = useState([]);
 
   // Filters
   const [filterDept, setFilterDept] = useState("");
   const [filterDate, setFilterDate] = useState("");
-  const [filterTime, setFilterTime] = useState("");
 
-  // Fetch meetings from API
+  // Fetch meetings
   useEffect(() => {
     const fetchMeetings = async () => {
       try {
@@ -25,16 +26,71 @@ export default function MeetingList() {
     fetchMeetings();
   }, []);
 
+  // Fetch departments
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await fetch("/api/departments");
+        const data = await response.json();
+        setDepartments(data);
+      } catch (error) {
+        console.error("Failed to fetch departments:", error);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
+  //Fetch employees
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch("/api/employees");
+        const data = await response.json();
+        setEmployees(data);
+      } catch (error) {
+        console.error("Failed to fetch employees:", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  const getDeptName = (deptIds) => {
+    if (!deptIds) return "Unknown";
+
+    // Convert to array (handles both string like "2,3" and arrays)
+    const idsArray = String(deptIds)
+      .split(",")
+      .map(id => id.trim());
+
+    // Map each id to a department name
+    const names = idsArray.map(id => {
+      const dept = departments.find(d => String(d.department_id) === id);
+      return dept ? dept.department_name : "Unknown";
+    });
+
+    return names.join(", ");
+  };
+
+  const getEmployeeName = (employeeId) => {
+    const emp = employees.find(e => String(e.employee_id) === String(employeeId));
+    return emp ? emp.employee_name : "Unknown";
+  };
+
   const openModal = (meeting) => setSelectedMeeting(meeting);
   const closeModal = () => setSelectedMeeting(null);
 
   // Filter meetings
   const filteredMeetings = meetings.filter((m) => {
-    return (
-      (filterDept ? m.department_id === parseInt(filterDept) : true) &&
-      (filterDate ? m.meeting_date === filterDate : true) &&
-      (filterTime ? m.meeting_time === filterTime : true)
-    );
+    const deptMatch = filterDept
+      ? String(m.meeting_department)
+          .split(",")
+          .map(id => id.trim())
+          .includes(String(filterDept))
+      : true;
+
+    const dateMatch = filterDate ? m.meeting_date === filterDate : true;
+
+    return deptMatch && dateMatch;
   });
 
   return (
@@ -52,17 +108,18 @@ export default function MeetingList() {
       {/* Filters */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Filter By:</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <select
             value={filterDept}
             onChange={(e) => setFilterDept(e.target.value)}
             className="p-2 border rounded"
           >
             <option value="">All Departments</option>
-            {/* Replace with dynamic departments if available */}
-            <option value="1">Engineering</option>
-            <option value="2">Sales</option>
-            <option value="3">Marketing</option>
+            {departments.map((dept) => (
+              <option key={dept.department_id} value={dept.department_id}>
+                {dept.department_name}
+              </option>
+            ))}
           </select>
 
           <input
@@ -71,14 +128,8 @@ export default function MeetingList() {
             onChange={(e) => setFilterDate(e.target.value)}
             className="p-2 border rounded"
           />
-
-          <input
-            type="time"
-            value={filterTime}
-            onChange={(e) => setFilterTime(e.target.value)}
-            className="p-2 border rounded"
-          />
         </div>
+
       </div>
 
       {/* Meeting cards */}
@@ -93,7 +144,7 @@ export default function MeetingList() {
               <h2 className="text-xl font-semibold mb-2">{m.meeting_title}</h2>
               <p className="text-gray-600"><strong>Date:</strong> {m.meeting_date}</p>
               <p className="text-gray-600"><strong>Time:</strong> {m.meeting_time}</p>
-              <p className="text-gray-600"><strong>Department:</strong> {m.department_id}</p>
+              <p className="text-gray-600"><strong>Department:</strong> {getDeptName(m.meeting_department)}</p>
             </div>
           ))}
         </div>
@@ -115,13 +166,14 @@ export default function MeetingList() {
             <h2 className="text-2xl font-bold mb-4">{selectedMeeting.meeting_title}</h2>
             <p><strong>Date:</strong> {selectedMeeting.meeting_date}</p>
             <p><strong>Time:</strong> {selectedMeeting.meeting_time}</p>
-            <p><strong>Department:</strong> {selectedMeeting.department_id}</p>
+            <p><strong>Department:</strong> {getDeptName(selectedMeeting.meeting_department)}</p>
             <p><strong>Location:</strong> {selectedMeeting.meeting_location}</p>
-            <p><strong>Participants:</strong> {[
-              selectedMeeting.meeting_mic1,
-              selectedMeeting.meeting_mic2,
-              selectedMeeting.meeting_mic3
-            ].filter(Boolean).join(", ")}</p>
+            <p><strong>Participants:</strong> {String(selectedMeeting.meeting_participant || "")
+                .split(",")                      // split string into array of IDs
+                .map(id => id.trim())             // remove extra spaces
+                .filter(Boolean)                  // remove empty values
+                .map(id => getEmployeeName(id))   // map to employee names
+                .join(", ")}</p>
 
             <div className="mt-6 flex justify-end">
               <button
