@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import Header from './header';
 
 // Multi-select dropdown component
 function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, label, labelKey, idKey }) {
@@ -148,18 +149,42 @@ function MeetingSetup({ onSetupComplete }) {
       meeting_date: meetingDate,
       meeting_time: meetingTime,
       meeting_location: location,
-      meeting_mic1: micAssignments.mic1,
-      meeting_mic2: micAssignments.mic2,
-      meeting_mic3: micAssignments.mic3,
+      meeting_mic1: micAssignments.mic1 || null,
+      meeting_mic2: micAssignments.mic2 || null,
+      meeting_mic3: micAssignments.mic3 || null,
       meeting_department: departments.map(d => d.department_id).join(","), // CSV string
       meeting_participant: participants.map(p => p.employee_id).join(","), // CSV string
     };
 
     try {
+      // Client-side validation
+      if (!title || !meetingDate || !meetingTime) {
+        throw new Error("Please complete all required fields (Title, Date, Time).");
+      }
+
+      if (!departments.length) {
+        throw new Error("Please select at least one Department.");
+      }
+
+      if (!participants.length) {
+        throw new Error("Please select at least one Participant.");
+      }
+
+      if (!location) {
+        throw new Error("Please specify a Room/Location.");
+      }
+
+      const micValues = Object.values(micAssignments);
+      if (micValues.every(mic => !mic)) {
+        throw new Error("Please assign at least one microphone.");
+      }
+
+      // If all validation passes, call the API
       const res = await axios.post("http://localhost:8000/api/meetings/", payload);
       console.log("Meeting saved:", res.data);
       alert("Meeting saved successfully!");
-      // Optionally reset the form
+
+      // Reset form
       setStep(1);
       setTitle("");
       setMeetingDate("");
@@ -168,16 +193,11 @@ function MeetingSetup({ onSetupComplete }) {
       setParticipants([]);
       setLocation("");
       setMicAssignments({ mic1: "", mic2: "", mic3: "" });
+
     } catch (err) {
-      if (err.response) {
-        console.error("Status:", err.response.status);
-        console.error("Response:", err.response.data); // backend error details
-        alert(`Error: ${JSON.stringify(err.response.data)}`);
-      } else if (err.request) {
-        console.error("No response received:", err.request);
-      } else {
-        console.error("Request setup error:", err.message);
-      }
+      // Show specific error message
+      alert(err.message);
+      console.error(err);
     }
   };
 
@@ -187,6 +207,7 @@ function MeetingSetup({ onSetupComplete }) {
   );
 
   return (
+    <><Header />
     <div className="min-h-screen bg-gray-100 pt-12 px-4">
       <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
 
@@ -283,7 +304,7 @@ function MeetingSetup({ onSetupComplete }) {
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     className="w-full p-2 border rounded"
-                    placeholder="Room 301 / Zoom link"
+                    placeholder="Room 301"
                   />
                 </div>
 
@@ -337,7 +358,7 @@ function MeetingSetup({ onSetupComplete }) {
         )}
 
       </div>
-    </div>
+    </div></>
   );
 }
 
