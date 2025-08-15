@@ -49,5 +49,19 @@ class Meeting(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # def __str__(self):
+
+    class Meta:
+        db_table = 'meeting'
+
+   
+class Employee(models.Model):
+    employee_id = models.IntegerField(primary_key=True)  # Supabase uses integer ID
+    employee_name = models.CharField(max_length=255)
+    department_id = models.CharField(max_length=100)
+
     def __str__(self):
-        return self.meeting_title
+        return self.employee_name
+
+    class Meta:
+        db_table = 'employee'
