@@ -1,37 +1,97 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { supabase } from '../lib/supabase.js';
+
+// Multi-select dropdown component with Select All
+function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, label }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleOption = (option) => {
+    setSelectedOptions(prev =>
+      prev.includes(option) ? prev.filter(o => o !== option) : [...prev, option]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOptions.length === options.length) {
+      setSelectedOptions([]);
+    } else {
+      setSelectedOptions([...options]);
+    }
+  };
+
+  return (
+    <div className="mb-4 relative" ref={ref}>
+      <label className="block font-semibold mb-2">{label}</label>
+      <div
+        className="border rounded p-2 cursor-pointer flex justify-between items-center"
+        onClick={() => setOpen(!open)}
+      >
+        <span>{selectedOptions.length ? selectedOptions.join(", ") : `Select ${label}`}</span>
+        <span className="ml-2">{open ? "▲" : "▼"}</span>
+      </div>
+
+      {open && (
+        <div className="absolute mt-1 w-full bg-white border rounded shadow-lg max-h-40 overflow-y-auto z-10">
+          <label className="flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer font-medium text-blue-600">
+            <input
+              type="checkbox"
+              checked={selectedOptions.length === options.length}
+              onChange={toggleSelectAll}
+            />
+            Select All
+          </label>
+          {options.map(option => (
+            <label key={option} className="flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedOptions.includes(option)}
+                onChange={() => toggleOption(option)}
+              />
+              {option}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MeetingSetup({ onSetupComplete }) {
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [meetingDate, setMeetingDate] = useState("");
   const [meetingTime, setMeetingTime] = useState("");
-  const [department, setDepartment] = useState("");
+  const [departments, setDepartments] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [location, setLocation] = useState("");
-  const [agenda, setAgenda] = useState("");
-  const [priority, setPriority] = useState("Medium");
+  const [micAssignments, setMicAssignments] = useState({ mic1: "", mic2: "", mic3: "" });
 
   const availableDepartments = ["HR", "Engineering", "Sales", "Marketing", "Finance"];
   const availablePeople = ["Alice", "Bob", "Charlie", "David", "Eve", "Frank"];
 
-  const handleParticipantChange = (name) => {
-    setParticipants(prev =>
-      prev.includes(name) ? prev.filter(p => p !== name) : [...prev, name]
-    );
+  const today = new Date().toISOString().split("T")[0];
+  const now = new Date();
+  const currentTime = now.toTimeString().slice(0, 5);
+  const isToday = meetingDate === today;
+
+  const handleMicChange = (mic, value) => {
+    setMicAssignments(prev => ({
+      ...prev,
+      [mic]: value
+    }));
   };
-
-  const [micAssignments, setMicAssignments] = useState({
-  mic1: "",
-  mic2: "",
-  mic3: ""
-});
-
-const handleMicChange = (mic, value) => {
-  setMicAssignments(prev => ({
-    ...prev,
-    [mic]: value
-  }));
-};
 
   const nextStep = () => {
     if (!title || !meetingDate || !meetingTime) {
@@ -43,7 +103,7 @@ const handleMicChange = (mic, value) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!department || participants.length === 0) {
+    if (departments.length === 0 || participants.length === 0) {
       alert("Please fill all required fields in Step 2");
       return;
     }
@@ -51,12 +111,14 @@ const handleMicChange = (mic, value) => {
       title,
       meetingDate,
       meetingTime,
-      department,
+      departments,
       participants,
       location,
       micAssignments
     });
   };
+
+  
 
   return (
     <div className="min-h-screen bg-gray-100 pt-12 px-4">
@@ -66,7 +128,6 @@ const handleMicChange = (mic, value) => {
           <form onSubmit={(e) => { e.preventDefault(); nextStep(); }}>
             <h1 className="text-2xl font-bold mb-6 text-center">Meeting Basic Details</h1>
 
-            {/* Three in a row */}
             <div className="grid grid-cols-3 gap-6">
               <div>
                 <label className="block font-semibold mb-2">Meeting Name</label>
@@ -83,7 +144,11 @@ const handleMicChange = (mic, value) => {
                 <input
                   type="date"
                   value={meetingDate}
-                  onChange={(e) => setMeetingDate(e.target.value)}
+                  onChange={(e) => {
+                    setMeetingDate(e.target.value);
+                    setMeetingTime("");
+                  }}
+                  min={today}
                   className="w-full p-2 border rounded"
                 />
               </div>
@@ -93,6 +158,7 @@ const handleMicChange = (mic, value) => {
                   type="time"
                   value={meetingTime}
                   onChange={(e) => setMeetingTime(e.target.value)}
+                  min={isToday ? currentTime : undefined}
                   className="w-full p-2 border rounded"
                 />
               </div>
@@ -110,131 +176,98 @@ const handleMicChange = (mic, value) => {
         )}
 
         {step === 2 && (
-  <form onSubmit={handleSubmit}>
-    <h1 className="text-2xl font-bold mb-6 text-center">
-      Meeting Participants & Details
-    </h1>
+          <form onSubmit={handleSubmit}>
+            <h1 className="text-2xl font-bold mb-6 text-center">
+              Meeting Participants & Details
+            </h1>
 
-    <div className="grid grid-cols-2 gap-8">
-      {/* Left Column */}
-      <div>
-        {/* Department */}
-        <div className="mb-4">
-          <label className="block font-semibold mb-2">Department</label>
-          <select
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">Select department</option>
-            {availableDepartments.map((dep) => (
-              <option key={dep} value={dep}>
-                {dep}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Participants */}
-        <div className="mb-6">
-          <label className="block font-semibold mb-2">Participants</label>
-          <label className="flex items-center gap-2 font-medium text-blue-600">
-            <input
-              type="checkbox"
-              checked={participants.length === availablePeople.length}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setParticipants([...availablePeople]);
-                } else {
-                  setParticipants([]);
-                }
-              }}
-            />
-            Select All
-          </label>
-          <div className="mt-2 space-y-1">
-            {availablePeople.map((person) => (
-              <label key={person} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={participants.includes(person)}
-                  onChange={() => handleParticipantChange(person)}
+            <div className="grid grid-cols-2 gap-8">
+              {/* Left Column */}
+              <div>
+                {/* Departments */}
+                <MultiSelectDropdown
+                  options={availableDepartments}
+                  selectedOptions={departments}
+                  setSelectedOptions={setDepartments}
+                  label="Departments"
                 />
-                {person}
-              </label>
-            ))}
-          </div>
-        </div>
 
-        
-      </div>
-
-      {/* Right Column */}
-      <div>
-        {/* Location */}
-        <div className="mb-4">
-          <label className="block font-semibold mb-2">Location</label>
-          <input
-            type="text"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full p-2 border rounded"
-            placeholder="Room 301 / Zoom link"
-          />
-        </div>
-        {/* Mic Assignments */}
-        <div>
-          <label className="block font-semibold mb-2">Mic Assignments</label>
-          <div className="space-y-2">
-            {["mic1", "mic2", "mic3"].map((mic) => (
-              <div key={mic} className="flex items-center gap-2">
-                <span className="w-20 capitalize">{mic}</span>
-                <select
-                  value={micAssignments[mic]}
-                  onChange={(e) => handleMicChange(mic, e.target.value)}
-                  className="w-full p-2 border rounded"
-                  disabled={participants.length === 0}
-                >
-                  <option value="">Select participant</option>
-                  {participants
-                    .filter(
-                      (p) =>
-                        !Object.entries(micAssignments).some(
-                          ([key, val]) =>
-                            key !== mic && val === p // exclude already assigned
-                        )
-                    )
-                    .map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                </select>
+                {/* Participants */}
+                <MultiSelectDropdown
+                  options={availablePeople}
+                  selectedOptions={participants}
+                  setSelectedOptions={setParticipants}
+                  label="Participants"
+                />
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
 
-    {/* Navigation */}
-    <div className="mt-8 flex justify-between">
-      <button
-        type="button"
-        onClick={() => setStep(1)}
-        className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500"
-      >
-        ← Back
-      </button>
-      <button
-        type="submit"
-        className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
-      >
-        Save Meeting
-      </button>
-    </div>
-  </form>
-)}
+              {/* Right Column */}
+              <div>
+                {/* Location */}
+                <div className="mb-4">
+                  <label className="block font-semibold mb-2">Location</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full p-2 border rounded"
+                    placeholder="Room 301 / Zoom link"
+                  />
+                </div>
+
+                {/* Mic Assignments */}
+                <div>
+                  <label className="block font-semibold mb-2">Mic Assignments</label>
+                  <div className="space-y-2">
+                    {["mic1", "mic2", "mic3"].map((mic) => (
+                      <div key={mic} className="flex items-center gap-2">
+                        <span className="w-20 capitalize">{mic}</span>
+                        <select
+                          value={micAssignments[mic]}
+                          onChange={(e) => handleMicChange(mic, e.target.value)}
+                          className="w-full p-2 border rounded"
+                          disabled={participants.length === 0}
+                        >
+                          <option value="">Select participant</option>
+                          {participants
+                            .filter(
+                              (p) =>
+                                !Object.entries(micAssignments).some(
+                                  ([key, val]) =>
+                                    key !== mic && val === p
+                                )
+                            )
+                            .map((p) => (
+                              <option key={p} value={p}>
+                                {p}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="mt-8 flex justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500"
+              >
+                ← Back
+              </button>
+              <button
+                type="submit"
+                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+              >
+                Save Meeting
+              </button>
+            </div>
+          </form>
+        )}
 
       </div>
     </div>
