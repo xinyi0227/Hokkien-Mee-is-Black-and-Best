@@ -76,3 +76,22 @@ class Employee(models.Model):
 
     class Meta:
         db_table = 'employee'
+
+class MeetingFile(models.Model):
+    meeting_file_id = models.BigAutoField(primary_key=True)
+    meeting_summary = models.CharField(max_length=255)
+    ind_file1 = models.CharField(max_length=255)
+    ind_file2 = models.CharField(max_length=255)
+    ind_file3 = models.CharField(max_length=255)
+    meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, null=True, blank=True, related_name="files")
+    uploaded_date = models.DateField(null=True, blank=True)
+    uploaded_time = models.TimeField(null=True, blank=True)
+    meeting_org = models.CharField(max_length=255, null=True, blank=True)
+    updated_date = models.DateField(null=True, blank=True)
+    updated_time = models.TimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"MeetingFile {self.meeting_file_id} for {self.meeting}"
+    
+    class Meta:
+        db_table = 'meeting_files'
