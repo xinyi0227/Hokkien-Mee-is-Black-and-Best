@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Task, BusinessData, ProcessedReport, Meeting, Employee,Department
+from .models import Task, BusinessData, ProcessedReport, Meeting, Employee,Department, MeetingFile
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
