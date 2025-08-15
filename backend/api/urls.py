@@ -10,4 +10,7 @@ urlpatterns = [
     path('processed-reports/', views.ProcessedReportListView.as_view(), name='processed-reports-list'),
     path('processed-reports/<uuid:pk>/', views.ProcessedReportRetrieveView.as_view(), name='processed-report-detail'),
     path('transcript/', views.transcript_view, name='transcript'),
+    path('meetings/', views.MeetingListView.as_view(), name='meeting-list'),
+    path('departments/', views.DepartmentsListView.as_view(), name='departments-list'),
+     path("employees/", views.EmployeeForMeetingView.as_view(), name="employee-list"),
 ]

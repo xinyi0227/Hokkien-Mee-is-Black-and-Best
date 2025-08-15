@@ -1,8 +1,8 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
-from .models import Task, BusinessData, ProcessedReport,Meeting
-from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer
+from .models import Task, BusinessData, ProcessedReport, Meeting, Department, Employee
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer, MeetingSerializer, DepartmentSerializer, EmployeeSerializer
 import datetime
 from supabase import create_client, Client
 import os
@@ -15,6 +15,9 @@ import requests
 import matplotlib.pyplot as plt
 import seaborn as sns
 from .utils.report_generators import PDFGenerator, PPTGenerator, CleaningReportGenerator
+
+from .models import Meeting
+from .serializers import MeetingSerializer
 
 class FileProcessingView(generics.CreateAPIView):
 
@@ -1021,3 +1024,16 @@ class ProcessedReportListView(generics.ListAPIView):
 class ProcessedReportRetrieveView(generics.RetrieveAPIView):
     queryset = ProcessedReport.objects.all()
     serializer_class = ProcessedReportSerializer
+    
+# Meeting List / Create
+class MeetingListView(generics.ListCreateAPIView):
+    queryset = Meeting.objects.all().order_by('-meeting_date', '-meeting_time')
+    serializer_class = MeetingSerializer
+
+class DepartmentsListView(generics.ListAPIView):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+
+class EmployeeForMeetingView(generics.ListAPIView):
+    queryset = Employee.objects.all()
+    serializer_class = EmployeeSerializer
