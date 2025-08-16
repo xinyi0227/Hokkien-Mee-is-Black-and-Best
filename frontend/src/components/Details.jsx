@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
-import Header from "./header"; // 加在文件开头
+import Header from "./header";
 
 const Details = () => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
     const fetchUser = async () => {
-      // 假设你登录时有用 localStorage 保存 user email
       const email = localStorage.getItem("user_email");
       if (!email) return;
 
       const { data, error } = await supabase
-        .from("user")  // 你的表名
+        .from("employee")
         .select("email, role")
         .eq("email", email)
         .single();
@@ -34,8 +33,8 @@ const Details = () => {
         <Header />
     <div className="max-w-md mx-auto p-6 bg-white shadow rounded mt-6">
       <h2 className="text-2xl font-bold mb-4">User Details</h2>
-      <p><strong>Email:</strong> {user.email}</p>
-      <p><strong>Role:</strong> {user.role}</p>
+      <p><strong>Email:</strong> {employee.email}</p>
+      <p><strong>Role:</strong> {employee.role}</p>
     </div>
   </>
   );
