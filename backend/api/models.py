@@ -80,13 +80,14 @@ class Employee(models.Model):
 class MeetingFile(models.Model):
     meeting_file_id = models.BigAutoField(primary_key=True)
     meeting_summary = models.CharField(max_length=255)
-    ind_file1 = models.CharField(max_length=255)
-    ind_file2 = models.CharField(max_length=255)
-    ind_file3 = models.CharField(max_length=255)
+    meeting_org = models.FileField(upload_to='')   # empty string = upload directly to MEDIA_ROOT
+    ind_file1 = models.FileField(upload_to='', null=True, blank=True)
+    ind_file2 = models.FileField(upload_to='', null=True, blank=True)
+    ind_file3 = models.FileField(upload_to='', null=True, blank=True)
     meeting = models.ForeignKey(Meeting, on_delete=models.CASCADE, null=True, blank=True, related_name="files")
     uploaded_date = models.DateField(null=True, blank=True)
     uploaded_time = models.TimeField(null=True, blank=True)
-    meeting_org = models.CharField(max_length=255, null=True, blank=True)
+    # meeting_org = models.CharField(max_length=255, null=True, blank=True)
     updated_date = models.DateField(null=True, blank=True)
     updated_time = models.TimeField(null=True, blank=True)
 

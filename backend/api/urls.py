@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import views,transcript
 
 urlpatterns = [
     path('tasks/', views.TaskListCreateView.as_view(), name='task-list-create'),
@@ -15,7 +15,7 @@ urlpatterns = [
     path('departments/', views.DepartmentsListView.as_view(), name='departments-list'),
     path("employees/", views.EmployeeForMeetingView.as_view(), name="employee-list"),
     path('meeting_files/', views.upload_meeting_files, name='upload-meeting-files'),
-    #path('transcript/<int:meeting_id>/', views.transcribe_meeting, name='transcribe-meeting'),
+    path('transcript/<int:meeting_id>/', transcript.transcript_view, name="transcript"),
 
 
 ]
