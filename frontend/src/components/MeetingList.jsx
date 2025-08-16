@@ -8,6 +8,7 @@ export default function MeetingList() {
   const [departments, setDepartments] = useState([]);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [meetingFiles, setMeetingFiles] = useState([]);
 
   const [filterDept, setFilterDept] = useState("");
   const [filterDate, setFilterDate] = useState("");
@@ -37,6 +38,19 @@ export default function MeetingList() {
   }, []);
 
   useEffect(() => {
+    const fetchMeetingFiles = async () => {
+      try {
+        const response = await fetch("/api/meeting_files");
+        const data = await response.json();
+        setMeetingFiles(data);
+      } catch (error) {
+        console.error("Failed to fetch meeting files:", error);
+      }
+    };
+    fetchMeetingFiles();
+  }, []);
+
+  useEffect(() => {
     const fetchDepartments = async () => {
       try {
         const response = await fetch("/api/departments");
@@ -61,6 +75,10 @@ export default function MeetingList() {
     };
     fetchEmployees();
   }, []);
+
+  const hasUploadedFiles = (meetingId) => {
+    return meetingFiles.some(file => file.meeting === meetingId);
+  };
 
   const getDeptName = (deptIds) => {
     if (!deptIds) return "Unknown";
@@ -160,7 +178,15 @@ export default function MeetingList() {
                 className="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition cursor-pointer"
                 onClick={() => openModal(m)}
               >
-                <h2 className="text-xl font-semibold mb-2">{m.meeting_title}</h2>
+                <h2 className="text-xl font-semibold mb-2">
+                  <span>{m.meeting_title}</span>
+                  {hasUploadedFiles(m.meeting_id) && (
+                    <span className="bg-green-200 text-green-700 text-sm px-2 py-0.5 rounded-full ml-2">
+                      Uploaded
+                    </span>
+                  )}
+                </h2>
+                
                 <p className="text-gray-600"><strong>Date:</strong> {m.meeting_date}</p>
                 <p className="text-gray-600"><strong>Time:</strong> {m.meeting_time}</p>
                 <p className="text-gray-600"><strong>Department:</strong> {getDeptName(m.meeting_department)}</p>
@@ -224,13 +250,23 @@ export default function MeetingList() {
                   .join(", ")}</p>
 
               <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
-                  className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
-                >
-                  Next →
-                </button>
+                {hasUploadedFiles(selectedMeeting.meeting_id) ? (
+                  <button
+                    className="bg-gray-400 text-white px-5 py-2 rounded-lg cursor-not-allowed"
+                    disabled
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
+                    className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
+                  >
+                    Next →
+                  </button>
+                )}
               </div>
+
             </div>
           </div>
         )}
