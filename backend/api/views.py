@@ -81,7 +81,6 @@ class FileProcessingView(generics.CreateAPIView):
             traceback.print_exc()
             return Response({'error': f'Failed to process file: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
     def clean_and_preprocess_data(self, file_content, filename):
         """Step 1: Clean and preprocess data using Gemini AI guidance"""
         
@@ -194,7 +193,7 @@ class FileProcessingView(generics.CreateAPIView):
     def get_gemini_cleaning_guidance(self, df):
         """Get AI guidance for data cleaning approach"""
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         # Prepare data summary for AI analysis
         data_summary = {
@@ -474,20 +473,20 @@ class FileProcessingView(generics.CreateAPIView):
         return analysis
 
     def create_time_money_line_graphs(self, df, date_cols, money_cols):
-        """Create line graphs for date vs money analysis"""
+        """Create line graphs for date vs money analysis showing full data range"""
         charts = []
-        
+
         for date_col in date_cols[:1]:  # Use first date column
             for money_col in money_cols[:1]:  # Use first money column
-                
+
                 # Prepare data for time series
                 df_time = df[[date_col, money_col]].copy()
                 df_time[date_col] = pd.to_datetime(df_time[date_col], errors='coerce')
                 df_time = df_time.dropna().sort_values(date_col)
-                
+
                 # Aggregate by day/week/month based on data span
                 date_range = (df_time[date_col].max() - df_time[date_col].min()).days
-                
+
                 if date_range > 90:  # More than 3 months, group by month
                     df_time['period'] = df_time[date_col].dt.to_period('M')
                     period_label = 'Month'
@@ -497,34 +496,37 @@ class FileProcessingView(generics.CreateAPIView):
                 else:  # Daily analysis
                     df_time['period'] = df_time[date_col].dt.date
                     period_label = 'Day'
-                
-                # Aggregate money by period
+
+                # Aggregate money by period WITHOUT filtering out any periods
                 revenue_by_period = df_time.groupby('period')[money_col].sum().reset_index()
                 revenue_by_period['period_str'] = revenue_by_period['period'].astype(str)
-                
-                # Create line graph
+
+                # *** IMPORTANT: Ensure NO slicing or filtering here ***
+                # For example, DO NOT do something like: revenue_by_period = revenue_by_period.tail(3)
+
+                # Create line graph using full aggregated data
                 plt.figure(figsize=(14, 8))
-                plt.plot(range(len(revenue_by_period)), revenue_by_period[money_col], 
+                plt.plot(range(len(revenue_by_period)), revenue_by_period[money_col],
                         marker='o', linewidth=3, markersize=8, color='#2E86AB')
-                
+
                 # Add trend line
                 z = np.polyfit(range(len(revenue_by_period)), revenue_by_period[money_col], 1)
                 p = np.poly1d(z)
-                trend_direction = "Growing" if z[0] > 0 else "Declining" if z[0] < 0 else "Stable"
-                plt.plot(range(len(revenue_by_period)), p(range(len(revenue_by_period))), 
+                trend_direction = "Growing" if z[0] > 0 else "Declining" if z < 0 else "Stable"
+                plt.plot(range(len(revenue_by_period)), p(range(len(revenue_by_period))),
                         "--", alpha=0.8, linewidth=2, color='red')
-                
-                plt.title(f'Revenue Trend: {money_col} by {period_label}', 
+
+                plt.title(f'Revenue Trend: {money_col} by {period_label}',
                         fontsize=16, fontweight='bold', pad=20)
                 plt.xlabel(f'Time Period ({period_label})', fontsize=12)
                 plt.ylabel(f'{money_col} ($)', fontsize=12)
-                plt.xticks(range(len(revenue_by_period)), 
+                plt.xticks(range(len(revenue_by_period)),
                         [str(p)[:10] for p in revenue_by_period['period_str']], rotation=45)
                 plt.grid(True, alpha=0.3)
                 plt.tight_layout()
-                
+
                 chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_revenue_trend.png")
-                
+
                 charts.append({
                     'type': 'line_graph',
                     'title': f'Revenue Performance: {trend_direction} Trend by {period_label}',
@@ -532,7 +534,7 @@ class FileProcessingView(generics.CreateAPIView):
                     'description': f'Shows {trend_direction.lower()} revenue trend over time. Total revenue: ${revenue_by_period[money_col].sum():,.2f} across {len(revenue_by_period)} {period_label.lower()}s.'
                 })
                 plt.close()
-        
+
         return charts
 
     def create_category_bar_charts(self, df, category_cols, money_cols):
@@ -646,7 +648,7 @@ class FileProcessingView(generics.CreateAPIView):
         """Get AI-powered insights and recommendations"""
         
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         prompt = f"""
         Based on this cleaned dataset analysis, provide insights and recommendations:
@@ -854,7 +856,7 @@ class FileProcessingView(generics.CreateAPIView):
         """Get comprehensive business analysis with direct chart generation instructions"""
         
         genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')
 
         # Get data characteristics for chart suggestions
         numeric_cols = df_cleaned.select_dtypes(include=['float64', 'int64']).columns.tolist()
@@ -1093,3 +1095,7 @@ def upload_meeting_files(request):
     meeting_file.save()
 
     return Response({"status": "Files uploaded successfully"})
+
+class MeetingFileListView(generics.ListAPIView):
+    queryset = MeetingFile.objects.all()
+    serializer_class = MeetingFileSerializer

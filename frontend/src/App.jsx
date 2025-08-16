@@ -1,4 +1,4 @@
-// import Header from './components/header'
+import TaskList from './components/TaskList'
 import {
     BrowserRouter as Router,
     Routes,
@@ -7,7 +7,6 @@ import {
 
 import { supabase } from './lib/supabase'
 
-import TaskList from './components/TaskList';
 import FileUpload from './components/FileUpload';
 import FileList from './components/fileList';
 import MeetingGenerator from './components/meetingGenerator';
@@ -18,6 +17,8 @@ import MeetingSetup from "./components/MeetingSetup";
 import Login from './components/Login';
 import Details from "./components/Details";
 import Register from './components/Register'
+import FilePage from './components/filePage';
+
 import Transcript from "./components/Transcript";
 
 function App() {
@@ -132,30 +133,16 @@ function App() {
         <Route
           path="/files"
           element={
-            <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-              <div className="max-w-4xl mx-auto">
-                <FileUpload onUploadSuccess={handleUploadSuccess} />
-                {currentUploader && (
-                  <div className="mt-8">
-                    <FileList key={refreshKey} uploader={currentUploader} />
-                  </div>
-                )}
-              </div>
-            </div>
+            <>
+              <FilePage />
+            </>
           }
         />
 
         {/* Meeting Summary route */}
         <Route
           path="/meeting"
-          element={
-            <div className="min-h-screen bg-gray-100 p-4">
-              <div className="max-w-4xl mx-auto">
-                <MeetingList />
-              </div>
-            </div>
-          }
-        />
+          element={<MeetingList />} />
 
         {/* Meeting Setup route */}
         <Route path="/setup" element={<MeetingSetup />} />

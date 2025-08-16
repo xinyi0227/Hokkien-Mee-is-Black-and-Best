@@ -1,14 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase.js';
+import { Navigate } from 'react-router-dom';
 import axios from 'axios';
 
-const FileUpload = () => {
-  const [files, setFiles] = useState([]);
-  const [uploader, setUploader] = useState('');
+const FileUpload = ({ onUploadSuccess }) => {
+  const [user, setUser] = useState(null);
+  const [redirect, setRedirect] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
-  const [processedReports, setProcessedReports] = useState([]);
+
+  useEffect(() => {
+      const fetchUser = async () => {
+          const email = localStorage.getItem("user_email");
+          if (!email) {
+              setRedirect(true);
+              return;
+          }
+
+          const { data, error } = await supabase
+              .from("employee")
+              .select("email, employee_id")
+              .eq("email", email)
+              .single();
+
+          if (error) {
+              console.error(error);
+              setRedirect(true);
+          } else if (data) {
+              setUser(data);
+          } else {
+              setRedirect(true);
+          }
+      };
+
+      fetchUser();
+  }, []);
+
+  if (redirect) {
+      return <Navigate to="/login" replace />;
+  }
+
+  if (!user) return null;
 
   const fetchFiles = async () => {
     try {
@@ -64,11 +96,13 @@ const FileUpload = () => {
         .from('business_data')
         .insert([{
           fileName: file.name,
-          uploader: uploader || 'Anonymous',
+          uploader: user.employee_id,
           file_url: publicUrl
         }]);
 
       if (dbError) throw dbError;
+
+      onUploadSuccess(user.employee_id);
 
       // Reset form and refresh list
       fileInput.value = '';
@@ -81,53 +115,6 @@ const FileUpload = () => {
       setIsUploading(false);
     }
   };
-
-  const deleteFile = async (id, fileUrl) => {
-    try {
-      // Extract path from URL
-      const path = fileUrl.split('/').pop();
-      
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('business_files')
-        .remove([`uploads/${path}`]);
-
-      if (storageError) throw storageError;
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('business_data')
-        .delete()
-        .eq('id', id);
-
-      if (dbError) throw dbError;
-
-      fetchFiles();
-    } catch (error) {
-      console.error('Error deleting file:', error);
-      setError('Failed to delete file');
-    }
-  };
-
-   const processFileWithGemini = async (fileId) => {
-  setIsProcessing(true);
-  try {
-    const response = await axios.post('/api/process-file/', {
-      file_id: fileId,
-      analysis_type: 'data_cleaning_and_analysis'
-    });
-    setProcessedReports(prev => [...prev, response.data]);
-    alert('File processed successfully! Reports generated.');
-  } catch (error) {
-    console.error('Full error object:', error);
-    console.error('Error response data:', error.response?.data); // This shows backend error details
-    console.error('Error status:', error.response?.status);
-    console.error('Error headers:', error.response?.headers);
-    setError(`Failed to process file: ${error.response?.data?.error || error.message}`);
-  } finally {
-    setIsProcessing(false);
-  }
-};
 
 
   return (
@@ -143,7 +130,7 @@ const FileUpload = () => {
             {error}
           </div>
         )}
-        
+{/*         
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Your Name (optional):
@@ -155,7 +142,7 @@ const FileUpload = () => {
             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter your name"
           />
-        </div>
+        </div> */}
         
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -192,80 +179,6 @@ const FileUpload = () => {
           ) : 'Upload File'}
         </button>
       </form>
-
-      {/* File List */}
-      <div className="space-y-4">
-        {files.map((file) => (
-          <div
-            key={file.id}
-            className="p-4 border rounded-lg bg-white border-gray-200"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold">
-                  {file.fileName}
-                </h3>
-                <p className="text-gray-600 mt-1">
-                  Uploaded by: {file.uploader}
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <a
-                  href={file.file_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-                >
-                  Download
-                </a>
-                <button
-                  onClick={() => deleteFile(file.id, file.file_url)}
-                  className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {files.length === 0 && (
-        <p className="text-center text-gray-500 mt-8">
-          No files uploaded yet. Upload your first file above!
-        </p>
-      )}
-
-      {/* Processing Button */}
-      {files.length > 0 && (
-        <div>
-          <h3>Process Files with AI</h3>
-          {files.map(file => (
-            <div key={file.id} className="file-item">
-              <span>{file.fileName}</span>
-              <button 
-                onClick={() => processFileWithGemini(file.id)}
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Processing...' : 'Process with AI'}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Processed Reports */}
-      {processedReports.length > 0 && (
-        <div>
-          <h3>Generated Reports</h3>
-          {processedReports.map(report => (
-            <div key={report.id} className="report-item">
-              <a href={report.pdf_url} download>Download PDF Report</a>
-              <a href={report.ppt_url} download>Download PPT Report</a>
-            </div>
-          ))}
-        </div>
-      )}
 
     </div>
   );
