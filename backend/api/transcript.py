@@ -8,24 +8,44 @@ from docx import Document
 import re
 
 def azure_transcribe(file_path):
-    # Azure speech config
     speech_config = speechsdk.SpeechConfig(
         subscription=os.getenv("AZURE_KEY"),
         region=os.getenv("AZURE_REGION")
     )
     audio_config = speechsdk.audio.AudioConfig(filename=file_path)
-
-    # Recognize speech from file
     speech_recognizer = speechsdk.SpeechRecognizer(
         speech_config=speech_config,
         audio_config=audio_config
     )
-    result = speech_recognizer.recognize_once()
 
-    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-        return result.text
-    else:
-        return ""
+    transcript_parts = []
+
+    def handle_result(evt):
+        if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+            transcript_parts.append(evt.result.text)
+
+    # Subscribe to events
+    speech_recognizer.recognized.connect(handle_result)
+
+    # Start recognition
+    speech_recognizer.start_continuous_recognition()
+    speech_recognizer.session_stopped.connect(lambda evt: speech_recognizer.stop_continuous_recognition())
+    speech_recognizer.canceled.connect(lambda evt: speech_recognizer.stop_continuous_recognition())
+
+    # Wait until recognition completes
+    done = False
+    def stop_cb(evt):
+        nonlocal done
+        done = True
+    speech_recognizer.session_stopped.connect(stop_cb)
+    speech_recognizer.canceled.connect(stop_cb)
+
+    while not done:
+        import time
+        time.sleep(0.5)
+
+    return " ".join(transcript_parts)
+
 
 
 @csrf_exempt
