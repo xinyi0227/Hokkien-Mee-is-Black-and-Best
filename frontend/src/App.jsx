@@ -16,10 +16,6 @@ import FilePage from './components/filePage';
 import Transcript from "./components/Transcript";
 
 function App() {
-  // file upload and listing
-  const [currentUploader, setCurrentUploader] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
-  
 
   return (
     <Router>
