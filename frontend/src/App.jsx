@@ -14,6 +14,7 @@ import MeetingList from './components/MeetingList';
 import MeetingSetup from "./components/MeetingSetup";
 import Login from './components/Login';
 import Details from "./components/Details";
+import Transcript from "./components/Transcript";
 
 function App() {
   // file upload and listing
@@ -50,6 +51,16 @@ function App() {
 
         <Route path="/meetingGenerator" element={<div className="min-h-screen bg-gray-100">
             <MeetingGenerator /> </div>} />
+
+        <Route 
+  path="/transcript/:meetingId" 
+  element={
+    <div className="min-h-screen bg-gray-100">
+      <Transcript />
+    </div>
+  } 
+/>
+
 
         <Route
           path="/MeetingGenerator2"
