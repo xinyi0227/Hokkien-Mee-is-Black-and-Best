@@ -103,14 +103,7 @@ function App() {
         {/* Meeting Summary route */}
         <Route
           path="/meeting"
-          element={
-            <div className="min-h-screen bg-gray-100 p-4">
-              <div className="max-w-4xl mx-auto">
-                <MeetingList />
-              </div>
-            </div>
-          }
-        />
+          element={<MeetingList />} />
 
         {/* Meeting Setup route */}
         <Route path="/setup" element={<MeetingSetup />} />
