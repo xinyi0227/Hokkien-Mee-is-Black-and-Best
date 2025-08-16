@@ -19,10 +19,10 @@ class BusinessData(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     fileName = models.CharField(max_length=255)
     uploader = models.ForeignKey(
-        "Employee",
-        on_delete=models.CASCADE,
-        db_column="uploader",        # keep existing column name if you already have data
-    )
+            "Employee",
+            on_delete=models.CASCADE,
+            db_column="uploader",        # keep existing column name if you already have data
+        )    
     file_url = models.CharField(max_length=512, null=True, blank=True)
     
     class Meta:

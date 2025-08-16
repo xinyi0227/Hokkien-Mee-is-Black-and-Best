@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Meeting, MeetingFile, Employee, Department
 from docx import Document
-
+import re
 
 def azure_transcribe(file_path):
     # Azure speech config
@@ -78,6 +78,8 @@ def transcript_view(request, meeting_id):
         file_urls = []
         transcript_file_urls = []
 
+        safe_title = re.sub(r'[^A-Za-z0-9_-]+', '_', meeting.meeting_title)
+
         for mf in meeting_files:
             if mf.meeting_org:
                 file_path = os.path.join(settings.MEDIA_ROOT, mf.meeting_org.name)
@@ -88,16 +90,16 @@ def transcript_view(request, meeting_id):
                 os.makedirs(transcript_dir, exist_ok=True)
 
                 # Save transcript to TXT
-                txt_filename = f"transcript_meeting_{meeting_id}.txt"
+                txt_filename = f"transcript_meeting_{safe_title}.txt"
                 txt_path = os.path.join(transcript_dir, txt_filename)
                 with open(txt_path, "w", encoding="utf-8") as f:
                     f.write(transcript_text)
 
                 # Save transcript to Word
-                doc_filename = f"transcript_meeting_{meeting_id}.docx"
+                doc_filename = f"transcript_meeting_{safe_title}.docx"
                 doc_path = os.path.join(transcript_dir, doc_filename)
                 document = Document()
-                document.add_heading(f"Transcript for Meeting {meeting_id}", level=1)
+                document.add_heading(f"Transcript for Meeting {meeting.meeting_title}", level=1)
                 document.add_paragraph(transcript_text)
                 document.save(doc_path)
 
