@@ -1,8 +1,9 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
-from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department,MeetingFile
-from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer,MeetingFileSerializer
+from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer
+
 import datetime
 from supabase import create_client, Client
 import os
@@ -1029,7 +1030,11 @@ class ProcessedReportRetrieveView(generics.RetrieveAPIView):
 # Meeting List / Create
 class MeetingListView(generics.ListCreateAPIView):
     queryset = Meeting.objects.all().order_by('-meeting_date', '-meeting_time')
-    serializer_class = MeetingSerializer
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return MeetingSubmitSerializer
+        return MeetingSerializer
 
 class DepartmentsListView(generics.ListAPIView):
     queryset = Department.objects.all()

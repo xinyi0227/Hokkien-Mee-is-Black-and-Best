@@ -14,6 +14,7 @@ import MeetingList from './components/MeetingList';
 import MeetingSetup from "./components/MeetingSetup";
 import Login from './components/Login';
 import Details from "./components/Details";
+import Register from './components/Register'
 import Transcript from "./components/Transcript";
 
 function App() {
@@ -39,6 +40,8 @@ function App() {
           }
         />
 
+        <Route path="/register" element={<Register />} />
+        
         {/* Task list page */}
         <Route
           path="/tasks"
