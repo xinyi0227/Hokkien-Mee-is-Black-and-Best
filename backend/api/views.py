@@ -1095,3 +1095,7 @@ def upload_meeting_files(request):
     meeting_file.save()
 
     return Response({"status": "Files uploaded successfully"})
+
+class MeetingFileListView(generics.ListAPIView):
+    queryset = MeetingFile.objects.all()
+    serializer_class = MeetingFileSerializer
