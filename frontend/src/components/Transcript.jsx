@@ -8,6 +8,7 @@ const TranscriptPage = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [transcript, setTranscript] = useState("");
 
   useEffect(() => {
     fetch(`http://localhost:8000/api/transcript/${meetingId}/`, { method: "POST" })
@@ -15,6 +16,7 @@ const TranscriptPage = () => {
       .then((data) => {
         setMeetingData(data.meeting);
         setFiles(data.files || []);
+        setTranscript(data.transcript || "");
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -53,6 +55,13 @@ const TranscriptPage = () => {
         <li key={idx}>{participant}</li>
       ))}
     </ul>
+    {/* 🆕 Show transcript */}
+          {transcript && (
+            <div className="mt-6 p-4 bg-white border rounded">
+              <h3 className="text-xl font-semibold mb-2">Transcript</h3>
+              <p className="whitespace-pre-wrap">{transcript}</p>
+            </div>
+          )}
   </div>
 )}
 
