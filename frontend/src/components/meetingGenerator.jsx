@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation,useNavigate  } from "react-router-dom";
+import Header from './header'
+
 
 const Meeting = () => {
   const location = useLocation();
@@ -205,6 +207,8 @@ const handleTranscribe = () => {
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
+     <>
+    <Header />
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Meeting Generator</h1>
 
@@ -353,6 +357,7 @@ const handleTranscribe = () => {
       )}
 
     </div>
+    </>
   );
 };
 

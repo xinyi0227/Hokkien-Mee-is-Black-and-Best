@@ -18,7 +18,11 @@ class BusinessData(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     fileName = models.CharField(max_length=255)
-    uploader = models.CharField(max_length=255)
+    uploader = models.ForeignKey(
+        "Employee",
+        on_delete=models.CASCADE,
+        db_column="uploader",        # keep existing column name if you already have data
+    )
     file_url = models.CharField(max_length=512, null=True, blank=True)
     
     class Meta:
@@ -90,6 +94,8 @@ class MeetingFile(models.Model):
     # meeting_org = models.CharField(max_length=255, null=True, blank=True)
     updated_date = models.DateField(null=True, blank=True)
     updated_time = models.TimeField(null=True, blank=True)
+    meeting_transcripts = models.TextField(null=True, blank=True)
+
 
     def __str__(self):
         return f"MeetingFile {self.meeting_file_id} for {self.meeting}"
