@@ -90,6 +90,8 @@ class MeetingFile(models.Model):
     # meeting_org = models.CharField(max_length=255, null=True, blank=True)
     updated_date = models.DateField(null=True, blank=True)
     updated_time = models.TimeField(null=True, blank=True)
+    meeting_transcripts = models.TextField(null=True, blank=True)
+
 
     def __str__(self):
         return f"MeetingFile {self.meeting_file_id} for {self.meeting}"
