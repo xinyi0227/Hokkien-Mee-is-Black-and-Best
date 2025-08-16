@@ -11,6 +11,7 @@ export default function MeetingList() {
 
   const [filterDept, setFilterDept] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [filterTitle, setFilterTitle] = useState("");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -88,7 +89,12 @@ export default function MeetingList() {
       : true;
 
     const dateMatch = filterDate ? m.meeting_date === filterDate : true;
-    return deptMatch && dateMatch;
+
+    const titleMatch = filterTitle
+      ? m.meeting_title.toLowerCase().includes(filterTitle.toLowerCase())
+      : true;
+
+    return deptMatch && dateMatch && titleMatch;
   });
 
   // Pagination calculations
@@ -98,8 +104,9 @@ export default function MeetingList() {
   const totalPages = Math.ceil(filteredMeetings.length / meetingsPerPage);
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-12 px-6">
-      <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <><Header />
+    <div className="min-h-screen bg-gray-100 pt-12 px-4">
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Meetings</h1>
           <button
@@ -113,7 +120,7 @@ export default function MeetingList() {
         {/* Filters */}
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Filter By:</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <select
               value={filterDept}
               onChange={(e) => setFilterDept(e.target.value)}
@@ -133,6 +140,14 @@ export default function MeetingList() {
               onChange={(e) => setFilterDate(e.target.value)}
               className="p-2 border rounded"
             />
+            <input
+              type="text"
+              placeholder="Search by title"
+              value={filterTitle}
+              onChange={(e) => setFilterTitle(e.target.value)}
+              className="p-2 border rounded"
+            />
+
           </div>
         </div>
 
@@ -221,5 +236,6 @@ export default function MeetingList() {
         )}
       </div>
     </div>
+    </>
   );
 }
