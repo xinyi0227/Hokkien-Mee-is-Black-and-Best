@@ -3,7 +3,9 @@ import os
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent  # points to backend/
+PROJECT_ROOT = BASE_DIR.parent                     # <-- outer backend folder
+
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure^epw8u53z!#y9iyd=m=awmx$jxdf1xc^$^c&ysyxh+8(z_ex4n'
@@ -143,3 +145,7 @@ CORS_ALLOW_HEADERS = list(default_headers := [
 
 # Optional: allow cookies with cross-origin requests (if needed)
 CORS_ALLOW_CREDENTIALS = True
+
+# Go up one more to reach the outer backend folder
+MEDIA_ROOT = BASE_DIR / 'api' / 'audios'
+MEDIA_URL = '/media/'

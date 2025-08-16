@@ -8,9 +8,11 @@ export default function MeetingList() {
   const [departments, setDepartments] = useState([]);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [employees, setEmployees] = useState([]);
+  const [meetingFiles, setMeetingFiles] = useState([]);
 
   const [filterDept, setFilterDept] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [filterTitle, setFilterTitle] = useState("");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,6 +35,19 @@ export default function MeetingList() {
       }
     };
     fetchMeetings();
+  }, []);
+
+  useEffect(() => {
+    const fetchMeetingFiles = async () => {
+      try {
+        const response = await fetch("/api/meeting_files");
+        const data = await response.json();
+        setMeetingFiles(data);
+      } catch (error) {
+        console.error("Failed to fetch meeting files:", error);
+      }
+    };
+    fetchMeetingFiles();
   }, []);
 
   useEffect(() => {
@@ -61,6 +76,10 @@ export default function MeetingList() {
     fetchEmployees();
   }, []);
 
+  const hasUploadedFiles = (meetingId) => {
+    return meetingFiles.some(file => file.meeting === meetingId);
+  };
+
   const getDeptName = (deptIds) => {
     if (!deptIds) return "Unknown";
     const idsArray = String(deptIds).split(",").map(id => id.trim());
@@ -88,7 +107,12 @@ export default function MeetingList() {
       : true;
 
     const dateMatch = filterDate ? m.meeting_date === filterDate : true;
-    return deptMatch && dateMatch;
+
+    const titleMatch = filterTitle
+      ? m.meeting_title.toLowerCase().includes(filterTitle.toLowerCase())
+      : true;
+
+    return deptMatch && dateMatch && titleMatch;
   });
 
   // Pagination calculations
@@ -98,8 +122,9 @@ export default function MeetingList() {
   const totalPages = Math.ceil(filteredMeetings.length / meetingsPerPage);
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-12 px-6">
-      <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <><Header />
+    <div className="min-h-screen bg-gray-100 pt-12 px-4">
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Meetings</h1>
           <button
@@ -113,7 +138,7 @@ export default function MeetingList() {
         {/* Filters */}
         <div className="mb-6">
           <h2 className="text-lg font-semibold mb-2">Filter By:</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <select
               value={filterDept}
               onChange={(e) => setFilterDept(e.target.value)}
@@ -133,6 +158,14 @@ export default function MeetingList() {
               onChange={(e) => setFilterDate(e.target.value)}
               className="p-2 border rounded"
             />
+            <input
+              type="text"
+              placeholder="Search by title"
+              value={filterTitle}
+              onChange={(e) => setFilterTitle(e.target.value)}
+              className="p-2 border rounded"
+            />
+
           </div>
         </div>
 
@@ -145,7 +178,15 @@ export default function MeetingList() {
                 className="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition cursor-pointer"
                 onClick={() => openModal(m)}
               >
-                <h2 className="text-xl font-semibold mb-2">{m.meeting_title}</h2>
+                <h2 className="text-xl font-semibold mb-2">
+                  <span>{m.meeting_title}</span>
+                  {hasUploadedFiles(m.meeting_id) && (
+                    <span className="bg-green-200 text-green-700 text-sm px-2 py-0.5 rounded-full ml-2">
+                      Uploaded
+                    </span>
+                  )}
+                </h2>
+                
                 <p className="text-gray-600"><strong>Date:</strong> {m.meeting_date}</p>
                 <p className="text-gray-600"><strong>Time:</strong> {m.meeting_time}</p>
                 <p className="text-gray-600"><strong>Department:</strong> {getDeptName(m.meeting_department)}</p>
@@ -209,17 +250,28 @@ export default function MeetingList() {
                   .join(", ")}</p>
 
               <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
-                  className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
-                >
-                  Next →
-                </button>
+                {hasUploadedFiles(selectedMeeting.meeting_id) ? (
+                  <button
+                    className="bg-gray-400 text-white px-5 py-2 rounded-lg cursor-not-allowed"
+                    disabled
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
+                    className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
+                  >
+                    Next →
+                  </button>
+                )}
               </div>
+
             </div>
           </div>
         )}
       </div>
     </div>
+    </>
   );
 }
