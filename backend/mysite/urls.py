@@ -17,6 +17,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include,include
 from django.http import HttpResponse  #yx add, if conflict can del
+from django.conf.urls.static import static
+from django.conf import settings
 
 def home_view(request):
     return HttpResponse("Welcome!")
@@ -29,5 +31,4 @@ urlpatterns = [
 
 
     # path('api/', include('api.urls')),
-]
- 
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
