@@ -4,8 +4,14 @@ import {
     Routes,
     Route,
 } from "react-router-dom";
+
+import { supabase } from './lib/supabase'
+
+import FileUpload from './components/FileUpload';
+import FileList from './components/fileList';
 import MeetingGenerator from './components/meetingGenerator';
 import MeetingGenerator2 from './components/meetingGenerator2';
+import { useEffect, useState } from 'react';
 import MeetingList from './components/MeetingList';
 import MeetingSetup from "./components/MeetingSetup";
 import Login from './components/Login';
@@ -16,6 +22,46 @@ import FilePage from './components/filePage';
 import Transcript from "./components/Transcript";
 
 function App() {
+  // file upload and listing
+  const [currentUploader, setCurrentUploader] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [currentUser, setCurrentUser] = useState(null)
+
+  const handleUploadSuccess = (uploaderName) => {
+    setCurrentUploader(uploaderName);
+    setRefreshKey(prev => prev + 1); // Trigger refresh of FileList
+  };
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const email = localStorage.getItem('user_email')
+      if (!email) {
+        setCurrentUser(null)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('employee')
+          .select('employee_id, email, role, department_id')
+          .eq('email', email)
+          .single()
+
+        if (error) {
+          console.error("Error fetching user:", error)
+          setCurrentUser(null)
+        } else {
+          setCurrentUser(data)
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err)
+        setCurrentUser(null)
+      }
+    }
+
+    fetchUser()
+  }, [])
 
   return (
     <Router>
@@ -25,7 +71,7 @@ function App() {
           path="/"
           element={
             <div className="min-h-screen bg-gray-100">
-              <Login />
+              <Login onLoginSuccess={setCurrentUser} />
             </div>
           }
         />
@@ -37,13 +83,24 @@ function App() {
           path="/tasks"
           element={
             <div className="min-h-screen bg-gray-100">
-              <TaskList />
+              {currentUser ? (
+                <TaskList currentUser={currentUser} />
+              ) : (
+                <div className="text-center mt-20 text-gray-600">
+                  Loading user...
+                </div>
+              )}
             </div>
           }
         />
 
-        <Route path="/meetingGenerator" element={<div className="min-h-screen bg-gray-100">
-            <MeetingGenerator /> </div>} />
+        <Route path="/meetingGenerator"
+          element={
+            <div className="min-h-screen bg-gray-100">
+              <MeetingGenerator />
+            </div>
+          }
+        />
 
         <Route 
   path="/transcript/:meetingId" 
@@ -53,7 +110,6 @@ function App() {
     </div>
   } 
 />
-
 
         <Route
           path="/MeetingGenerator2"

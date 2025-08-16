@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai'
 import bcrypt from 'bcryptjs'
 
-const Login = () => {
+const Login = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -16,6 +16,8 @@ const Login = () => {
     setError(null)
 
     try {
+      localStorage.removeItem('user_email')
+
       const { data, error: fetchError } = await supabase
         .from('employee')
         .select('*')
@@ -33,17 +35,23 @@ const Login = () => {
         return
       }
 
-      console.log('Login success:', data)
       localStorage.setItem('user_email', data.email)
+
+      if (onLoginSuccess) onLoginSuccess(data)
+
       navigate('/tasks')
     } catch (err) {
+      console.error('Login error:', err)
       setError('Login failed: ' + err.message)
     }
   }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <form className="bg-white p-8 rounded shadow-md w-full max-w-md" onSubmit={handleLogin}>
+      <form
+        className="bg-white p-8 rounded shadow-md w-full max-w-md"
+        onSubmit={handleLogin}
+      >
         <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
         {error && <p className="text-red-500 mb-4">{error}</p>}
 
