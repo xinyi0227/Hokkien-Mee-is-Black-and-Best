@@ -1,8 +1,29 @@
 import os
+import azure.cognitiveservices.speech as speechsdk
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Meeting, MeetingFile, Employee, Department
+
+def azure_transcribe(file_path):
+    # Azure speech config
+    speech_config = speechsdk.SpeechConfig(
+        subscription=os.getenv("AZURE_KEY"),
+        region=os.getenv("AZURE_REGION")
+    )
+    audio_config = speechsdk.audio.AudioConfig(filename=file_path)
+
+    # Recognize speech from file
+    speech_recognizer = speechsdk.SpeechRecognizer(
+        speech_config=speech_config,
+        audio_config=audio_config
+    )
+    result = speech_recognizer.recognize_once()
+
+    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
+        return result.text
+    else:
+        return ""
 
 @csrf_exempt
 def transcript_view(request, meeting_id):
@@ -52,9 +73,28 @@ def transcript_view(request, meeting_id):
         # 2️⃣ Get meeting files
         meeting_files = MeetingFile.objects.filter(meeting_id=meeting_id)
         file_urls = []
+        transcript_text = ""
 
+        # for mf in meeting_files:
+        #     for file_attr in ["meeting_org", "ind_file1", "ind_file2", "ind_file3"]:
+        #         file_field = getattr(mf, file_attr, None)
+        #         if file_field:
+        #             url = request.build_absolute_uri(settings.MEDIA_URL + file_field.name)
+        #             file_urls.append(url)
+        
         for mf in meeting_files:
-            for file_attr in ["meeting_org", "ind_file1", "ind_file2", "ind_file3"]:
+            # Transcribe only meeting_org
+            if mf.meeting_org:
+                file_path = os.path.join(settings.MEDIA_ROOT, mf.meeting_org.name)
+                transcript_text = azure_transcribe(file_path)
+                mf.meeting_summary = transcript_text  # Save to DB
+                mf.save()
+
+                url = request.build_absolute_uri(settings.MEDIA_URL + mf.meeting_org.name)
+                file_urls.append(url)
+
+            # Add other files if needed
+            for file_attr in ["ind_file1", "ind_file2", "ind_file3"]:
                 file_field = getattr(mf, file_attr, None)
                 if file_field:
                     url = request.build_absolute_uri(settings.MEDIA_URL + file_field.name)
@@ -62,7 +102,8 @@ def transcript_view(request, meeting_id):
 
         return JsonResponse({
             "meeting": meeting_data,
-            "files": file_urls
+            "files": file_urls,
+            "transcript": transcript_text
         })
 
     except Meeting.DoesNotExist:
