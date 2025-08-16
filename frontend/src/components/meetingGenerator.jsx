@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation,useNavigate  } from "react-router-dom";
+import Header from './header'
+
 
 const Meeting = () => {
   const location = useLocation();
@@ -19,6 +21,8 @@ const Meeting = () => {
   const [transcript, setTranscript] = useState("");
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [employees, setEmployees] = useState([]); // all employees from DB
+  const navigate = useNavigate();
+
 
   // --- Fetch meeting data ---
   useEffect(() => {
@@ -174,28 +178,37 @@ const fetchMeetingData = () => {
     .then((data) => setMeetingData(data))
     .catch((err) => setError(err.message));
 };
+// const handleTranscribe = async () => {
+//   setIsTranscribing(true);
+//   setError("");
+//   try {
+//     const res = await fetch(`http://localhost:8000/api/transcript/${meetingId}/`, {
+//       method: "POST",   // must be POST
+//     });
+//     if (!res.ok) throw new Error("Transcription failed");
+//     const data = await res.json();
 
-    const handleTranscribe = async () => {
-    setIsTranscribing(true);
-    setError("");
-    try {
-      const res = await fetch(`http://localhost:8000/api/transcript/${meetingId}/`, {
-        method: "POST",
-      });
-      if (!res.ok) throw new Error("Transcription failed");
-      const data = await res.json();
-      setTranscript(data.text);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setIsTranscribing(false);
-    }
-  };
+//     // Convert file URLs into HTML audio elements
+//     const audioHTML = data.files.map(url => `<audio controls src="${url}" class="mb-2 w-full"></audio>`).join("");
+//     setTranscript(audioHTML);
+//   } catch (err) {
+//     setError(err.message);
+//   } finally {
+//     setIsTranscribing(false);
+//   }
+// };
+
+const handleTranscribe = () => {
+  navigate(`/transcript/${meetingId}`);
+};
+
 
   if (loading) return <p>Loading meeting info...</p>;
   if (error) return <p className="text-red-500">{error}</p>;
 
   return (
+     <>
+    <Header />
     <div className="max-w-4xl mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Meeting Generator</h1>
 
@@ -336,13 +349,15 @@ const fetchMeetingData = () => {
   </div>
 )}
 
-      {transcript && (
+     {transcript && (
         <div className="p-6 bg-white rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold mb-2">Transcript:</h3>
-          <p className="whitespace-pre-wrap">{transcript}</p>
+          <h3 className="text-lg font-semibold mb-2">Transcript / Audio Files:</h3>
+          <div dangerouslySetInnerHTML={{ __html: transcript }} />
         </div>
       )}
+
     </div>
+    </>
   );
 };
 
