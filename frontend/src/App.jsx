@@ -13,7 +13,12 @@ import Details from "./components/Details";
 import Register from './components/Register'
 import FilePage from './components/filePage';
 
+import Transcript from "./components/Transcript";
+
 function App() {
+  // file upload and listing
+  const [currentUploader, setCurrentUploader] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   
 
   return (
@@ -43,6 +48,16 @@ function App() {
 
         <Route path="/meetingGenerator" element={<div className="min-h-screen bg-gray-100">
             <MeetingGenerator /> </div>} />
+
+        <Route 
+  path="/transcript/:meetingId" 
+  element={
+    <div className="min-h-screen bg-gray-100">
+      <Transcript />
+    </div>
+  } 
+/>
+
 
         <Route
           path="/MeetingGenerator2"
@@ -75,14 +90,7 @@ function App() {
         {/* Meeting Summary route */}
         <Route
           path="/meeting"
-          element={
-            <div className="min-h-screen bg-gray-100 p-4">
-              <div className="max-w-4xl mx-auto">
-                <MeetingList />
-              </div>
-            </div>
-          }
-        />
+          element={<MeetingList />} />
 
         {/* Meeting Setup route */}
         <Route path="/setup" element={<MeetingSetup />} />
