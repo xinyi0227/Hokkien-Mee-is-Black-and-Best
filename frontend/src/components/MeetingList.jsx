@@ -40,7 +40,7 @@ export default function MeetingList() {
   useEffect(() => {
     const fetchMeetingFiles = async () => {
       try {
-        const response = await fetch("/api/meeting_files");
+        const response = await fetch("/api/view_meeting_files");
         const data = await response.json();
         setMeetingFiles(data);
       } catch (error) {
