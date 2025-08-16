@@ -4,6 +4,8 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from .models import Meeting, MeetingFile, Employee, Department
+from docx import Document
+
 
 def azure_transcribe(file_path):
     # Azure speech config
@@ -25,6 +27,7 @@ def azure_transcribe(file_path):
     else:
         return ""
 
+
 @csrf_exempt
 def transcript_view(request, meeting_id):
     if request.method != "POST":
@@ -37,7 +40,7 @@ def transcript_view(request, meeting_id):
         # --- Resolve mic employees ---
         mic_employees = []
         for mic_field in [meeting.meeting_mic1, meeting.meeting_mic2, meeting.meeting_mic3]:
-            if mic_field:  # only if mic has a value
+            if mic_field:
                 try:
                     emp = Employee.objects.get(employee_id=mic_field)
                     mic_employees.append(emp.employee_name)
@@ -65,35 +68,53 @@ def transcript_view(request, meeting_id):
             "date": meeting.meeting_date,
             "time": meeting.meeting_time,
             "location": meeting.meeting_location,
-            "mics": mic_employees,           # list of employee names or None
-            "departments": dept_names,       # list of department names
-            "participants": participant_names  # list of employee names
+            "mics": mic_employees,
+            "departments": dept_names,
+            "participants": participant_names
         }
 
         # 2️⃣ Get meeting files
         meeting_files = MeetingFile.objects.filter(meeting_id=meeting_id)
         file_urls = []
-        transcript_text = ""
+        transcript_file_urls = []
 
-        # for mf in meeting_files:
-        #     for file_attr in ["meeting_org", "ind_file1", "ind_file2", "ind_file3"]:
-        #         file_field = getattr(mf, file_attr, None)
-        #         if file_field:
-        #             url = request.build_absolute_uri(settings.MEDIA_URL + file_field.name)
-        #             file_urls.append(url)
-        
         for mf in meeting_files:
-            # Transcribe only meeting_org
             if mf.meeting_org:
                 file_path = os.path.join(settings.MEDIA_ROOT, mf.meeting_org.name)
                 transcript_text = azure_transcribe(file_path)
-                mf.meeting_summary = transcript_text  # Save to DB
+
+                # 📂 Make transcripts folder
+                transcript_dir = os.path.join(settings.MEDIA_ROOT, "transcripts")
+                os.makedirs(transcript_dir, exist_ok=True)
+
+                # Save transcript to TXT
+                txt_filename = f"transcript_meeting_{meeting_id}.txt"
+                txt_path = os.path.join(transcript_dir, txt_filename)
+                with open(txt_path, "w", encoding="utf-8") as f:
+                    f.write(transcript_text)
+
+                # Save transcript to Word
+                doc_filename = f"transcript_meeting_{meeting_id}.docx"
+                doc_path = os.path.join(transcript_dir, doc_filename)
+                document = Document()
+                document.add_heading(f"Transcript for Meeting {meeting_id}", level=1)
+                document.add_paragraph(transcript_text)
+                document.save(doc_path)
+
+                # ✅ Save only filename (not path) into DB
+                mf.meeting_transcripts = doc_filename
                 mf.save()
 
-                url = request.build_absolute_uri(settings.MEDIA_URL + mf.meeting_org.name)
-                file_urls.append(url)
+                # Add URLs for frontend download
+                txt_url = request.build_absolute_uri(settings.MEDIA_URL + f"transcripts/{txt_filename}")
+                doc_url = request.build_absolute_uri(settings.MEDIA_URL + f"transcripts/{doc_filename}")
+                transcript_file_urls.extend([txt_url, doc_url])
 
-            # Add other files if needed
+                # Also return audio file URL
+                audio_url = request.build_absolute_uri(settings.MEDIA_URL + mf.meeting_org.name)
+                file_urls.append(audio_url)
+
+            # Handle individual files
             for file_attr in ["ind_file1", "ind_file2", "ind_file3"]:
                 file_field = getattr(mf, file_attr, None)
                 if file_field:
@@ -102,7 +123,8 @@ def transcript_view(request, meeting_id):
 
         return JsonResponse({
             "meeting": meeting_data,
-            "files": file_urls,
+            "audio_files": file_urls,
+            "transcript_files": transcript_file_urls,
             "transcript": transcript_text
         })
 
