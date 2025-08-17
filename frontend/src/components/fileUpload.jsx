@@ -8,6 +8,7 @@ const FileUpload = ({ onUploadSuccess }) => {
   const [redirect, setRedirect] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState('');
+  const [files, setFiles] = useState([]);
 
   useEffect(() => {
       const fetchUser = async () => {
@@ -44,16 +45,19 @@ const FileUpload = ({ onUploadSuccess }) => {
 
   const fetchFiles = async () => {
     try {
+      if (!user) return;
+      
       const { data, error } = await supabase
         .from('business_data')
         .select('*')
-        .order('created_at', { ascending: false });
-      
+        .eq('uploader', user.employee_id);
+        
       if (error) throw error;
-      setFiles(data);
+      setFiles(data || []);
+      
     } catch (error) {
       console.error('Error fetching files:', error);
-      setError('Failed to fetch files');
+      setError('Error fetching files: ' + error.message);
     }
   };
 
@@ -106,7 +110,9 @@ const FileUpload = ({ onUploadSuccess }) => {
 
       // Reset form and refresh list
       fileInput.value = '';
-      setUploader('');
+      if (onUploadSuccess) {
+        onUploadSuccess(user.employee_id);
+      }
       fetchFiles();
     } catch (error) {
       console.error('Error uploading file:', error);
