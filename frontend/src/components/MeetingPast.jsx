@@ -250,23 +250,27 @@ export default function MeetingPast() {
                   .map(id => getEmployeeName(id))
                   .join(", ")}</p>
 
-              <div className="mt-6 flex justify-end">
-                {hasUploadedFiles(selectedMeeting.meeting_id) ? (
+              <div className="mt-6 flex justify-end gap-3">
+              {hasUploadedFiles(selectedMeeting.meeting_id) ? (
+                <>
                   <button
-                    className="bg-gray-400 text-white px-5 py-2 rounded-lg cursor-not-allowed"
-                    disabled
+                    onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`)}
+                    className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
                   >
-                    Next
+                    📎 Attachment
                   </button>
-                ) : (
-                  <button
-                    onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
-                    className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
-                  >
-                    Next →
-                  </button>
-                )}
-              </div>
+                </>
+              ) : (
+                <button
+                  onClick={() =>
+                    navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })
+                  }
+                  className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
+                >
+                  Next →
+                </button>
+              )}
+            </div>
 
             </div>
           </div>
