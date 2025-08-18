@@ -250,13 +250,6 @@ function MeetingSetup({ onSetupComplete }) {
             </div>
 
             <div className="mt-8 flex justify-end">
-              <button
-                type="button"
-                onClick={() => window.location.href = "http://localhost:5173/meeting"}
-                className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500 mr-2"
-              >
-                Back
-              </button>
               
               <button
                 type="submit"
@@ -340,13 +333,6 @@ function MeetingSetup({ onSetupComplete }) {
 
             {/* Navigation */}
             <div className="mt-8 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500"
-              >
-                ← Back
-              </button>
               <button
                 type="submit"
                 className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
