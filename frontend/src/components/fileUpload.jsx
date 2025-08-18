@@ -124,8 +124,7 @@ const FileUpload = ({ onUploadSuccess }) => {
 
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-8">File Upload Manager</h1>
+    <div className="mx-auto p-6">
       
       {/* Upload Form */}
       <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 rounded-lg">
@@ -136,19 +135,6 @@ const FileUpload = ({ onUploadSuccess }) => {
             {error}
           </div>
         )}
-{/*         
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Your Name (optional):
-          </label>
-          <input
-            type="text"
-            value={uploader}
-            onChange={(e) => setUploader(e.target.value)}
-            className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter your name"
-          />
-        </div> */}
         
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">

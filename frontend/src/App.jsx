@@ -7,7 +7,7 @@ import {
 
 import { supabase } from './lib/supabase'
 
-import FileUpload from './components/FileUpload';
+import FileUpload from './components/fileUpload';
 import FileList from './components/fileList';
 import MeetingGenerator from './components/meetingGenerator';
 import MeetingGenerator2 from './components/meetingGenerator2';

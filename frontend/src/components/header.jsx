@@ -31,7 +31,7 @@ const Header = () => {
               d="M13 10V3L4 14h7v7l9-11h-7z"
             />
           </svg>
-          <span className="ml-2 text-xl font-bold text-gray-800">MyApp</span>
+          <a href="#" className="ml-2 text-xl font-bold text-gray-800">MyApp</a>
         </div>
 
         {/* Navigation */}
@@ -40,7 +40,7 @@ const Header = () => {
             Home
           </a>
           <a href="/files" className="text-gray-600 hover:text-blue-600 transition">
-            Report Generator
+            Report Analyser
           </a>
           <div className="relative inline-block text-left group">
           {/* Main link */}
@@ -75,7 +75,7 @@ const Header = () => {
           </div>
         </div>
           <a href="#" className="text-gray-600 hover:text-blue-600 transition">
-            About
+            Feedback Analyzer
           </a>
            {/* <a href="/meeting" className="text-gray-600 hover:text-blue-600 transition">
             Meeting
