@@ -45,7 +45,7 @@ const FilePage = () =>{
     }, []);
 
     if (redirect) {
-        return <Navigate to="/Login" replace />;
+        return <Navigate to="/" replace />;
     }
 
     if (!user) return null;
@@ -53,14 +53,19 @@ const FilePage = () =>{
     return (
         <>
         <Header />
-            <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-4xl mx-auto">
-                    <FileUpload onUploadSuccess={handleUploadSuccess} />
-                    {user.employee_id && (
-                    <div className="mt-8">
-                        <FileList key={refreshKey} uploader={user.employee_id} />
+            <div className="min-h-screen w-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+                <div className="mx-auto p-6">
+                    <h1 className="text-3xl font-bold mb-8">File Upload Manager</h1>
+                    
+                    <div className="mx-auto flex flex-row w-full">
+                        {user.employee_id && (
+                        <div className="basis-2/3">
+                            <FileList key={refreshKey} uploader={user.employee_id} />
+                        </div>
+                        )}
+
+                        <div className="basis-1/3"><FileUpload onUploadSuccess={handleUploadSuccess} /></div>
                     </div>
-                    )}
                 </div>
             </div>
         </>
