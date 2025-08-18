@@ -20,6 +20,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from datetime import date, datetime
+from django.utils import timezone
 
 class FileProcessingView(generics.CreateAPIView):
 
@@ -1846,6 +1847,33 @@ class MeetingListView(generics.ListCreateAPIView):
         if self.request.method == 'POST':
             return MeetingSubmitSerializer
         return MeetingSerializer
+
+class TodayMeetingListView(generics.ListAPIView):
+    serializer_class = MeetingSerializer
+
+    def get_queryset(self):
+        today = timezone.localdate()
+        return Meeting.objects.filter(
+            meeting_date=today
+        ).order_by('-meeting_time')
+        
+class FutureMeetingListView(generics.ListAPIView):
+    serializer_class = MeetingSerializer
+
+    def get_queryset(self):
+        today = timezone.localdate()
+        return Meeting.objects.filter(
+            meeting_date__gt=today
+        ).order_by('meeting_date', 'meeting_time')
+        
+class PassMeetingListView(generics.ListAPIView):
+    serializer_class = MeetingSerializer
+
+    def get_queryset(self):
+        today = timezone.localdate()
+        return Meeting.objects.filter(
+            meeting_date__lt=today
+        ).order_by('-meeting_date', '-meeting_time')
 
 class DepartmentsListView(generics.ListAPIView):
     queryset = Department.objects.all()

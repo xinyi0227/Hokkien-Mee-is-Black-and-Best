@@ -7,13 +7,16 @@ import {
 
 import { supabase } from './lib/supabase'
 
-import FileUpload from './components/FileUpload';
+import FileUpload from './components/fileUpload';
 import FileList from './components/fileList';
 import MeetingGenerator from './components/meetingGenerator';
 import MeetingGenerator2 from './components/meetingGenerator2';
 import { useEffect, useState } from 'react';
 import MeetingList from './components/MeetingList';
 import MeetingSetup from "./components/MeetingSetup";
+import MeetingToday from "./components/MeetingToday";
+import MeetingFuture from "./components/MeetingFuture";
+import MeetingPast from "./components/MeetingPast";
 import Login from './components/Login';
 import Details from "./components/Details";
 import Register from './components/Register'
@@ -141,8 +144,14 @@ function App() {
 
         {/* Meeting Summary route */}
         <Route
-          path="/meeting"
-          element={<MeetingList />} />
+          path="/meetingsToday"
+          element={<MeetingToday />} />
+        <Route
+          path="/meetingsFuture"
+          element={<MeetingFuture />} />
+        <Route
+          path="/meetingsPast"
+          element={<MeetingPast />} />
 
         {/* Meeting Setup route */}
         <Route path="/setup" element={<MeetingSetup />} />

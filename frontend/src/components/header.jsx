@@ -31,7 +31,7 @@ const Header = () => {
               d="M13 10V3L4 14h7v7l9-11h-7z"
             />
           </svg>
-          <span className="ml-2 text-xl font-bold text-gray-800">MyApp</span>
+          <a href="#" className="ml-2 text-xl font-bold text-gray-800">MyApp</a>
         </div>
 
         {/* Navigation */}
@@ -40,13 +40,42 @@ const Header = () => {
             Home
           </a>
           <a href="/files" className="text-gray-600 hover:text-blue-600 transition">
-            Report Generator
+            Report Analyser
           </a>
-          <a href="/meeting" className="text-gray-600 hover:text-blue-600 transition">
+          <div className="relative inline-block text-left group">
+          {/* Main link */}
+          <a
+            href="/setup"
+            className="flex items-center text-gray-600 hover:text-blue-600 transition"
+          >
             Meeting
+            <span className="ml-1"></span>
           </a>
+
+          {/* Dropdown (no gap, always stays open while hovering parent or dropdown) */}
+          <div className="absolute hidden group-hover:block top-full w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-10 left-1/2 -translate-x-1/2">
+            <a
+              href="/meetingsToday"
+              className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+            >
+              Today
+            </a>
+            <a
+              href="/meetingsFuture"
+              className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+            >
+              Future
+            </a>
+            <a
+              href="/meetingsPast"
+              className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+            >
+              Past
+            </a>
+          </div>
+        </div>
           <a href="#" className="text-gray-600 hover:text-blue-600 transition">
-            About
+            Feedback Analyzer
           </a>
            {/* <a href="/meeting" className="text-gray-600 hover:text-blue-600 transition">
             Meeting
