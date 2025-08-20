@@ -102,3 +102,22 @@ class MeetingFile(models.Model):
     
     class Meta:
         db_table = 'meeting_files'
+        
+class Complaint(models.Model):
+    complaint_id = models.AutoField(primary_key=True)  
+    complaint_date = models.DateField()  
+    complaint_audio = models.FileField(upload_to='audios/complaints/')
+    complaint_transcript = models.TextField()  
+    complaint_summary = models.TextField()  
+    employee = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True)  
+    customer_name = models.CharField(max_length=255, blank=True, null=True)
+    customer_contact = models.CharField(max_length=255, blank=True, null=True)
+    solution = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=255)  # varchar in DB
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "Complaint"
+
+    def __str__(self):
+        return f"Complaint {self.complaint_id} - {self.customer_name or 'Unknown'}"

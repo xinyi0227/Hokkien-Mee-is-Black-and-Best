@@ -1,8 +1,8 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
-from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile
-from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer
+from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, Complaint
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, ViewComplaintSerializer, ComplaintSubmitSerializer
 
 import datetime
 from supabase import create_client, Client
@@ -1778,6 +1778,9 @@ from django.http import JsonResponse
 def transcript_view(request):
     return JsonResponse({"message": "Transcript endpoint works!"})
 
+def complaint_upload(request):
+    return JsonResponse({"message": "Transcript Complaint endpoint works!"})
+
 class TaskListCreateView(generics.ListCreateAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
@@ -3065,3 +3068,11 @@ def upload_meeting_files(request):
 class MeetingFileListView(generics.ListAPIView):
     queryset = MeetingFile.objects.all()
     serializer_class = MeetingFileSerializer
+    
+class ComplaintListView(generics.ListCreateAPIView):
+    queryset = Complaint.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ComplaintSubmitSerializer
+        return ViewComplaintSerializer

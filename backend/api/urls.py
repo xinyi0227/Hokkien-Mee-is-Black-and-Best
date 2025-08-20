@@ -10,15 +10,18 @@ urlpatterns = [
     path('processed-reports/', views.ProcessedReportListView.as_view(), name='processed-reports-list'),
     path('processed-reports/<uuid:pk>/', views.ProcessedReportRetrieveView.as_view(), name='processed-report-detail'),
     path('transcript/', views.transcript_view, name='transcript'),
-    path('meetings', views.MeetingListView.as_view(), name='meeting-list'),
-    path('meetingsToday', views.TodayMeetingListView.as_view(), name='today-meeting-list'),
-    path('meetingsFuture', views.FutureMeetingListView.as_view(), name='future-meeting-list'),
-    path('meetingsPast', views.PassMeetingListView.as_view(), name='past-meeting-list'),
+    path('complaint-upload/', transcript.complaint_upload, name='complaint-upload'),
+    path('meetings/', views.MeetingListView.as_view(), name='meeting-list'),
+    path('meetingsToday/', views.TodayMeetingListView.as_view(), name='today-meeting-list'),
+    path('meetingsFuture/', views.FutureMeetingListView.as_view(), name='future-meeting-list'),
+    path('meetingsPast/', views.PassMeetingListView.as_view(), name='past-meeting-list'),
     path('meetings_detail/<int:meeting_id>/', views.MeetingDetailView.as_view(), name='meeting-detail'),
     path('departments/', views.DepartmentsListView.as_view(), name='departments-list'),
     path("employees/", views.EmployeeForMeetingView.as_view(), name="employee-list"),
     path('meeting_files/', views.upload_meeting_files, name='upload-meeting-files'),
     path('transcript/<int:meeting_id>/', transcript.transcript_view, name="transcript"),
     path('view_meeting_files/', views.MeetingFileListView.as_view(), name='view-meeting-files'),
+    path('complaintList/', views.ComplaintListView.as_view(), name='complaint-list-create'),
+
 
 ]

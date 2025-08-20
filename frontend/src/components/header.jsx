@@ -74,6 +74,13 @@ const Header = () => {
             </a>
           </div>
         </div>
+          <a
+            href="/complaintList"
+            className="flex items-center text-gray-600 hover:text-blue-600 transition"
+          >
+            Complaint
+            <span className="ml-1"></span>
+          </a>
           <a href="#" className="text-gray-600 hover:text-blue-600 transition">
             Feedback Analyzer
           </a>
