@@ -21,6 +21,8 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from datetime import date, datetime
 from django.utils import timezone
+import json
+import re
 
 class FileProcessingView(generics.CreateAPIView):
 
@@ -3076,3 +3078,69 @@ class ComplaintListView(generics.ListCreateAPIView):
         if self.request.method == 'POST':
             return ComplaintSubmitSerializer
         return ViewComplaintSerializer
+
+def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_files):
+    """
+    Uses Gemini to summarize the meeting and analyze tasks for participants.
+    """
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    prompt = f"""
+    You are an AI meeting assistant. Analyze the following meeting details and transcript.
+
+    Meeting Info:
+    Title: {meeting_data.get("title")}
+    Date: {meeting_data.get("date")}
+    Time: {meeting_data.get("time")}
+    Location: {meeting_data.get("location")}
+    Departments: {", ".join(meeting_data.get("departments", []))}
+    Participants: {", ".join(meeting_data.get("participants", []))}
+
+    Transcript (first 5000 chars shown for context):
+    {transcript_text[:5000]}
+
+    Transcript files (full content available if needed): {transcript_files}
+
+    Please provide:
+    1. A clear summary of the meeting (key discussion points, decisions).
+    2. A list of tasks/action items with assignment to specific participants if mentioned. The name of participants will be speak in the meeting. So please assign the task properly to participant.
+    3. Any risks, blockers, or dependencies raised in the meeting.
+    4. A short "next steps" section.
+
+    Format your answer strictly as JSON, no explanations, no extra text. Example:
+
+    {{
+    "summary": "...",
+    "tasks": [{{"task": "...", "assignee": "..."}}],
+    "risks": ["..."],
+    "next_steps": ["..."]
+    }}
+
+    """
+
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+
+        print("🔍 Gemini raw output:", response.text)
+
+
+        # Try direct parse
+        try:
+            return json.loads(raw_text)
+        except json.JSONDecodeError:
+            # Extract JSON using regex
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            else:
+                return {
+                    "summary": "Parsing failed.",
+                    "tasks": [],
+                    "risks": [],
+                    "next_steps": []
+                }
+    except Exception as e:
+        return {"error": str(e)}
