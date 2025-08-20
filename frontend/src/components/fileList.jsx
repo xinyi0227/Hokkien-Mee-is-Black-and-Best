@@ -130,7 +130,7 @@ const FileList = ({ uploader }) => {
       </div>
       {/* File List */}
       <div className="space-y-4">
-        {files.map((file) => (
+        {files.length > 0 && files.map((file) => (
           <div
             key={file.id}
             className="p-4 border rounded-lg bg-white border-gray-200"
@@ -158,11 +158,21 @@ const FileList = ({ uploader }) => {
                   Download
                 </a>
                 <button
+                  onClick={() => processFileWithGemini(file.id)}
+                  disabled={processingFiles[file.id]}
+                  className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50 inline-flex"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6 mr-2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
+                  </svg>
+                  {processingFiles[file.id] ? 'Processing...' : 'Process with AI'}
+                </button>
+                <button
                   onClick={() => deleteFile(file.id, file.file_url)}
                   className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 inline-flex"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6 mr-2">
-                    <path fillRule="evenodd" d="M16.5 4.478v.227a48.816 48.816 0 0 1 3.878.512.75.75 0 1 1-.256 1.478l-.209-.035-1.005 13.07a3 3 0 0 1-2.991 2.77H8.084a3 3 0 0 1-2.991-2.77L4.087 6.66l-.209.035a.75.75 0 0 1-.256-1.478A48.567 48.567 0 0 1 7.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 0 1 3.369 0c1.603.051 2.815 1.387 2.815 2.951Zm-6.136-1.452a51.196 51.196 0 0 1 3.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 0 0-6 0v-.113c0-.794.609-1.428 1.364-1.452Zm-.355 5.945a.75.75 0 1 0-1.5.058l.347 9a.75.75 0 1 0 1.499-.058l-.346-9Zm5.48.058a.75.75 0 1 0-1.498-.058l-.347 9a.75.75 0 0 0 1.5.058l.345-9Z" clipRule="evenodd" />
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6 mr-2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg>
                   Delete
                 </button>
@@ -176,27 +186,6 @@ const FileList = ({ uploader }) => {
         <p className="text-center text-gray-500 mt-8">
           No files uploaded yet. Upload your first file above!
         </p>
-      )}
-
-      {/* Processing Button */}
-      {files.length > 0 && (
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-medium mb-4">Smart Analysis</h3>
-          <div className="space-y-4">
-            {files.map(file => (
-              <div key={file.id} className="flex items-center justify-between p-3 bg-white rounded border">
-                <span>{file.fileName}</span>
-                <button
-                  onClick={() => processFileWithGemini(file.id)}
-                  disabled={processingFiles[file.id]}
-                  className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50"
-                >
-                  {processingFiles[file.id] ? 'Processing...' : 'Process with AI'}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
       )}
 
       {/* Processed Reports */}
