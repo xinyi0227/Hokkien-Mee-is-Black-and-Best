@@ -21,7 +21,7 @@ import Login from './components/Login';
 import Details from "./components/Details";
 import Register from './components/Register'
 import FilePage from './components/filePage';
-
+import ArchiveList from './components/ArchiveList';
 import Transcript from "./components/Transcript";
 
 function App() {
@@ -131,6 +131,8 @@ function App() {
             </div>
           }
         />
+        
+<Route path="/archive" element={<ArchiveList currentUser={currentUser} />} />
 
         {/* CSV Upload route */}
         <Route
