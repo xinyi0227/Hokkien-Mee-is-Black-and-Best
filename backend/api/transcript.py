@@ -6,6 +6,8 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Meeting, MeetingFile, Employee, Department
 from docx import Document
 import re
+from .views import get_meeting_summary_and_tasks
+ 
 
 def azure_transcribe(file_path):
     speech_config = speechsdk.SpeechConfig(
@@ -136,6 +138,14 @@ def transcript_view(request, meeting_id):
                 audio_url = request.build_absolute_uri(settings.MEDIA_URL + mf.meeting_org.name)
                 file_urls.append(audio_url)
 
+                # After transcription and saving
+                gemini_result = get_meeting_summary_and_tasks(
+                    meeting_data,
+                    transcript_text,
+                    transcript_file_urls
+                )
+
+
             # Handle individual files
             for file_attr in ["ind_file1", "ind_file2", "ind_file3"]:
                 file_field = getattr(mf, file_attr, None)
@@ -147,7 +157,9 @@ def transcript_view(request, meeting_id):
             "meeting": meeting_data,
             "audio_files": file_urls,
             "transcript_files": transcript_file_urls,
-            "transcript": transcript_text
+            "transcript": transcript_text,
+            "gemini": get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file_urls)
+
         })
 
     except Meeting.DoesNotExist:
