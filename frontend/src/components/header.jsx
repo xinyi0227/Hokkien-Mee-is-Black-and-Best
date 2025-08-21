@@ -40,7 +40,7 @@ const Header = () => {
             Home
           </a>
           <a href="/files" className="text-gray-600 hover:text-blue-600 transition">
-            Report Analyser
+            Report Generator
           </a>
           <div className="relative inline-block text-left group">
           {/* Main link */}
@@ -74,8 +74,8 @@ const Header = () => {
             </a>
           </div>
         </div>
-          <a href="#" className="text-gray-600 hover:text-blue-600 transition">
-            Feedback Analyzer
+          <a href="/feedbackAnalyser" className="text-gray-600 hover:text-blue-600 transition">
+            Feedback Analyser
           </a>
            {/* <a href="/meeting" className="text-gray-600 hover:text-blue-600 transition">
             Meeting

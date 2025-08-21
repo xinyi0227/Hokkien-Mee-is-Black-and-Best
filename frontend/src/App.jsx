@@ -7,8 +7,6 @@ import {
 
 import { supabase } from './lib/supabase'
 
-import FileUpload from './components/fileUpload';
-import FileList from './components/fileList';
 import MeetingGenerator from './components/meetingGenerator';
 import MeetingGenerator2 from './components/meetingGenerator2';
 import { useEffect, useState } from 'react';
@@ -21,6 +19,7 @@ import Login from './components/Login';
 import Details from "./components/Details";
 import Register from './components/Register'
 import FilePage from './components/filePage';
+import CommentFilePage from './components/CommentAnalyser';
 
 import Transcript from "./components/Transcript";
 
@@ -106,13 +105,13 @@ function App() {
         />
 
         <Route 
-  path="/transcript/:meetingId" 
-  element={
-    <div className="min-h-screen bg-gray-100">
-      <Transcript />
-    </div>
-  } 
-/>
+          path="/transcript/:meetingId" 
+          element={
+            <div className="min-h-screen bg-gray-100">
+              <Transcript />
+            </div>
+          } 
+        />
 
         <Route
           path="/MeetingGenerator2"
@@ -155,6 +154,10 @@ function App() {
 
         {/* Meeting Setup route */}
         <Route path="/setup" element={<MeetingSetup />} />
+
+        {/* Comment Analyser */}
+        <Route 
+          path="/feedbackAnalyser" element={<CommentFilePage />} />
       </Routes>
     </Router>
   );

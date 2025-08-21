@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase.js';
 import { Navigate } from 'react-router-dom';
 import axios from 'axios';
 
-const FileUpload = ({ onUploadSuccess }) => {
+const CommentFileUpload = ({ onUploadSuccess }) => {
   const [user, setUser] = useState(null);
   const [redirect, setRedirect] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -51,7 +51,7 @@ const FileUpload = ({ onUploadSuccess }) => {
         .from('business_data')
         .select('*')
         .eq('uploader', user.employee_id)
-        .in('UseCase', 'sales');
+        .in('UseCase', 'comments');
         
       if (error) throw error;
       setFiles(data || []);
@@ -80,7 +80,7 @@ const FileUpload = ({ onUploadSuccess }) => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
-      const filetype = "sales";
+      const filetype = "comments";
 
       // 3. Upload file to storage
       const { error: uploadError } = await supabase.storage
@@ -179,4 +179,4 @@ const FileUpload = ({ onUploadSuccess }) => {
   );
 };
 
-export default FileUpload;
+export default CommentFileUpload;

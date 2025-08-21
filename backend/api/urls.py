@@ -20,5 +20,8 @@ urlpatterns = [
     path('meeting_files/', views.upload_meeting_files, name='upload-meeting-files'),
     path('transcript/<int:meeting_id>/', transcript.transcript_view, name="transcript"),
     path('view_meeting_files/', views.MeetingFileListView.as_view(), name='view-meeting-files'),
-
+    path('comment-reports/', views.CommentReportListView.as_view(), name='comment-report-list'),
+    path('comment-reports/<uuid:pk>/', views.CommentReportRetrieveView.as_view(), name='comment-report-detail'),
+    path('analyse-comment/', views.FeedbackAnalysisView.as_view(), name='analyse-comment'),
+    
 ]

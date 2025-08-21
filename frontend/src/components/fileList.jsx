@@ -21,7 +21,8 @@ const FileList = ({ uploader }) => {
         const { data: filesData, error: filesError } = await supabase
           .from('business_data')
           .select('*')
-          .eq('uploader', uploader);
+          .eq('uploader', uploader)
+          .eq('UseCase', 'sales');
 
         if (filesError) throw filesError;
 
