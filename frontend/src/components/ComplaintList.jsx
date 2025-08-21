@@ -21,6 +21,8 @@ export default function ComplaintList() {
   const [currentPage, setCurrentPage] = useState(1);
   const complaintsPerPage = 10;
 
+  const [viewMine, setViewMine] = useState(true);
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -82,35 +84,41 @@ export default function ComplaintList() {
   };
 
   const filterComplaints = (c) => {
-    if (!currentUser) return false;
-    const empId = String(c.employee || c.employee_id);
-    const complaintEmp = employees.find((e) => String(e.employee_id) === empId);
-    if (!complaintEmp) return false;
+  if (!currentUser) return false;
 
-    if (currentUser.role === "employee") {
+  const empId = String(c.employee || c.employee_id);
+  const complaintEmp = employees.find((e) => String(e.employee_id) === empId);
+  if (!complaintEmp) return false;
+
+  if (currentUser.role === "employee") {
+    // Employee sees only their own
+    if (String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
+  } else if (currentUser.role === "manager") {
+    if (viewMine) {
+      // Show only self
       if (String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
-    } else if (currentUser.role === "manager") {
+    } else {
+      // Show all in department
       if (String(complaintEmp.department_id) !== String(currentUser.department_id)) return false;
     }
+  } // Boss: ignore viewMine, can see all
+  else if (currentUser.role === "boss") {
+    // Boss can see everything, optionally "Show Mine" can filter their own
+    if (viewMine && String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
+  }
 
-    if (filters.departments.length > 0) {
-      if (!filters.departments.map(String).includes(String(complaintEmp.department_id))) return false;
-    }
+  // Filters
+  if (filters.departments.length > 0 && !filters.departments.map(String).includes(String(complaintEmp.department_id))) return false;
+  if (filters.handledBy.length > 0 && !filters.handledBy.map(String).includes(String(complaintEmp.employee_id))) return false;
+  if (filters.status && c.status !== filters.status) return false;
+  if (filters.complaintDate) {
+    const complaintDate = new Date(c.complaint_date).toDateString();
+    const selectedDate = new Date(filters.complaintDate).toDateString();
+    if (complaintDate !== selectedDate) return false;
+  }
 
-    if (filters.handledBy.length > 0) {
-      if (!filters.handledBy.map(String).includes(String(complaintEmp.employee_id))) return false;
-    }
-
-    if (filters.status && c.status !== filters.status) return false;
-
-    if (filters.complaintDate) {
-      const complaintDate = new Date(c.complaint_date).toDateString();
-      const selectedDate = new Date(filters.complaintDate).toDateString();
-      if (complaintDate !== selectedDate) return false;
-    }
-
-    return true;
-  };
+  return true;
+};
 
   const displayedComplaints = currentUser ? complaints.filter(filterComplaints) : [];
 
@@ -142,6 +150,23 @@ export default function ComplaintList() {
               + Add Complaint
             </button>
           </div>
+
+          {currentUser && (currentUser.role === "manager" || currentUser.role === "boss") && (
+            <div className="mb-4 flex gap-2">
+              <button
+                className={`px-3 py-1 rounded ${viewMine ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+                onClick={() => setViewMine(true)}
+              >
+                Show Mine
+              </button>
+              <button
+                className={`px-3 py-1 rounded ${!viewMine ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+                onClick={() => setViewMine(false)}
+              >
+                Show All
+              </button>
+            </div>
+          )}
 
           {/* Filter Section */}
           {currentUser && (
@@ -257,7 +282,15 @@ export default function ComplaintList() {
                       <td className="px-4 py-2 border">{getEmployeeInfo(c.employee)}</td>
                       <td className="px-4 py-2 border">{c.customer_name}</td>
                       <td className="px-4 py-2 border">{c.customer_contact}</td>
-                      <td className="px-4 py-2 border">{c.complaint_summary}</td>
+                      <td className="px-4 py-2 border max-w-xs">
+                        {c.complaint_summary.length > 100 ? (
+                          <span title={c.complaint_summary}>
+                            {c.complaint_summary.substring(0, 100)}...
+                          </span>
+                        ) : (
+                          c.complaint_summary
+                        )}
+                      </td>
                       <td className="px-4 py-2 border">{getStatusBadge(c.status)}</td>
                       <td className="px-4 py-2 border text-center">
                         <button
@@ -307,24 +340,24 @@ export default function ComplaintList() {
         )}
 
         {/* Modal */}
-{selectedComplaint && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-    <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-xl relative">
-      {/* Close Button */}
-      <button
-        onClick={() => setSelectedComplaint(null)}
-        className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl font-bold"
-      >
-        &times;
-      </button>
+        {selectedComplaint && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-xl relative">
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedComplaint(null)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl font-bold"
+              >
+                &times;
+              </button>
 
-      {/* Edit Button */}
-      <button
-        onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
-        className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
-      >
-        Edit
-      </button>
+              {/* Edit Button */}
+              <button
+                onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
+                className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+              >
+                Edit
+              </button>
               <h2 className="text-2xl font-bold mb-4 text-gray-800">Complaint Details</h2>
               <div className="space-y-3 text-gray-700">
                 <p><strong>Date:</strong> {selectedComplaint.complaint_date}</p>

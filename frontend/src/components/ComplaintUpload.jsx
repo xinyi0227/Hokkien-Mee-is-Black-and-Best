@@ -15,6 +15,7 @@ export default function ComplaintUpload() {
     const [error, setError] = useState("");
     const [fieldErrors, setFieldErrors] = useState({}); 
     const [complaintAudio, setComplaintAudio] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
         const fetchEmployees = async () => {
@@ -40,6 +41,27 @@ export default function ComplaintUpload() {
         fetchEmployees();
         fetchDepartments();
     }, []);
+
+    useEffect(() => {
+        const userEmail = localStorage.getItem("user_email");
+        if (userEmail && employees.length > 0) {
+            const emp = employees.find((e) => e.email === userEmail);
+            if (emp) {
+                setCurrentUser(emp);
+                setEmployeeId({ 
+                    value: emp.employee_id, 
+                    label: `${emp.employee_name} (${getDeptName(emp.department_id)})` 
+                });
+            }
+        }
+    }, [employees]);
+
+    const getEmployeeInfo = (employeeId) => {
+        const emp = employees.find((e) => String(e.employee_id) === String(employeeId));
+        if (!emp) return `Unknown (ID: ${employeeId})`;
+        const dept = departments.find((d) => String(d.department_id) === String(emp.department_id));
+        return `${emp.employee_name} (${dept ? dept.department_name : emp.department_id})`;
+    };
 
     const getDeptName = (deptIds) => {
         if (!deptIds) return "Unknown";
@@ -141,22 +163,14 @@ const handleSubmit = async (e) => {
 
                         {/* Employee (Searchable Select) */}
                         <div>
-                            <label className="block font-medium mb-1">Handled By</label>
-                            <Select
-                                value={employeeId}
-                                onChange={setEmployeeId}
-                                options={employees.map((emp) => ({
-                                    value: emp.employee_id,
-                                    label: `${emp.employee_name} (${getDeptName(emp.department_id)})`,
-                                }))}
-                                placeholder="Search or select an employee"
-                                isClearable
-                                className="w-full"
-                            />
-                            {fieldErrors.employee_id && (
-                                <p className="text-red-600 mt-1">{fieldErrors.employee_id.join(", ")}</p>
-                            )}
-                        </div>
+    <label className="block font-medium mb-1">Handled By</label>
+    <input
+        type="text"
+        value={employeeId ? employeeId.label : ""}
+        className="p-2 border rounded w-full bg-gray-100"
+        disabled
+    />
+</div>
 
                         {/* Customer Name */}
                         <div>

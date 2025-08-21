@@ -3198,6 +3198,72 @@ def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file
     except Exception as e:
         return {"error": str(e)}
     
+def get_complaint_summary_and_solution(complaint_data, transcript_text):
+    """
+    Analyze complaint transcript to generate a summary and solution.
+    If a solution is already mentioned in the transcript, use that.
+    Otherwise, suggest a new one.
+    The summary will be returned as a single paragraph (string) instead of a list.
+    """
+
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    prompt = f"""
+    You are an AI complaint assistant. Analyze the following complaint transcript and details.
+
+    Complaint Info:
+    Customer Name: {complaint_data.get("customer_name")}
+    Customer Contact: {complaint_data.get("customer_contact")}
+    Employee Handling: {complaint_data.get("employee_name")}
+    Complaint Date: {complaint_data.get("complaint_date")}
+
+    Transcript (first 5000 chars shown for context):
+    {transcript_text[:5000]}
+
+    ⚠️ Instructions:
+    1. Provide a concise complaint summary as a single paragraph (combine sentences, do not use a bullet list).
+    2. If the transcript explicitly mentions a proposed solution from the employee or customer, use that as the solution.
+    3. If no solution is mentioned, generate a suggested solution to resolve the complaint.
+    4. Keep the summary factual, neutral, and relevant to the customer issue.
+    5. Return your answer strictly in JSON format like below:
+
+    {{
+        "complaint_summary": "Concise paragraph summarizing the complaint",
+        "solution": "Solution mentioned in transcript or newly suggested"
+    }}
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+        print("🔍 Gemini raw output:", raw_text)
+
+        # Try parsing JSON
+        try:
+            result = json.loads(raw_text)
+        except json.JSONDecodeError:
+            # Fallback: extract JSON substring from raw output
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                result = json.loads(match.group(0))
+            else:
+                result = {
+                    "complaint_summary": "Parsing failed.",
+                    "solution": "None"
+                }
+
+        # Ensure keys exist
+        if "complaint_summary" not in result:
+            result["complaint_summary"] = "Summary not available."
+        if "solution" not in result:
+            result["solution"] = "Solution not available."
+
+        return result
+
+    except Exception as e:
+        return {"complaint_summary": "Error generating summary.", "solution": str(e)}
+    
     
 
 
