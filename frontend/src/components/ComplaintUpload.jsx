@@ -13,7 +13,7 @@ export default function ComplaintUpload() {
     const [customerContact, setCustomerContact] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [fieldErrors, setFieldErrors] = useState({}); 
+    const [fieldErrors, setFieldErrors] = useState({});
     const [complaintAudio, setComplaintAudio] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
 
@@ -48,9 +48,9 @@ export default function ComplaintUpload() {
             const emp = employees.find((e) => e.email === userEmail);
             if (emp) {
                 setCurrentUser(emp);
-                setEmployeeId({ 
-                    value: emp.employee_id, 
-                    label: `${emp.employee_name} (${getDeptName(emp.department_id)})` 
+                setEmployeeId({
+                    value: emp.employee_id,
+                    label: `${emp.employee_name} (${getDeptName(emp.department_id)})`
                 });
             }
         }
@@ -75,65 +75,65 @@ export default function ComplaintUpload() {
 
 
     const handleComplaintAudioChange = (e) => {
-  setComplaintAudio(e.target.files[0]); // store the selected file
-};
+        setComplaintAudio(e.target.files[0]); // store the selected file
+    };
 
-const handleSubmit = async (e) => {
-    e.preventDefault();
+    const handleSubmit = async (e) => {
+        e.preventDefault();
 
-    // Clear previous errors
-    setError("");
-    setFieldErrors({});
+        // Clear previous errors
+        setError("");
+        setFieldErrors({});
 
-    if (!complaintDate || !employeeId || !complaintAudio  || !customerName || !customerContact) {
-        setError("All fields are required.");
-        return;
-    }
-
-    setLoading(true);
-
-    try {
-        const formData = new FormData();
-        formData.append("complaint_date", complaintDate);
-        formData.append("employee_id", employeeId.value);
-        formData.append("complaint_audio", complaintAudio);  // Match your serializer field name
-        formData.append("customer_name", customerName);
-        formData.append("customer_contact", customerContact);
-
-        // Fixed URL to match your Django URL pattern
-        const response = await fetch("http://localhost:8000/api/complaint-upload/", {
-            method: "POST",
-            body: formData,
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            // Handle DRF validation errors
-            if (data) {
-                const fieldErrors = {};
-                Object.keys(data).forEach(key => {
-                    if (Array.isArray(data[key])) {
-                        fieldErrors[key] = data[key];
-                    }
-                });
-                setFieldErrors(fieldErrors);
-                setError(data.non_field_errors ? data.non_field_errors.join(", ") : "Upload failed");
-            } else {
-                setError("Upload failed");
-            }
+        if (!complaintDate || !employeeId || !complaintAudio || !customerName || !customerContact) {
+            setError("All fields are required.");
             return;
         }
 
-        console.log("Complaint uploaded:", data);
-        navigate("/complaintList");
-    } catch (err) {
-        console.error(err);
-        setError("Failed to upload complaint.");
-    } finally {
-        setLoading(false);
-    }
-};
+        setLoading(true);
+
+        try {
+            const formData = new FormData();
+            formData.append("complaint_date", complaintDate);
+            formData.append("employee_id", employeeId.value);
+            formData.append("complaint_audio", complaintAudio);  // Match your serializer field name
+            formData.append("customer_name", customerName);
+            formData.append("customer_contact", customerContact);
+
+            // Fixed URL to match your Django URL pattern
+            const response = await fetch("http://localhost:8000/api/complaint-upload/", {
+                method: "POST",
+                body: formData,
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // Handle DRF validation errors
+                if (data) {
+                    const fieldErrors = {};
+                    Object.keys(data).forEach(key => {
+                        if (Array.isArray(data[key])) {
+                            fieldErrors[key] = data[key];
+                        }
+                    });
+                    setFieldErrors(fieldErrors);
+                    setError(data.non_field_errors ? data.non_field_errors.join(", ") : "Upload failed");
+                } else {
+                    setError("Upload failed");
+                }
+                return;
+            }
+
+            console.log("Complaint uploaded:", data);
+            navigate("/complaintList");
+        } catch (err) {
+            console.error(err);
+            setError("Failed to upload complaint.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <>
@@ -163,14 +163,14 @@ const handleSubmit = async (e) => {
 
                         {/* Employee (Searchable Select) */}
                         <div>
-    <label className="block font-medium mb-1">Handled By</label>
-    <input
-        type="text"
-        value={employeeId ? employeeId.label : ""}
-        className="p-2 border rounded w-full bg-gray-100"
-        disabled
-    />
-</div>
+                            <label className="block font-medium mb-1">Handled By</label>
+                            <input
+                                type="text"
+                                value={employeeId ? employeeId.label : ""}
+                                className="p-2 border rounded w-full bg-gray-100"
+                                disabled
+                            />
+                        </div>
 
                         {/* Customer Name */}
                         <div>

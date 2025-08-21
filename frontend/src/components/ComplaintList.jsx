@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Header from "./header";
 import { useNavigate } from "react-router-dom";
 import Select from "react-select";
+import jsPDF from "jspdf";
 
 export default function ComplaintList() {
   const [complaints, setComplaints] = useState([]);
@@ -84,41 +85,41 @@ export default function ComplaintList() {
   };
 
   const filterComplaints = (c) => {
-  if (!currentUser) return false;
+    if (!currentUser) return false;
 
-  const empId = String(c.employee || c.employee_id);
-  const complaintEmp = employees.find((e) => String(e.employee_id) === empId);
-  if (!complaintEmp) return false;
+    const empId = String(c.employee || c.employee_id);
+    const complaintEmp = employees.find((e) => String(e.employee_id) === empId);
+    if (!complaintEmp) return false;
 
-  if (currentUser.role === "employee") {
-    // Employee sees only their own
-    if (String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
-  } else if (currentUser.role === "manager") {
-    if (viewMine) {
-      // Show only self
+    if (currentUser.role === "employee") {
+      // Employee sees only their own
       if (String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
-    } else {
-      // Show all in department
-      if (String(complaintEmp.department_id) !== String(currentUser.department_id)) return false;
+    } else if (currentUser.role === "manager") {
+      if (viewMine) {
+        // Show only self
+        if (String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
+      } else {
+        // Show all in department
+        if (String(complaintEmp.department_id) !== String(currentUser.department_id)) return false;
+      }
+    } // Boss: ignore viewMine, can see all
+    else if (currentUser.role === "boss") {
+      // Boss can see everything, optionally "Show Mine" can filter their own
+      if (viewMine && String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
     }
-  } // Boss: ignore viewMine, can see all
-  else if (currentUser.role === "boss") {
-    // Boss can see everything, optionally "Show Mine" can filter their own
-    if (viewMine && String(complaintEmp.employee_id) !== String(currentUser.employee_id)) return false;
-  }
 
-  // Filters
-  if (filters.departments.length > 0 && !filters.departments.map(String).includes(String(complaintEmp.department_id))) return false;
-  if (filters.handledBy.length > 0 && !filters.handledBy.map(String).includes(String(complaintEmp.employee_id))) return false;
-  if (filters.status && c.status !== filters.status) return false;
-  if (filters.complaintDate) {
-    const complaintDate = new Date(c.complaint_date).toDateString();
-    const selectedDate = new Date(filters.complaintDate).toDateString();
-    if (complaintDate !== selectedDate) return false;
-  }
+    // Filters
+    if (filters.departments.length > 0 && !filters.departments.map(String).includes(String(complaintEmp.department_id))) return false;
+    if (filters.handledBy.length > 0 && !filters.handledBy.map(String).includes(String(complaintEmp.employee_id))) return false;
+    if (filters.status && c.status !== filters.status) return false;
+    if (filters.complaintDate) {
+      const complaintDate = new Date(c.complaint_date).toDateString();
+      const selectedDate = new Date(filters.complaintDate).toDateString();
+      if (complaintDate !== selectedDate) return false;
+    }
 
-  return true;
-};
+    return true;
+  };
 
   const displayedComplaints = currentUser ? complaints.filter(filterComplaints) : [];
 
@@ -128,6 +129,174 @@ export default function ComplaintList() {
     if (currentUser.role === "manager")
       return employees.filter((e) => String(e.department_id) === String(currentUser.department_id));
     return [];
+  };
+
+  const downloadPDF = (complaint) => {
+    if (!complaint) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const contentWidth = pageWidth - (margin * 2);
+    let currentY = 30;
+
+    // Add company header with logo and information
+    const addHeader = () => {
+      // Company logo (replace with actual logo path)
+      // const img = new Image();
+      // img.src = '/path/to/company-logo.png';
+      // doc.addImage(img, 'PNG', margin, 15, 40, 15);
+
+      // Company info
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont("helvetica", "normal");
+      doc.text("Company Name Inc.", margin, 15);
+      doc.text("123 Business Avenue", margin, 20);
+      doc.text("New York, NY 10001", margin, 25);
+
+      // Report title
+      doc.setFontSize(18);
+      doc.setTextColor(60, 90, 150);
+      doc.setFont("helvetica", "bold");
+      doc.text("COMPLAINT REPORT", pageWidth / 2, 25, { align: "center" });
+
+      // Horizontal line
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(margin, 35, pageWidth - margin, 35);
+
+      currentY = 45;
+    };
+
+    // Add footer with page numbers and generation info
+    const addFooter = () => {
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Generated on ${new Date().toLocaleDateString()}`, margin, 285);
+      doc.text(`Page 1 of 1`, pageWidth / 2, 285, { align: "center" });
+      doc.text("Confidential - For internal use only", pageWidth - margin, 285, { align: "right" });
+    };
+
+    // Create a section with title and content
+    const addSection = (title, content, isMultiLine = false) => {
+      // Section title
+      doc.setFontSize(12);
+      doc.setTextColor(60, 90, 150);
+      doc.setFont("helvetica", "bold");
+      doc.text(title, margin, currentY);
+      currentY += 7;
+
+      // Section content
+      doc.setFontSize(11);
+      doc.setTextColor(80, 80, 80);
+      doc.setFont("helvetica", "normal");
+
+      if (isMultiLine) {
+        const lines = doc.splitTextToSize(content, contentWidth);
+        doc.text(lines, margin, currentY);
+        currentY += lines.length * 6 + 5;
+      } else {
+        doc.text(content, margin, currentY);
+        currentY += 8;
+      }
+
+      currentY += 5; // Extra spacing after section
+    };
+
+    // Create a two-column section
+    const addTwoColumnSection = (leftTitle, leftContent, rightTitle, rightContent) => {
+      const colWidth = contentWidth / 2;
+
+      // Left column
+      doc.setFontSize(11);
+      doc.setTextColor(60, 90, 150);
+      doc.setFont("helvetica", "bold");
+      doc.text(leftTitle, margin, currentY);
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.setFont("helvetica", "normal");
+      doc.text(leftContent, margin, currentY + 6);
+
+      // Right column
+      doc.setFontSize(11);
+      doc.setTextColor(60, 90, 150);
+      doc.setFont("helvetica", "bold");
+      doc.text(rightTitle, margin + colWidth, currentY);
+      doc.setFontSize(10);
+      doc.setTextColor(80, 80, 80);
+      doc.setFont("helvetica", "normal");
+      doc.text(rightContent, margin + colWidth, currentY + 6);
+
+      currentY += 15;
+    };
+
+    // Create a status badge
+    const addStatusBadge = (status) => {
+      let color;
+      switch (status.toLowerCase()) {
+        case 'resolved': color = [76, 175, 80]; break; // Green
+        case 'in progress': color = [33, 150, 243]; break; // Blue
+        case 'pending': color = [255, 193, 7]; break; // Amber
+        case 'rejected': color = [244, 67, 54]; break; // Red
+        default: color = [158, 158, 158]; // Gray
+      }
+
+      doc.setFillColor(...color);
+      doc.setDrawColor(...color);
+      doc.roundedRect(pageWidth - margin - 30, currentY - 7, 30, 8, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(status.toUpperCase(), pageWidth - margin - 15, currentY - 2, { align: "center" });
+      doc.setTextColor(80, 80, 80);
+    };
+
+    // Start building the PDF
+    addHeader();
+
+    // Complaint ID with status badge
+    doc.setFontSize(14);
+    doc.setTextColor(50, 50, 50);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Complaint #${complaint.complaint_id}`, margin, currentY);
+    addStatusBadge(complaint.status);
+    currentY += 15;
+
+    // Basic information in two columns
+    addTwoColumnSection("Date Filed:", complaint.complaint_date, "Handled By:", getEmployeeInfo(complaint.employee));
+    addTwoColumnSection("Customer:", complaint.customer_name, "Contact:", complaint.customer_contact);
+
+    // Summary section
+    addSection("Complaint Summary:", complaint.complaint_summary, true);
+
+    // Solution section
+    addSection("Solution Provided:", complaint.solution || "No solution provided yet.", true);
+
+    // Add a notes section if needed
+    if (complaint.notes) {
+      addSection("Additional Notes:", complaint.notes, true);
+    }
+
+    // Add signature lines if resolved
+    if (complaint.status.toLowerCase() === 'resolved') {
+      currentY += 10;
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, currentY, margin + 80, currentY);
+      doc.line(pageWidth - margin - 80, currentY, pageWidth - margin, currentY);
+      currentY += 5;
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      doc.text("Customer Signature", margin, currentY);
+      doc.text("Company Representative", pageWidth - margin - 80, currentY);
+    }
+
+    // Add footer
+    addFooter();
+
+    // Save the PDF
+    doc.save(`Complaint_Report_${complaint.complaint_id}.pdf`);
   };
 
   // Pagination calculations
@@ -351,13 +520,7 @@ export default function ComplaintList() {
                 &times;
               </button>
 
-              {/* Edit Button */}
-              <button
-                onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
-                className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
-              >
-                Edit
-              </button>
+
               <h2 className="text-2xl font-bold mb-4 text-gray-800">Complaint Details</h2>
               <div className="space-y-3 text-gray-700">
                 <p><strong>Date:</strong> {selectedComplaint.complaint_date}</p>
@@ -397,14 +560,21 @@ export default function ComplaintList() {
                     </div>
                   </div>
                 )}
+                {/* Edit Button */}
+                <button
+                  onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
+                  className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+                >
+                  Edit
+                </button>
 
 
-                {selectedComplaint.complaint_transcript && (
-                  <div className="mt-4 bg-gray-50 p-4 rounded border border-gray-200">
-                    <p className="font-semibold mb-2">Transcript:</p>
-                    <p className="whitespace-pre-wrap">{selectedComplaint.complaint_transcript}</p>
-                  </div>
-                )}
+                <button
+                  onClick={() => downloadPDF(selectedComplaint)}
+                  className="absolute top-4 right-32 bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700"
+                >
+                  Download as PDF
+                </button>
               </div>
             </div>
           </div>
