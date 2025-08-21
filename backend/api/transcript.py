@@ -3,9 +3,20 @@ import azure.cognitiveservices.speech as speechsdk
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import Meeting, MeetingFile, Employee, Department
+from .models import Meeting, MeetingFile, Employee, Department,Task, Complaint
 from docx import Document
 import re
+from .views import get_meeting_summary_and_tasks, get_complaint_summary_and_solution
+from django.utils import timezone 
+from django.core.files.base import ContentFile
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import io
+import json
+from datetime import datetime
+from django.http import JsonResponse
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 def azure_transcribe(file_path):
     speech_config = speechsdk.SpeechConfig(
@@ -84,6 +95,7 @@ def transcript_view(request, meeting_id):
             participant_names = [p.employee_name for p in participants]
 
         meeting_data = {
+            "ID": meeting.meeting_id,
             "title": meeting.meeting_title,
             "date": meeting.meeting_date,
             "time": meeting.meeting_time,
@@ -136,6 +148,34 @@ def transcript_view(request, meeting_id):
                 audio_url = request.build_absolute_uri(settings.MEDIA_URL + mf.meeting_org.name)
                 file_urls.append(audio_url)
 
+                # After transcription and saving
+                gemini_result = get_meeting_summary_and_tasks(
+                    meeting_data,
+                    transcript_text,
+                    transcript_file_urls
+                )
+
+                # Save tasks to DB
+                if "tasks" in gemini_result:
+                    for name, tasks in gemini_result["tasks"].items():
+                        try:
+                            assignee = Employee.objects.get(employee_name=name)
+                        except Employee.DoesNotExist:
+                            assignee = None  # fallback if no match
+
+                        # for task in tasks:
+                        #     Task.objects.create(
+                        #         meeting=meeting,
+                        #         assignee=assignee,
+                        #         task_title=task.get("task_title", "Untitled Task"),
+                        #         task_content=task.get("task_content", ""),
+                        #         urgent_level=task.get("urgent_level", "medium"),
+                        #         deadline=task.get("deadline") if task.get("deadline") != "None" else None,
+                        #         status="pending",
+                        #         created_at=timezone.now()
+                        #     )
+
+
             # Handle individual files
             for file_attr in ["ind_file1", "ind_file2", "ind_file3"]:
                 file_field = getattr(mf, file_attr, None)
@@ -147,8 +187,217 @@ def transcript_view(request, meeting_id):
             "meeting": meeting_data,
             "audio_files": file_urls,
             "transcript_files": transcript_file_urls,
-            "transcript": transcript_text
+            "transcript": transcript_text,
+            "gemini": get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file_urls)
+
         })
 
     except Meeting.DoesNotExist:
         return JsonResponse({"error": "Meeting not found"}, status=404)
+
+import io
+import os
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.core.files.base import ContentFile
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
+from .models import Meeting, MeetingFile, Employee, Task
+
+
+@csrf_exempt
+def approve_summary(request, meeting_id):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        summary = data.get("summary", [])
+        tasks = data.get("tasks", {})
+
+        # ✅ Fetch meeting first
+        try:
+            meeting = Meeting.objects.get(meeting_id=meeting_id)
+        except Meeting.DoesNotExist:
+            return JsonResponse({"error": "Meeting not found"}, status=404)
+
+        # ✅ Resolve mic employees
+        mic_employees = []
+        for mic in [meeting.meeting_mic1, meeting.meeting_mic2, meeting.meeting_mic3]:
+            if mic:
+                try:
+                    emp = Employee.objects.get(employee_id=mic)
+                    mic_employees.append(emp.employee_name)
+                except Employee.DoesNotExist:
+                    mic_employees.append(f"Unknown (ID {mic})")
+        # ✅ Resolve departments
+        department_names = []
+        if meeting.meeting_department:
+            dept_ids = [d.strip() for d in meeting.meeting_department.split(",") if d.strip()]
+            for did in dept_ids:
+                try:
+                    dept = Department.objects.get(department_id=did)
+                    department_names.append(dept.department_name)
+                except Department.DoesNotExist:
+                    department_names.append(f"Unknown (ID {did})")
+
+        # ✅ Resolve participants
+            participants = []
+            if meeting.meeting_participant:
+                participant_ids = [p.strip() for p in meeting.meeting_participant.split(",") if p.strip()]
+                for pid in participant_ids:
+                    try:
+                        emp = Employee.objects.get(employee_id=pid)
+                        participants.append(emp.employee_name)
+                    except Employee.DoesNotExist:
+                        participants.append(f"Unknown (ID {pid})")
+
+
+        # ✅ Generate PDF in memory
+        buffer = io.BytesIO()
+        p = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(100, height - 50, f"Meeting Summary (Meeting ID: {meeting.meeting_title})")
+
+        y = height - 100
+        p.setFont("Helvetica", 12)
+
+        # Meeting details
+        p.drawString(100, y, f"Title: {meeting.meeting_title}")
+        y -= 20
+        p.drawString(100, y, f"Date: {meeting.meeting_date} {meeting.meeting_time}")
+        y -= 20
+        p.drawString(100, y, f"Location: {meeting.meeting_location}")
+        y -= 20
+        p.drawString(100, y, f"Department(s): {', '.join(department_names)}")
+        y -= 20
+        p.drawString(100, y, f"Participants: {', '.join(participants)}")
+        y -= 20
+        p.drawString(100, y, "Microphones Assigned: " + ", ".join(mic_employees))
+        y -= 40
+
+        # Summary section
+        p.drawString(100, y, "Summary:")
+        y -= 20
+        for point in summary:
+            p.drawString(120, y, f"- {point}")
+            y -= 20
+
+        # Tasks section
+        y -= 20
+        p.drawString(100, y, "Tasks:")
+        y -= 20
+        for assignee, task_list in tasks.items():
+            p.drawString(110, y, f"{assignee}:")
+            y -= 20
+            for task in task_list:
+                p.drawString(130, y, f"Title: {task['task_title']}")
+                y -= 15
+                p.drawString(130, y, f"Content: {task['task_content']}")
+                y -= 15
+                p.drawString(130, y, f"Urgency: {task['urgent_level']}, Deadline: {task['deadline']}")
+                y -= 30
+
+        p.save()
+        buffer.seek(0)
+
+        # ✅ Save PDF into MeetingFile table
+        meeting_file = MeetingFile.objects.filter(meeting=meeting).first()
+        file_name = f"meeting_{meeting_id}_summary.pdf"
+
+        if meeting_file:
+            meeting_file.meeting_summary.save(file_name, ContentFile(buffer.getvalue()), save=True)
+        else:
+            meeting_file = MeetingFile.objects.create(
+                meeting=meeting,
+                meeting_summary=ContentFile(buffer.getvalue(), file_name),
+            )
+
+        # ✅ Also save PDF into local folder (MEDIA_ROOT/transcripts)
+        transcript_dir = os.path.join(settings.MEDIA_ROOT, "transcripts")
+        os.makedirs(transcript_dir, exist_ok=True)
+        local_path = os.path.join(transcript_dir, file_name)
+        with open(local_path, "wb") as f:
+            f.write(buffer.getvalue())
+
+        # ✅ Save tasks into DB
+        for assignee, task_list in tasks.items():
+            try:
+                participant = Employee.objects.get(employee_name=assignee)  # match by name
+            except Employee.DoesNotExist:
+                continue  # skip invalid assignee names
+
+            for task in task_list:
+                Task.objects.create(
+                    task_title=task["task_title"],
+                    task_content=task["task_content"],
+                    urgent_level=task["urgent_level"],
+                    deadline=task["deadline"] if task["deadline"] else None,
+                    status="Pending",
+                    assignee_id=participant.employee_id,
+                )
+
+        return JsonResponse({
+            "message": "Summary, PDF, and tasks saved successfully!",
+            "pdf_path": local_path
+        })
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@csrf_exempt
+def complaint_upload(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid method"}, status=405)
+
+    try:
+        complaint_audio = request.FILES.get("complaint_audio")
+        if not complaint_audio:
+            return JsonResponse({"error": "Audio file required"}, status=400)
+
+        # Step 1: Save the complaint first (audio only)
+        complaint = Complaint.objects.create(
+            complaint_date=request.POST.get("complaint_date"),
+            employee_id=request.POST.get("employee_id"),
+            customer_name=request.POST.get("customer_name"),
+            customer_contact=request.POST.get("customer_contact"),
+            complaint_audio=complaint_audio,
+            status="In Progress"
+        )
+
+        # Step 2: Transcribe using the saved file path
+        abs_path = complaint.complaint_audio.path
+        transcript = azure_transcribe(abs_path)
+        complaint.complaint_transcript = transcript
+        complaint.save()
+
+        # Step 3: Generate AI summary & solution
+        ai_result = get_complaint_summary_and_solution({
+            "customer_name": complaint.customer_name,
+            "customer_contact": complaint.customer_contact,
+            "employee_name": complaint.employee_id,
+            "complaint_date": complaint.complaint_date
+        }, transcript)
+
+        # 🔍 Log AI output to console for debugging
+        print("🔹 AI Result:", ai_result)
+
+        # Step 4: Safely save AI summary and solution to DB
+        complaint.complaint_summary = ai_result.get("complaint_summary") or ["Summary not available"]
+        complaint.solution = ai_result.get("solution") or "Solution not available"
+        complaint.save()
+
+        return JsonResponse({
+            "message": "Complaint uploaded and transcribed",
+            "complaint_id": complaint.pk,
+            "audio_url": request.build_absolute_uri(complaint.complaint_audio.url),
+            "transcript": transcript,
+            "ai_summary": complaint.complaint_summary,
+            "ai_solution": complaint.solution
+        })
+
+    except Exception as e:
+        print("ERROR:", e)
+        return JsonResponse({"error": str(e)}, status=500)

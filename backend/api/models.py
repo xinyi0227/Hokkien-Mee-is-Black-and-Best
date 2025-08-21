@@ -1,18 +1,26 @@
 import uuid
 from django.db import models
 
+from django.db import models
+from django.contrib.auth.models import User  # assuming you use Django's built-in User model
+
+from django.db import models
+
 class Task(models.Model):
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    completed = models.BooleanField(default=False)
+    task_id = models.AutoField(primary_key=True)  # match Supabase PK
+    task_title = models.CharField(max_length=255, default="Untitled Task")
+    task_content = models.TextField(default="No content provided")
+    urgent_level = models.CharField(max_length=50, default="pending")
+    deadline = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=50, default="Pending")
+    assignee_id = models.IntegerField(null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return self.title
-
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'task'
+
 
 class BusinessData(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -74,6 +82,8 @@ class Employee(models.Model):
     employee_id = models.IntegerField(primary_key=True)  # Supabase uses integer ID
     employee_name = models.CharField(max_length=255)
     department_id = models.CharField(max_length=100)
+    email = models.CharField(max_length=255)
+    role = models.CharField(max_length=255)
 
     def str(self):
         return self.employee_name
@@ -83,7 +93,7 @@ class Employee(models.Model):
 
 class MeetingFile(models.Model):
     meeting_file_id = models.BigAutoField(primary_key=True)
-    meeting_summary = models.CharField(max_length=255)
+    meeting_summary =  models.FileField(upload_to='', null=True, blank=True)
     meeting_org = models.FileField(upload_to='')   # empty string = upload directly to MEDIA_ROOT
     ind_file1 = models.FileField(upload_to='', null=True, blank=True)
     ind_file2 = models.FileField(upload_to='', null=True, blank=True)
@@ -116,3 +126,22 @@ class CommentReport(models.Model):
     
     def __str__(self):
         return self.filename
+        
+class Complaint(models.Model):
+    complaint_id = models.AutoField(primary_key=True)  
+    complaint_date = models.DateField()  
+    complaint_audio = models.FileField(upload_to='complaints/')
+    complaint_transcript = models.TextField()  
+    complaint_summary = models.TextField()  
+    employee = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True)  
+    customer_name = models.CharField(max_length=255, blank=True, null=True)
+    customer_contact = models.CharField(max_length=255, blank=True, null=True)
+    solution = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=255)  # varchar in DB
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "Complaint"
+
+    def __str__(self):
+        return f"Complaint {self.complaint_id} - {self.customer_name or 'Unknown'}"

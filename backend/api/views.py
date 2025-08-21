@@ -1,15 +1,18 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
-from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, CommentReport
-from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, CommentReportSerializer
+from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, Complaint
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, ViewComplaintSerializer, ComplaintSubmitSerializer
 
+import datetime
 from supabase import create_client, Client
-import os, uuid, base64, json, datetime, requests, time
+import os
+import uuid
 import pandas as pd
 import numpy as np
 import google.generativeai as genai
 from io import BytesIO
+import requests
 import matplotlib.pyplot as plt
 import seaborn as sns
 from .utils.report_generators import PDFGenerator, PPTGenerator, CleaningReportGenerator
@@ -1594,4 +1597,201 @@ def upload_meeting_files(request):
 class MeetingFileListView(generics.ListAPIView):
     queryset = MeetingFile.objects.all()
     serializer_class = MeetingFileSerializer
+    
+class ComplaintListView(generics.ListCreateAPIView):
+    queryset = Complaint.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ComplaintSubmitSerializer
+        return ViewComplaintSerializer
+
+class ComplaintDetailView(generics.RetrieveUpdateAPIView):
+    queryset = Complaint.objects.all()
+    serializer_class = ViewComplaintSerializer
+    lookup_field = 'complaint_id'
+
+    def patch(self, request, *args, **kwargs):
+        complaint = self.get_object()
+        serializer = self.get_serializer(complaint, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_files):
+    """
+    Uses Gemini to summarize the meeting and extract tasks only.
+    """
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    prompt = f"""
+    You are an AI meeting assistant. Analyze the following meeting details and transcript.
+
+    Meeting Info:
+    Title: {meeting_data.get("title")}
+    Date: {meeting_data.get("date")}
+    Time: {meeting_data.get("time")}
+    Location: {meeting_data.get("location")}
+    Departments: {", ".join(meeting_data.get("departments", []))}
+    Participants: {", ".join(meeting_data.get("participants", []))}
+
+    Transcript (first 5000 chars shown for context):
+    {transcript_text[:5000]}
+
+    Transcript files (full content available if needed): {transcript_files}
+
+    Please provide ONLY:
+    1. A meeting summary in point form (bullet list).
+    2. Tasks grouped strictly by participant name. 
+
+    ⚠️ Summary handling rules:
+    - The summary only include the important points of the meeting.
+    - No need mention the tasks again, because it is in the task assigned section
+
+    ⚠️ Important rules for task assignment:
+    - Only assign tasks to participants from this list: {", ".join(meeting_data.get("participants", []))}, no need mention for all employee, just assign the task for employee mentioned.
+    - Do NOT assign tasks to departments (e.g., HR, Sales, Marketing, Engineering) or anyone not in the participants list.
+    - Names in the output must exactly match the participant names provided.
+    - You must ONLY use names exactly from this participants list: {", ".join(meeting_data.get("participants", []))}.
+    - If a task is assigned to a name not in the list (e.g. misheard or typo), map it to the **closest matching name** in the list using fuzzy matching.  
+    - Example: if "Aldis" is detected but not in participants, replace it with "Alice".
+
+    ⚠️ Deadline handling rules:
+    - All deadlines must be calculated relative to the meeting date ({meeting_data.get("date")}), not today’s date.  
+    - Interpret relative words as follows:  
+    * "tomorrow" = 1 day after meeting date  
+    * "next week" = 7 days after meeting date  
+    * "next month" = 1 month after meeting date  
+    - If the deadline wasn't mentioned, set it as 7 days after the meeting date.  
+    - Always output deadlines in strict ISO format (YYYY-MM-DD).
+
+    Each task must include:
+    - "task_title"
+    - "task_content"
+    - "urgent_level" (low, medium, high, pending)
+    - "deadline" (ISO format: YYYY-MM-DD or 'None')
+
+    If the urgent level wasn't mentioned, set it as "pending".
+    If the deadline wasn't mentioned, set it as 10 days after the meeting date.
+    For example, if the meeting date is 21 Aug 2025, the deadline is 31 Aug 2025.
+
+    Format your answer strictly as JSON, no explanations, no extra text. Example:
+
+    {{
+    "summary": [
+        "Point 1",
+        "Point 2",
+        "Point 3"
+    ],
+    "tasks": {{
+        "Alice": [
+        {{
+            "task_title": "Prepare Q3 Report",
+            "task_content": "Gather data from sales and marketing, prepare draft",
+            "urgent_level": "high",
+            "deadline": "2025-09-01"
+        }}
+        ],
+        "Bob": [
+        {{
+            "task_title": "Update Website",
+            "task_content": "Add Q3 product launches to homepage",
+            "urgent_level": "pending",
+            "deadline": "2025-08-30"
+        }}
+        ]
+    }}
+    }}
+    """
+
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+        print("🔍 Gemini raw output:", response.text)
+
+        # Try parsing JSON
+        try:
+            return json.loads(raw_text)
+        except json.JSONDecodeError:
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                return json.loads(match.group(0))
+            else:
+                return {"summary": ["Parsing failed."], "tasks": {}}
+    except Exception as e:
+        return {"error": str(e)}
+    
+def get_complaint_summary_and_solution(complaint_data, transcript_text):
+    """
+    Analyze complaint transcript to generate a summary and solution.
+    If a solution is already mentioned in the transcript, use that.
+    Otherwise, suggest a new one.
+    The summary will be returned as a single paragraph (string) instead of a list.
+    """
+
+    genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
+    prompt = f"""
+    You are an AI complaint assistant. Analyze the following complaint transcript and details.
+
+    Complaint Info:
+    Customer Name: {complaint_data.get("customer_name")}
+    Customer Contact: {complaint_data.get("customer_contact")}
+    Employee Handling: {complaint_data.get("employee_name")}
+    Complaint Date: {complaint_data.get("complaint_date")}
+
+    Transcript (first 5000 chars shown for context):
+    {transcript_text[:5000]}
+
+    ⚠️ Instructions:
+    1. Provide a concise complaint summary as a single paragraph (combine sentences, do not use a bullet list).
+    2. If the transcript explicitly mentions a proposed solution from the employee or customer, use that as the solution.
+    3. If no solution is mentioned, generate a suggested solution to resolve the complaint.
+    4. Keep the summary factual, neutral, and relevant to the customer issue.
+    5. Return your answer strictly in JSON format like below:
+
+    {{
+        "complaint_summary": "Concise paragraph summarizing the complaint",
+        "solution": "Solution mentioned in transcript or newly suggested"
+    }}
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        raw_text = response.text.strip()
+        print("🔍 Gemini raw output:", raw_text)
+
+        # Try parsing JSON
+        try:
+            result = json.loads(raw_text)
+        except json.JSONDecodeError:
+            # Fallback: extract JSON substring from raw output
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                result = json.loads(match.group(0))
+            else:
+                result = {
+                    "complaint_summary": "Parsing failed.",
+                    "solution": "None"
+                }
+
+        # Ensure keys exist
+        if "complaint_summary" not in result:
+            result["complaint_summary"] = "Summary not available."
+        if "solution" not in result:
+            result["solution"] = "Solution not available."
+
+        return result
+
+    except Exception as e:
+        return {"complaint_summary": "Error generating summary.", "solution": str(e)}
+    
+    
+
+
+
 

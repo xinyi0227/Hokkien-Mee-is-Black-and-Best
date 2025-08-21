@@ -1,0 +1,260 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import Header from "./header";
+
+export default function ComplaintDetails() {
+    const { complaint_id } = useParams();
+    const navigate = useNavigate();
+
+    const [complaint, setComplaint] = useState(null);
+    const [employees, setEmployees] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [formData, setFormData] = useState({
+        customer_name: "",
+        customer_contact: "",
+        complaint_summary: "",
+        solution: "",
+        status: "",
+        employee_id: "",
+        complaint_transcript: "",
+    });
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [complaintRes, employeesRes, departmentsRes] = await Promise.all([
+                    fetch(`/api/complaintDetails/${complaint_id}`),
+                    fetch("/api/employees"),
+                    fetch("/api/departments"),
+                ]);
+
+                const complaintData = await complaintRes.json();
+                setComplaint(complaintData);
+
+                setFormData({
+                    customer_name: complaintData.customer_name,
+                    customer_contact: complaintData.customer_contact,
+                    solution: complaintData.solution || "",
+                    complaint_summary: complaintData.complaint_summary,
+                    status: complaintData.status,
+                    employee_id: complaintData.employee_id,
+                    complaint_transcript: complaintData.complaint_transcript,
+                });
+
+                setEmployees(await employeesRes.json());
+                setDepartments(await departmentsRes.json());
+            } catch (err) {
+                console.error("Failed to fetch data:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchData();
+    }, [complaint_id]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
+        try {
+            const updatedFields = {};
+
+            Object.keys(formData).forEach((key) => {
+                let value = formData[key];
+
+                // Treat empty strings as null
+                if (value === "") {
+                    value = null;
+                }
+
+                // Only include if changed
+                if (value !== complaint[key]) {
+                    updatedFields[key] = value;
+                }
+            });
+
+            if (Object.keys(updatedFields).length === 0) {
+                alert("No changes detected!");
+                return;
+            }
+
+            const res = await fetch(`/api/complaintDetails/${complaint_id}/`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedFields),
+            });
+
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error("Update failed:", errorText);
+                alert("Failed to update complaint. Check console for details.");
+                return;
+            }
+
+            const updatedComplaint = await res.json();
+
+            setComplaint(updatedComplaint);
+            setFormData({
+                customer_name: updatedComplaint.customer_name || "",
+                customer_contact: updatedComplaint.customer_contact || "",
+                solution: updatedComplaint.solution || "",
+                complaint_summary: updatedComplaint.complaint_summary || "",
+                status: updatedComplaint.status || "",
+                employee_id: updatedComplaint.employee_id || "",
+                complaint_transcript: updatedComplaint.complaint_transcript || "",
+            });
+
+            alert("Complaint updated successfully!");
+        } catch (err) {
+            console.error("Error submitting update:", err);
+            alert("An unexpected error occurred.");
+        }
+    };
+
+
+
+
+    const getEmployeeName = (empId) => {
+        const emp = employees.find(e => String(e.employee_id) === String(empId));
+        return emp ? emp.employee_name : "Unknown";
+    };
+
+    if (loading) return <p className="text-gray-500 p-4">Loading...</p>;
+
+    return (
+        <>
+            <Header />
+            <div className="min-h-screen bg-gray-100 pt-12 px-4">
+                <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+                    <h1 className="text-2xl font-bold mb-4">Complaint Details</h1>
+
+                    <form className="space-y-4" onSubmit={handleSubmit}>
+                        <div>
+                            <label className="block mb-1">Complaint ID</label>
+                            <input
+                                value={complaint.complaint_id}
+                                disabled
+                                className="border px-2 py-1 rounded w-full bg-gray-100"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block mb-1">Date</label>
+                            <input
+                                value={complaint.complaint_date}
+                                disabled
+                                className="border px-2 py-1 rounded w-full bg-gray-100"
+                            />
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block mb-1">Handled By</label>
+                                <select
+                                    name="employee_id"
+                                    value={formData.employee_id}
+                                    onChange={handleChange}
+                                    className="border px-2 py-1 rounded w-full"
+                                >
+                                    {employees.map(e => (
+                                        <option key={e.employee_id} value={e.employee_id}>
+                                            {e.employee_name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex-1">
+                                <label className="block mb-1">Status</label>
+                                <select
+                                    name="status"
+                                    value={formData.status}
+                                    onChange={handleChange}
+                                    className="border px-2 py-1 rounded w-full"
+                                >
+                                    <option value="Pending">Pending</option>
+                                    <option value="In Progress">In Progress</option>
+                                    <option value="Resolved">Resolved</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block mb-1">Customer Name</label>
+                                <input
+                                    name="customer_name"
+                                    value={formData.customer_name}
+                                    onChange={handleChange}
+                                    className="border px-2 py-1 rounded w-full"
+                                />
+                            </div>
+
+                            <div className="flex-1">
+                                <label className="block mb-1">Customer Contact</label>
+                                <input
+                                    name="customer_contact"
+                                    value={formData.customer_contact}
+                                    onChange={handleChange}
+                                    className="border px-2 py-1 rounded w-full"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block mb-1">Solution</label>
+                            <textarea
+                                name="solution"
+                                value={formData.solution}
+                                onChange={handleChange}
+                                className="border px-2 py-1 rounded w-full"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block mb-1">Summary</label>
+                            <textarea
+                                name="complaint_summary"
+                                value={formData.complaint_summary}
+                                onChange={handleChange}
+                                className="border px-2 py-1 rounded w-full"
+                            />
+                        </div>
+
+                        {complaint.complaint_audio && (
+                            <div>
+                                <label className="block mb-1">Audio Recording</label>
+                                <audio controls className="w-full rounded border border-gray-300" src={complaint.complaint_audio} />
+                            </div>
+                        )}
+
+                        <div>
+                            <label className="block mb-1">Transcript</label>
+                            <textarea
+                                name="complaint_transcript"
+                                value={formData.complaint_transcript}
+                                onChange={handleChange}
+                                className="border px-2 py-1 rounded w-full"
+                                rows={6}
+                            />
+                        </div>
+
+                        <div className="flex gap-2 mt-4">
+                            <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                Save
+                            </button>
+                            <button type="button" onClick={() => navigate("/complaintList")} className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
+                                Back
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </>
+    );
+}
