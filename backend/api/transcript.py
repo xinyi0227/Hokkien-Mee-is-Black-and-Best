@@ -183,7 +183,7 @@ def complaint_upload(request):
             customer_name=request.POST.get("customer_name"),
             customer_contact=request.POST.get("customer_contact"),
             complaint_audio=complaint_audio,
-            status="New"
+            status="In Progress"
         )
 
         # Step 2: Transcribe using the saved file path

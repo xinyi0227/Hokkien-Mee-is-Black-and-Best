@@ -74,6 +74,8 @@ class Employee(models.Model):
     employee_id = models.IntegerField(primary_key=True)  # Supabase uses integer ID
     employee_name = models.CharField(max_length=255)
     department_id = models.CharField(max_length=100)
+    email = models.CharField(max_length=255)
+    role = models.CharField(max_length=255)
 
     def str(self):
         return self.employee_name
@@ -106,7 +108,7 @@ class MeetingFile(models.Model):
 class Complaint(models.Model):
     complaint_id = models.AutoField(primary_key=True)  
     complaint_date = models.DateField()  
-    complaint_audio = models.FileField(upload_to='audios/complaints/')
+    complaint_audio = models.FileField(upload_to='complaints/')
     complaint_transcript = models.TextField()  
     complaint_summary = models.TextField()  
     employee = models.ForeignKey("Employee", on_delete=models.SET_NULL, null=True, blank=True)  
