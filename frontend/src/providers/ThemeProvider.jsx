@@ -1,11 +1,9 @@
-// src/providers/ThemeProvider.jsx
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 const ThemeCtx = createContext({ theme: 'light', toggle: () => {}, setTheme: () => {} })
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    // 优先用本地记忆；否则跟随系统aaaa
     const saved = typeof window !== 'undefined' ? localStorage.getItem('theme') : null
     if (saved === 'light' || saved === 'dark') return saved
     if (typeof window !== 'undefined' && window.matchMedia &&
