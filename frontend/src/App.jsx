@@ -17,11 +17,14 @@ import MeetingSetup from "./components/MeetingSetup";
 import MeetingToday from "./components/MeetingToday";
 import MeetingFuture from "./components/MeetingFuture";
 import MeetingPast from "./components/MeetingPast";
+import ComplaintList from "./components/ComplaintList";
+import ComplaintUpload from "./components/ComplaintUpload";
+import ComplaintDetails from "./components/ComplaintDetails";
 import Login from './components/Login';
 import Details from "./components/Details";
 import Register from './components/Register'
 import FilePage from './components/filePage';
-
+import ArchiveList from './components/ArchiveList';
 import Transcript from "./components/Transcript";
 
 function App() {
@@ -131,6 +134,8 @@ function App() {
             </div>
           }
         />
+        
+<Route path="/archive" element={<ArchiveList currentUser={currentUser} />} />
 
         {/* CSV Upload route */}
         <Route
@@ -155,6 +160,18 @@ function App() {
 
         {/* Meeting Setup route */}
         <Route path="/setup" element={<MeetingSetup />} />
+
+        {/* Complaint route */}
+        <Route
+          path="/complaintList"
+          element={<ComplaintList />} />
+        <Route
+          path="/complaintUpload"
+          element={<ComplaintUpload />} />
+        <Route
+          path="/complaintDetails/:complaint_id"
+          element={<ComplaintDetails />} />
+
       </Routes>
     </Router>
   );

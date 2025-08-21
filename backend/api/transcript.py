@@ -3,7 +3,7 @@ import azure.cognitiveservices.speech as speechsdk
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from .models import Meeting, MeetingFile, Employee, Department,Task
+from .models import Meeting, MeetingFile, Employee, Department,Task, Complaint
 from docx import Document
 import re
 from .views import get_meeting_summary_and_tasks
@@ -345,3 +345,43 @@ def approve_summary(request, meeting_id):
         })
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+@csrf_exempt
+def complaint_upload(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid method"}, status=405)
+
+    try:
+        complaint_audio = request.FILES.get("complaint_audio")
+        if not complaint_audio:
+            return JsonResponse({"error": "Audio file required"}, status=400)
+
+        # Step 1: Save the complaint first (audio only)
+        complaint = Complaint.objects.create(
+            complaint_date=request.POST.get("complaint_date"),
+            employee_id=request.POST.get("employee_id"),
+            customer_name=request.POST.get("customer_name"),
+            customer_contact=request.POST.get("customer_contact"),
+            complaint_audio=complaint_audio,
+            status="In Progress"
+        )
+
+        # Step 2: Transcribe using the saved file path
+        abs_path = complaint.complaint_audio.path
+        transcript = azure_transcribe(abs_path)
+
+        # Step 3: Save the transcript into DB
+        complaint.complaint_transcript = transcript
+        complaint.save()
+
+        return JsonResponse({
+            "message": "Complaint uploaded and transcribed",
+            "complaint_id": complaint.pk,
+            "audio_url": request.build_absolute_uri(complaint.complaint_audio.url),
+            "transcript": transcript
+        })
+
+    except Exception as e:
+        print("ERROR:", e)
+        return JsonResponse({"error": str(e)}, status=500)
