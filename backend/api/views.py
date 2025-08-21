@@ -24,6 +24,7 @@ from django.utils import timezone
 import json
 import re
 
+
 class FileProcessingView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
@@ -3070,7 +3071,7 @@ class MeetingFileListView(generics.ListAPIView):
 
 def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_files):
     """
-    Uses Gemini to summarize the meeting and analyze tasks for participants.
+    Uses Gemini to summarize the meeting and extract tasks only.
     """
     genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
     model = genai.GenerativeModel("gemini-1.5-flash")
@@ -3091,45 +3092,85 @@ def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file
 
     Transcript files (full content available if needed): {transcript_files}
 
-    Please provide:
-    1. A clear summary of the meeting (key discussion points, decisions).
-    2. A list of tasks/action items with assignment to specific participants if mentioned. The name of participants will be speak in the meeting. So please assign the task properly to participant.
-    3. Any risks, blockers, or dependencies raised in the meeting.
-    4. A short "next steps" section.
+    Please provide ONLY:
+    1. A meeting summary in point form (bullet list).
+    2. Tasks grouped strictly by participant name. 
+
+    ⚠️ Summary handling rules:
+    - The summary only include the important points of the meeting.
+    - No need mention the tasks again, because it is in the task assigned section
+
+    ⚠️ Important rules for task assignment:
+    - Only assign tasks to participants from this list: {", ".join(meeting_data.get("participants", []))}, no need mention for all employee, just assign the task for employee mentioned.
+    - Do NOT assign tasks to departments (e.g., HR, Sales, Marketing, Engineering) or anyone not in the participants list.
+    - Names in the output must exactly match the participant names provided.
+    - You must ONLY use names exactly from this participants list: {", ".join(meeting_data.get("participants", []))}.
+    - If a task is assigned to a name not in the list (e.g. misheard or typo), map it to the **closest matching name** in the list using fuzzy matching.  
+    - Example: if "Aldis" is detected but not in participants, replace it with "Alice".
+
+    ⚠️ Deadline handling rules:
+    - All deadlines must be calculated relative to the meeting date ({meeting_data.get("date")}), not today’s date.  
+    - Interpret relative words as follows:  
+    * "tomorrow" = 1 day after meeting date  
+    * "next week" = 7 days after meeting date  
+    * "next month" = 1 month after meeting date  
+    - If the deadline wasn't mentioned, set it as 7 days after the meeting date.  
+    - Always output deadlines in strict ISO format (YYYY-MM-DD).
+
+    Each task must include:
+    - "task_title"
+    - "task_content"
+    - "urgent_level" (low, medium, high, pending)
+    - "deadline" (ISO format: YYYY-MM-DD or 'None')
+
+    If the urgent level wasn't mentioned, set it as "pending".
+    If the deadline wasn't mentioned, set it as 10 days after the meeting date.
+    For example, if the meeting date is 21 Aug 2025, the deadline is 31 Aug 2025.
 
     Format your answer strictly as JSON, no explanations, no extra text. Example:
 
     {{
-    "summary": "...",
-    "tasks": [{{"task": "...", "assignee": "..."}}],
-    "risks": ["..."],
-    "next_steps": ["..."]
+    "summary": [
+        "Point 1",
+        "Point 2",
+        "Point 3"
+    ],
+    "tasks": {{
+        "Alice": [
+        {{
+            "task_title": "Prepare Q3 Report",
+            "task_content": "Gather data from sales and marketing, prepare draft",
+            "urgent_level": "high",
+            "deadline": "2025-09-01"
+        }}
+        ],
+        "Bob": [
+        {{
+            "task_title": "Update Website",
+            "task_content": "Add Q3 product launches to homepage",
+            "urgent_level": "pending",
+            "deadline": "2025-08-30"
+        }}
+        ]
     }}
-
+    }}
     """
 
 
     try:
         response = model.generate_content(prompt)
         raw_text = response.text.strip()
-
         print("🔍 Gemini raw output:", response.text)
 
-
-        # Try direct parse
+        # Try parsing JSON
         try:
             return json.loads(raw_text)
         except json.JSONDecodeError:
-            # Extract JSON using regex
             match = re.search(r'\{.*\}', raw_text, re.DOTALL)
             if match:
                 return json.loads(match.group(0))
             else:
-                return {
-                    "summary": "Parsing failed.",
-                    "tasks": [],
-                    "risks": [],
-                    "next_steps": []
-                }
+                return {"summary": ["Parsing failed."], "tasks": {}}
     except Exception as e:
         return {"error": str(e)}
+

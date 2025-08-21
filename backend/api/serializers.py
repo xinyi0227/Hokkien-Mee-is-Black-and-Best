@@ -4,7 +4,7 @@ from .models import Task, BusinessData, ProcessedReport, Meeting, Employee,Depar
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ['id', 'title', 'description', 'completed', 'created_at', 'updated_at']
+        fields = '__all__'
 
 class BusinessDataSerializer(serializers.ModelSerializer):
     class Meta:

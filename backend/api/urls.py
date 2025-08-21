@@ -20,5 +20,6 @@ urlpatterns = [
     path('meeting_files/', views.upload_meeting_files, name='upload-meeting-files'),
     path('transcript/<int:meeting_id>/', transcript.transcript_view, name="transcript"),
     path('view_meeting_files/', views.MeetingFileListView.as_view(), name='view-meeting-files'),
+    path("approve_summary/<int:meeting_id>/", transcript.approve_summary, name="approve-summary"),
 
 ]
