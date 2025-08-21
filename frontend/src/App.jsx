@@ -19,6 +19,7 @@ import MeetingFuture from "./components/MeetingFuture";
 import MeetingPast from "./components/MeetingPast";
 import ComplaintList from "./components/ComplaintList";
 import ComplaintUpload from "./components/ComplaintUpload";
+import ComplaintDetails from "./components/ComplaintDetails";
 import Login from './components/Login';
 import Details from "./components/Details";
 import Register from './components/Register'
@@ -167,6 +168,9 @@ function App() {
         <Route
           path="/complaintUpload"
           element={<ComplaintUpload />} />
+        <Route
+          path="/complaintDetails/:complaint_id"
+          element={<ComplaintDetails />} />
 
       </Routes>
     </Router>

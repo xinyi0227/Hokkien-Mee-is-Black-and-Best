@@ -3079,6 +3079,19 @@ class ComplaintListView(generics.ListCreateAPIView):
             return ComplaintSubmitSerializer
         return ViewComplaintSerializer
 
+class ComplaintDetailView(generics.RetrieveUpdateAPIView):
+    queryset = Complaint.objects.all()
+    serializer_class = ViewComplaintSerializer
+    lookup_field = 'complaint_id'
+
+    def patch(self, request, *args, **kwargs):
+        complaint = self.get_object()
+        serializer = self.get_serializer(complaint, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_files):
     """
     Uses Gemini to summarize the meeting and analyze tasks for participants.
@@ -3144,3 +3157,5 @@ def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file
                 }
     except Exception as e:
         return {"error": str(e)}
+    
+    

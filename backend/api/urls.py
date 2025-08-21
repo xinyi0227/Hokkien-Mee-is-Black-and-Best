@@ -22,6 +22,7 @@ urlpatterns = [
     path('transcript/<int:meeting_id>/', transcript.transcript_view, name="transcript"),
     path('view_meeting_files/', views.MeetingFileListView.as_view(), name='view-meeting-files'),
     path('complaintList/', views.ComplaintListView.as_view(), name='complaint-list-create'),
+    path('complaintDetails/<int:complaint_id>/', views.ComplaintDetailView.as_view(), name='complaint-update'),
 
 
 ]

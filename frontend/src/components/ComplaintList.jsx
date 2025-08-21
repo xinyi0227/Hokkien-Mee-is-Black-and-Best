@@ -307,24 +307,24 @@ export default function ComplaintList() {
         )}
 
         {/* Modal */}
-        {selectedComplaint && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-xl relative">
-              {/* Close Button */}
-              <button
-                onClick={() => setSelectedComplaint(null)}
-                className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl font-bold"
-              >
-                &times;
-              </button>
+{selectedComplaint && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-xl relative">
+      {/* Close Button */}
+      <button
+        onClick={() => setSelectedComplaint(null)}
+        className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-2xl font-bold"
+      >
+        &times;
+      </button>
 
-              {/* Edit Button */}
-              <button
-                onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
-                className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
-              >
-                Edit
-              </button>
+      {/* Edit Button */}
+      <button
+        onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
+        className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+      >
+        Edit
+      </button>
               <h2 className="text-2xl font-bold mb-4 text-gray-800">Complaint Details</h2>
               <div className="space-y-3 text-gray-700">
                 <p><strong>Date:</strong> {selectedComplaint.complaint_date}</p>
