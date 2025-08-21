@@ -1,8 +1,8 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
-from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile
-from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer
+from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, Complaint
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, ViewComplaintSerializer, ComplaintSubmitSerializer
 
 import datetime
 from supabase import create_client, Client
@@ -1780,6 +1780,9 @@ from django.http import JsonResponse
 def transcript_view(request):
     return JsonResponse({"message": "Transcript endpoint works!"})
 
+def complaint_upload(request):
+    return JsonResponse({"message": "Transcript Complaint endpoint works!"})
+
 class TaskListCreateView(generics.ListCreateAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
@@ -3067,6 +3070,27 @@ def upload_meeting_files(request):
 class MeetingFileListView(generics.ListAPIView):
     queryset = MeetingFile.objects.all()
     serializer_class = MeetingFileSerializer
+    
+class ComplaintListView(generics.ListCreateAPIView):
+    queryset = Complaint.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ComplaintSubmitSerializer
+        return ViewComplaintSerializer
+
+class ComplaintDetailView(generics.RetrieveUpdateAPIView):
+    queryset = Complaint.objects.all()
+    serializer_class = ViewComplaintSerializer
+    lookup_field = 'complaint_id'
+
+    def patch(self, request, *args, **kwargs):
+        complaint = self.get_object()
+        serializer = self.get_serializer(complaint, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_files):
     """
@@ -3133,3 +3157,5 @@ def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file
                 }
     except Exception as e:
         return {"error": str(e)}
+    
+    
