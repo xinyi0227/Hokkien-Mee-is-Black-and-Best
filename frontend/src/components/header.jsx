@@ -123,9 +123,19 @@ const Header = () => {
             Contact
           </a>
 
-<a href="/archive" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition">
-  Archived
-</a>
+          <a 
+            href="/archive" 
+            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            Archived
+          </a>
+
+          <a 
+            href="/faq" 
+            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            FAQ
+          </a>
 
 
           {/* Theme toggle */}
