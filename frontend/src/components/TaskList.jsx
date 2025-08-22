@@ -1,21 +1,45 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase.js'
 import Header from './header'
 import { FiTrash2, FiX } from 'react-icons/fi'
 import CalendarView from './CalendarView'
 
-const toDateOnly = (iso) => (iso ? new Date(iso).toISOString().split('T')[0] : '')
-const today = new Date().toISOString().split('T')[0]
+const toDateOnly = (v) => {
+  if (!v) return ''
+  const s = String(v)
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  if (m) return m[1]
+  const d = new Date(s)
+  if (Number.isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const mo = String(d.getMonth() + 1).padStart(2, '0')
+  const da = String(d.getDate()).padStart(2, '0')
+  return `${y}-${mo}-${da}`
+}
+const today = toDateOnly(new Date())
 const VIEWS = { LIST: 'list', CAL: 'calendar' }
-const fmtDateShort = (isoOrYmd) => {
-  if (!isoOrYmd) return ''
-  const d = new Date(isoOrYmd)
-  if (Number.isNaN(d.getTime())) return isoOrYmd
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+const fmtDateShort = (v) => {
+  const ymd = toDateOnly(v)
+  if (!ymd) return ''
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
-const STATUS_ALL = ['pending', 'in progress', 'review', 'done', 'archieve']
-const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']
+const CANON_STATUSES = ['pending', 'in progress', 'review', 'done', 'archieve']
+const normalizeStatus = (s) => {
+  const x = String(s || '').trim().toLowerCase()
+  if (x === 'archived') return 'archieve'
+  return CANON_STATUSES.includes(x) ? x : x
+}
+const normalizePriority = (p) => {
+  const x = String(p || '').trim().toLowerCase()
+  return ['low', 'medium', 'high'].includes(x) ? x : 'low'
+}
+
+const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']            // 列表分组
+const STATUS_OPTIONS_FOR_EDIT = STATUS_GROUP_ORDER                                 // 编辑下拉不含 archieve
 const STATUS_META = {
   pending: { label: 'PENDING', badge: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100' },
   'in progress': { label: 'IN PROGRESS', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -35,6 +59,51 @@ const ROW_COLS =
   'grid grid-cols-[minmax(0,1fr)_220px_140px_160px_120px_48px] items-center'
 
 const FILTERS = { MINE: 'mine', DEPT: 'dept', ALL: 'all' }
+
+const canonTask = (t) => ({
+  ...t,
+  status: normalizeStatus(t.status),
+  urgent_level: normalizePriority(t.urgent_level),
+  deadline: toDateOnly(t.deadline),
+  created_at: t.created_at,
+  updated_at: t.updated_at,
+})
+
+const FIELD_LABEL = {
+  status: 'Status',
+  task_content: 'Description',
+  urgent_level: 'Priority',
+  assignee_id: 'Assignee',
+  deadline: 'Due date',
+  task_title: 'Title',
+}
+
+const TRACKED_FIELDS = ['status', 'task_content', 'urgent_level', 'assignee_id', 'deadline', 'task_title']
+
+const trackedSnapshotOf = (obj = {}) => {
+  const snap = {}
+  for (const f of TRACKED_FIELDS) {
+    let v = obj[f]
+    if (f === 'status') v = normalizeStatus(v)
+    if (f === 'urgent_level') v = normalizePriority(v)
+    if (f === 'deadline') v = toDateOnly(v)
+    snap[f] = String(v ?? '')
+  }
+  return snap
+}
+
+const computeDiffsFromSnapshot = (beforeSnap = {}, afterObj = {}) => {
+  const afterSnap = trackedSnapshotOf(afterObj)
+  const diffs = []
+  for (const f of TRACKED_FIELDS) {
+    const before = String(beforeSnap[f] ?? '')
+    const after = String(afterSnap[f] ?? '')
+    if (before !== after) {
+      diffs.push({ field: f, old_value: before, new_value: after })
+    }
+  }
+  return { diffs, afterSnap }
+}
 
 const TaskList = ({ currentUser }) => {
   const [tasks, setTasks] = useState([])
@@ -59,9 +128,19 @@ const TaskList = ({ currentUser }) => {
   const [comments, setComments] = useState([])
   const [commentBackendEnabled, setCommentBackendEnabled] = useState(true)
 
+  const [activities, setActivities] = useState([])
+  const [activityLoading, setActivityLoading] = useState(true)
+  const [newCommentBody, setNewCommentBody] = useState('')
+  const [addingComment, setAddingComment] = useState(false)
+
   const [filter, setFilter] = useState(() =>
     currentUser?.role === 'boss' ? FILTERS.ALL : FILTERS.MINE
   )
+
+  const savingRef = useRef(false)
+
+  const lastCommittedSnapRef = useRef(null)
+
   useEffect(() => {
     if (currentUser?.role === 'boss' && filter !== FILTERS.ALL) {
       setFilter(FILTERS.ALL)
@@ -81,7 +160,7 @@ const TaskList = ({ currentUser }) => {
         .select('*')
         .order('created_at', { ascending: false })
       if (error) throw error
-      setTasks(data || [])
+      setTasks((data || []).map(canonTask))
       setLoading(false)
     } catch (error) {
       console.error('Error fetching tasks:', error)
@@ -131,9 +210,11 @@ const TaskList = ({ currentUser }) => {
     if (!newTask.task_title.trim()) return
     try {
       const now = new Date().toISOString()
-      let taskToInsert = {
+      const taskToInsert = {
         ...newTask,
-        status: 'pending',
+        status: normalizeStatus('pending'),
+        urgent_level: normalizePriority(newTask.urgent_level),
+        deadline: newTask.deadline ? `${newTask.deadline}T00:00:00` : null,
         created_at: now,
         updated_at: now,
       }
@@ -171,14 +252,52 @@ const TaskList = ({ currentUser }) => {
     }
   }
 
+  const empMap = useMemo(() => {
+    const m = new Map()
+    for (const e of employees) m.set(String(e.employee_id), e)
+    return m
+  }, [employees])
+
+  const labelValue = (field, value) => {
+    if (field === 'assignee_id') {
+      if (!value) return 'Unassigned'
+      const emp = empMap.get(String(value))
+      return emp?.employee_name || `#${value}`
+    }
+    if (field === 'status') {
+      return STATUS_META[normalizeStatus(value)]?.label || value
+    }
+    if (field === 'urgent_level') {
+      return String(value || '').toLowerCase()
+    }
+    if (field === 'deadline') {
+      const d = toDateOnly(value)
+      return d || '—'
+    }
+    if (field === 'task_content') {
+      const s = String(value || '')
+      if (!s) return '—'
+      return s.length > 80 ? s.slice(0, 80) + '…' : s
+    }
+    if (field === 'task_title') {
+      return String(value || '')
+    }
+    return String(value ?? '')
+  }
+
   const openTaskModal = async (task) => {
     const normalized = {
       ...task,
-      deadline: task.deadline ? task.deadline.split('T')[0] : '',
+      status: normalizeStatus(task.status),
+      urgent_level: normalizePriority(task.urgent_level),
+      deadline: toDateOnly(task.deadline),
       created_date_only: toDateOnly(task.created_at),
     }
     setCurrentTask(normalized)
     setShowTaskModal(true)
+
+    // 打开时建立“已提交快照”
+    lastCommittedSnapRef.current = trackedSnapshotOf(normalized)
 
     try {
       const { data, error } = await supabase
@@ -193,21 +312,46 @@ const TaskList = ({ currentUser }) => {
       setComments([])
       setCommentBackendEnabled(false)
     }
+
+    try {
+      setActivityLoading(true)
+      const { data, error } = await supabase
+        .from('task_audit')
+        .select('id, task_id, actor_id, field, old_value, new_value, created_at')
+        .eq('task_id', task.task_id)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setActivities(data || [])
+    } catch (e) {
+      console.error('Error fetching task_audit:', e)
+      setActivities([])
+    } finally {
+      setActivityLoading(false)
+    }
   }
 
   const closeTaskModal = () => {
     setShowTaskModal(false)
     setCurrentTask(null)
     setComments([])
+    setActivities([])
+    setNewCommentBody('')
+    lastCommittedSnapRef.current = null
   }
 
   const handleTaskField = (field, value) => {
-    setCurrentTask((prev) => ({ ...prev, [field]: value }))
+    setCurrentTask((prev) => {
+      let v = value
+      if (field === 'status') v = normalizeStatus(value)
+      if (field === 'urgent_level') v = normalizePriority(value)
+      if (field === 'deadline') v = toDateOnly(value)
+      return { ...prev, [field]: v }
+    })
   }
 
   const assigneeObj = useMemo(() => {
     if (!currentTask?.assignee_id) return null
-    return employees.find((e) => e.employee_id === currentTask.assignee_id) || null
+    return employees.find((e) => String(e.employee_id) === String(currentTask.assignee_id)) || null
   }, [currentTask?.assignee_id, employees])
 
   const selectableEmployeesForEdit = useMemo(() => {
@@ -234,49 +378,73 @@ const TaskList = ({ currentUser }) => {
 
   const saveCurrentTask = useCallback(async () => {
     if (!currentTask) return
+    if (savingRef.current) return
     try {
-      const { task_id, created_at, created_date_only, ...updateData } = currentTask
+      const { task_id, created_at, created_date_only, ...updateDataRaw } = currentTask
+      const updateData = {
+        ...updateDataRaw,
+        status: normalizeStatus(updateDataRaw.status),
+        urgent_level: normalizePriority(updateDataRaw.urgent_level),
+        deadline: updateDataRaw.deadline ? `${toDateOnly(updateDataRaw.deadline)}T00:00:00` : null,
+      }
 
-      const original = tasks.find((t) => t.task_id === task_id)
-      const originalAssigneeId = original?.assignee_id || ''
-      const isAssigneeChanged = updateData.assignee_id !== originalAssigneeId
+      const beforeSnap = lastCommittedSnapRef.current || trackedSnapshotOf(currentTask)
+      const { diffs, afterSnap } = computeDiffsFromSnapshot(beforeSnap, updateData)
+      if (diffs.length === 0) return
+
+      const originalAssigneeId = String(beforeSnap.assignee_id ?? '')
+      const isAssigneeChanged = String(updateData.assignee_id || '') !== originalAssigneeId
       if (isAssigneeChanged) {
         const role = currentUser?.role
         let canChange = false
         if (role === 'boss') {
           canChange = true
         } else if (role === 'manager') {
-          const targetEmp = employees.find((e) => e.employee_id === updateData.assignee_id) || null
+          const targetEmp = employees.find((e) => String(e.employee_id) === String(updateData.assignee_id)) || null
           canChange = !!(targetEmp && targetEmp.department_id === currentUser.department_id)
         }
         if (!canChange) updateData.assignee_id = originalAssigneeId
       }
 
+      savingRef.current = true
       const nowIso = new Date().toISOString()
+
       const { error, data } = await supabase
         .from('task')
         .update({ ...updateData, updated_at: nowIso })
         .eq('task_id', task_id)
-        .select('task_id, updated_at')
+        .select('task_id, updated_at, deadline, status, urgent_level, assignee_id, task_content, task_title')
         .single()
       if (error) throw error
 
-      const newUpdatedAt = data?.updated_at ?? nowIso
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.task_id === task_id ? { ...t, ...updateData, updated_at: newUpdatedAt } : t
-        )
-      )
-      setCurrentTask((prev) =>
-        prev && prev.task_id === task_id
-          ? { ...prev, ...updateData, updated_at: newUpdatedAt }
-          : prev
-      )
+      if (diffs.length) {
+        const rows = diffs.map(d => ({
+          task_id,
+          actor_id: currentUser?.employee_id ?? null,
+          field: d.field,
+          old_value: d.old_value,
+          new_value: d.new_value,
+          created_at: nowIso,
+        }))
+        const { error: auditErr } = await supabase.from('task_audit').insert(rows)
+        if (auditErr) console.error('audit insert failed:', auditErr)
+        setActivities(prev => [
+          ...rows.map((r, i) => ({ id: `tmp-${nowIso}-${i}`, ...r })),
+          ...prev,
+        ])
+      }
+
+      const patched = canonTask({ ...currentTask, ...updateData, updated_at: data?.updated_at ?? nowIso })
+      setTasks((prev) => prev.map((t) => (t.task_id === task_id ? patched : t)))
+      setCurrentTask(patched)
+      lastCommittedSnapRef.current = afterSnap
     } catch (error) {
       console.error('Error updating task:', error)
       throw error
+    } finally {
+      savingRef.current = false
     }
-  }, [currentTask, tasks, currentUser, employees])
+  }, [currentTask, currentUser, employees])
 
   const handleSaveClick = async () => {
     try {
@@ -289,8 +457,28 @@ const TaskList = ({ currentUser }) => {
     }
   }
 
-  const onBlurSave = async () => {
-    await saveCurrentTask()
+
+  const addComment = async () => {
+    if (!currentTask || !newCommentBody.trim()) return
+    try {
+      setAddingComment(true)
+      const nowIso = new Date().toISOString()
+      const payload = {
+        task_id: currentTask.task_id,
+        author: currentUser?.employee_id ?? null,
+        body: newCommentBody.trim(),
+        created_at: nowIso,
+      }
+      const { data, error } = await supabase.from('task_comment').insert([payload]).select('*').single()
+      if (error) throw error
+      setComments((prev) => [data, ...prev])
+      setNewCommentBody('')
+    } catch (e) {
+      console.error('add comment failed:', e)
+      alert('Add comment failed.')
+    } finally {
+      setAddingComment(false)
+    }
   }
 
   const compareByPriorityThenDue = (a, b) => {
@@ -302,19 +490,11 @@ const TaskList = ({ currentUser }) => {
     return da - db
   }
 
-  const empMap = useMemo(() => {
-    const m = new Map()
-    for (const e of employees) m.set(String(e.employee_id), e)
-    return m
-  }, [employees])
-
   const filteredTasks = useMemo(() => {
     if (!currentUser) return tasks
     if (filter === FILTERS.ALL) return tasks
     if (filter === FILTERS.MINE) {
-      return tasks.filter(
-        (t) => String(t.assignee_id) === String(currentUser.employee_id)
-      )
+      return tasks.filter((t) => String(t.assignee_id) === String(currentUser.employee_id))
     }
     return tasks.filter((t) => {
       const emp = empMap.get(String(t.assignee_id))
@@ -325,7 +505,8 @@ const TaskList = ({ currentUser }) => {
   const grouped = useMemo(() => {
     const res = Object.fromEntries(STATUS_GROUP_ORDER.map((s) => [s, []]))
     for (const t of filteredTasks) {
-      if (STATUS_GROUP_ORDER.includes(t.status)) res[t.status].push(t)
+      const st = normalizeStatus(t.status)
+      if (STATUS_GROUP_ORDER.includes(st)) res[st].push(t)
     }
     for (const k of STATUS_GROUP_ORDER) res[k].sort(compareByPriorityThenDue)
     return res
@@ -334,17 +515,15 @@ const TaskList = ({ currentUser }) => {
   if (loading) return <div className="text-center text-gray-700 dark:text-gray-200">Loading...</div>
 
   const pill = (active) =>
-    `px-3 py-1.5 rounded-full text-sm border transition ${
-      active
-        ? 'bg-gray-900 text-white border-gray-900 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-100'
-        : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:border-gray-700'
+    `px-3 py-1.5 rounded-full text-sm border transition ${active
+      ? 'bg-gray-900 text-white border-gray-900 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-100'
+      : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:border-gray-700'
     }`
 
   const viewBtn = (active) =>
-    `px-3 py-1.5 rounded-lg text-sm border ${
-      active
-        ? 'bg-blue-600 text-white border-blue-600'
-        : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+    `px-3 py-1.5 rounded-lg text-sm border ${active
+      ? 'bg-blue-600 text-white border-blue-600'
+      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
     }`
 
   return (
@@ -411,9 +590,8 @@ const TaskList = ({ currentUser }) => {
 
                     <div className="space-y-2">
                       {items.map((task) => {
-                        const emp = employees.find((e) => e.employee_id === task.assignee_id)
-                        const priorityCls =
-                          PRIORITY_PILL[task.urgent_level || 'low'] || PRIORITY_PILL.low
+                        const emp = employees.find((e) => String(e.employee_id) === String(task.assignee_id))
+                        const priorityCls = PRIORITY_PILL[task.urgent_level || 'low'] || PRIORITY_PILL.low
                         return (
                           <div
                             key={task.task_id}
@@ -441,7 +619,7 @@ const TaskList = ({ currentUser }) => {
                                   STATUS_META[task.status]?.badge || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-100'
                                 }`}
                               >
-                                {STATUS_META[task.status]?.label || task.status}
+                                {STATUS_META[task.status]?.label || String(task.status).toUpperCase()}
                               </span>
                             </div>
 
@@ -522,7 +700,7 @@ const TaskList = ({ currentUser }) => {
                     <input
                       type="date"
                       value={newTask.deadline}
-                      onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
+                      onChange={(e) => setNewTask({ ...newTask, deadline: toDateOnly(e.target.value) })}
                       className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                       min={today}
                     />
@@ -587,13 +765,12 @@ const TaskList = ({ currentUser }) => {
                   </div>
                 </div>
 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_340px] overflow-hidden">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_360px] overflow-hidden">
                   <div className="p-6 overflow-y-auto">
                     <input
                       className="w-full text-2xl md:text-3xl font-bold outline-none border rounded-lg focus:ring-0 mb-4 bg-white dark:bg-gray-900 border-transparent dark:border-gray-700 text-gray-900 dark:text-gray-100"
                       value={currentTask.task_title || ''}
                       onChange={(e) => handleTaskField('task_title', e.target.value)}
-                      onBlur={onBlurSave}
                       placeholder="Task title"
                     />
 
@@ -604,9 +781,8 @@ const TaskList = ({ currentUser }) => {
                           className="w-full p-2 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                           value={currentTask.status}
                           onChange={(e) => handleTaskField('status', e.target.value)}
-                          onBlur={onBlurSave}
                         >
-                          {STATUS_ALL.map((s) => (
+                          {STATUS_OPTIONS_FOR_EDIT.map((s) => (
                             <option key={s} value={s}>
                               {STATUS_META[s]?.label || s}
                             </option>
@@ -622,11 +798,7 @@ const TaskList = ({ currentUser }) => {
                             <input
                               type="date"
                               className="w-full p-2 border rounded-lg bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700"
-                              value={
-                                currentTask.created_date_only ||
-                                toDateOnly(currentTask.created_at) ||
-                                ''
-                              }
+                              value={currentTask.created_date_only || toDateOnly(currentTask.created_at) || ''}
                               readOnly
                               disabled
                               aria-readonly
@@ -638,31 +810,12 @@ const TaskList = ({ currentUser }) => {
                             <input
                               type="date"
                               className="w-full p-2 border rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700"
-                              min={(() => {
-                                const created = currentTask.created_at
-                                  ? toDateOnly(currentTask.created_at)
-                                  : today
-                                return created > today ? created : today
-                              })()}
+                              min={today}
                               value={currentTask.deadline || ''}
                               onChange={(e) => {
-                                const created = currentTask.created_at
-                                  ? toDateOnly(currentTask.created_at)
-                                  : today
-                                const lowerBound = created > today ? created : today
-                                let newEnd = e.target.value
-                                if (newEnd < lowerBound) newEnd = lowerBound
-                                if (newEnd === created) {
-                                  const nextDay = new Date(
-                                    new Date(newEnd).getTime() + 86400000
-                                  )
-                                    .toISOString()
-                                    .split('T')[0]
-                                  newEnd = nextDay
-                                }
+                                const newEnd = toDateOnly(e.target.value)
                                 setCurrentTask({ ...currentTask, deadline: newEnd })
                               }}
-                              onBlur={onBlurSave}
                             />
                           </div>
                         </div>
@@ -676,7 +829,7 @@ const TaskList = ({ currentUser }) => {
                           <span className="font-medium">{assigneeName}</span>
                           {!canEditAssignee && currentUser?.role === 'manager' && (
                             <span className="ml-2 inline-flex items-center text-xs text-gray-500 dark:text-gray-400">
-                              (view only — outside your department)
+                              (view only)
                             </span>
                           )}
                         </div>
@@ -688,18 +841,9 @@ const TaskList = ({ currentUser }) => {
                               : 'bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100'
                           } border-gray-300 dark:border-gray-700`}
                           value={currentTask.assignee_id || ''}
-                          onChange={(e) =>
-                            handleTaskField('assignee_id', e.target.value)
-                          }
-                          onBlur={onBlurSave}
+                          onChange={(e) => handleTaskField('assignee_id', e.target.value)}
                           disabled={!canEditAssignee}
-                          title={
-                            currentUser?.role === 'boss'
-                              ? 'Assign to anyone'
-                              : !canEditAssignee
-                              ? 'You can only reassign within your department'
-                              : 'Reassign within your department'
-                          }
+                          title={currentUser?.role === 'boss' ? 'Assign to anyone' : 'Reassign within your department'}
                         >
                           <option value="">Unassigned</option>
                           {selectableEmployeesForEdit.map((emp) => (
@@ -715,10 +859,7 @@ const TaskList = ({ currentUser }) => {
                         <select
                           className="w-full p-2 border rounded-lg capitalize bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                           value={currentTask.urgent_level || 'low'}
-                          onChange={(e) =>
-                            handleTaskField('urgent_level', e.target.value)
-                          }
-                          onBlur={onBlurSave}
+                          onChange={(e) => handleTaskField('urgent_level', e.target.value)}
                         >
                           <option value="low">Low</option>
                           <option value="medium">Medium</option>
@@ -731,37 +872,111 @@ const TaskList = ({ currentUser }) => {
                       <div className="text-sm font-semibold mb-2">Description</div>
                       <textarea
                         className="w-full min-h-[160px] p-4 border rounded-xl bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                        placeholder="Add details…"
+                        placeholder="Add details"
                         value={currentTask.task_content || ''}
-                        onChange={(e) =>
-                          handleTaskField('task_content', e.target.value)
-                        }
-                        onBlur={onBlurSave}
+                        onChange={(e) => handleTaskField('task_content', e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <aside className="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 overflow-y-auto">
-                    <div className="text-sm font-semibold mb-3">Activity</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
-                    <ul className="space-y-2 mb-6">
-                      <li className="text-sm">
-                        Created at:{' '}
-                        <span className="text-gray-700 dark:text-gray-300">
-                          {currentTask.created_at
-                            ? new Date(currentTask.created_at).toLocaleString()
-                            : '—'}
-                        </span>
-                      </li>
-                      <li className="text-sm">
-                        Last updated:{' '}
-                        <span className="text-gray-700 dark:text-gray-300">
-                          {currentTask.updated_at
-                            ? new Date(currentTask.updated_at).toLocaleString()
-                            : '—'}
-                        </span>
-                      </li>
-                    </ul>
+                  <aside className="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 overflow-y-auto space-y-6">
+                    <div>
+                      <div className="text-sm font-semibold mb-3">Activity</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
+                      <ul className="space-y-2 mb-4">
+                        <li className="text-sm">
+                          Created at:{' '}
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {currentTask.created_at ? new Date(currentTask.created_at).toLocaleString() : '—'}
+                          </span>
+                        </li>
+                        <li className="text-sm">
+                          Last updated:{' '}
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {currentTask.updated_at ? new Date(currentTask.updated_at).toLocaleString() : '—'}
+                          </span>
+                        </li>
+                      </ul>
+
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Change log</div>
+                      {activityLoading ? (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>
+                      ) : activities.length === 0 ? (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">No changes recorded</div>
+                      ) : (
+                        <ul className="space-y-2">
+                          {activities.map((a) => {
+                            const who = empMap.get(String(a.actor_id))?.employee_name || `#${a.actor_id || 'unknown'}`
+                            const oldV = labelValue(a.field, a.old_value)
+                            const newV = labelValue(a.field, a.new_value)
+                            return (
+                              <li key={a.id} className="text-sm">
+                                <div className="text-gray-800 dark:text-gray-100">
+                                  <span className="font-medium">{who}</span>{' '}
+                                  changed <span className="font-medium">{FIELD_LABEL[a.field] || a.field}</span>
+                                </div>
+                                <div className="text-gray-600 dark:text-gray-300 text-xs">
+                                  {oldV} → {newV}
+                                </div>
+                                <div className="text-gray-500 dark:text-gray-400 text-xs">
+                                  {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+                                </div>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="text-sm font-semibold mb-3">Comments</div>
+                      {commentBackendEnabled ? (
+                        <>
+                          <div className="flex gap-2 mb-3">
+                            <input
+                              type="text"
+                              value={newCommentBody}
+                              onChange={(e) => setNewCommentBody(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  addComment()
+                                }
+                              }}
+                              placeholder="Write a comment"
+                              className="flex-1 p-2 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                            />
+                            <button
+                              onClick={addComment}
+                              disabled={addingComment || !newCommentBody.trim()}
+                              className="px-3 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50"
+                            >
+                              Post
+                            </button>
+                          </div>
+                          {comments.length === 0 ? (
+                            <div className="text-sm text-gray-500 dark:text-gray-400">No comments</div>
+                          ) : (
+                            <ul className="space-y-3">
+                              {comments.map((c) => {
+                                const who = empMap.get(String(c.author))?.employee_name || `#${c.author || 'unknown'}`
+                                return (
+                                  <li key={c.id} className="text-sm">
+                                    <div className="font-medium text-gray-800 dark:text-gray-100">{who}</div>
+                                    <div className="text-gray-700 dark:text-gray-200">{c.body}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                      {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+                                    </div>
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Comments backend disabled</div>
+                      )}
+                    </div>
                   </aside>
                 </div>
               </div>
