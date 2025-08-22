@@ -112,6 +112,20 @@ class MeetingFile(models.Model):
     
     class Meta:
         db_table = 'meeting_files'
+
+class CommentReport(models.Model):
+    id = models.AutoField(primary_key=True)
+    filename = models.CharField(max_length=255)
+    file_url = models.ForeignKey('BusinessData', on_delete=models.CASCADE)
+    file_content = models.JSONField()
+    pdf_url = models.URLField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'userComment_data'
+    
+    def __str__(self):
+        return self.filename
         
 class Complaint(models.Model):
     complaint_id = models.AutoField(primary_key=True)  

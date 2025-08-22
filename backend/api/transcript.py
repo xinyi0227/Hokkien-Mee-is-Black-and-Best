@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Meeting, MeetingFile, Employee, Department,Task, Complaint
 from docx import Document
 import re
-from .views import get_meeting_summary_and_tasks
+from .views import get_meeting_summary_and_tasks, get_complaint_summary_and_solution
 from django.utils import timezone 
 from django.core.files.base import ContentFile
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -408,16 +408,32 @@ def complaint_upload(request):
         # Step 2: Transcribe using the saved file path
         abs_path = complaint.complaint_audio.path
         transcript = azure_transcribe(abs_path)
-
-        # Step 3: Save the transcript into DB
         complaint.complaint_transcript = transcript
+        complaint.save()
+
+        # Step 3: Generate AI summary & solution
+        ai_result = get_complaint_summary_and_solution({
+            "customer_name": complaint.customer_name,
+            "customer_contact": complaint.customer_contact,
+            "employee_name": complaint.employee_id,
+            "complaint_date": complaint.complaint_date
+        }, transcript)
+
+        # 🔍 Log AI output to console for debugging
+        print("🔹 AI Result:", ai_result)
+
+        # Step 4: Safely save AI summary and solution to DB
+        complaint.complaint_summary = ai_result.get("complaint_summary") or ["Summary not available"]
+        complaint.solution = ai_result.get("solution") or "Solution not available"
         complaint.save()
 
         return JsonResponse({
             "message": "Complaint uploaded and transcribed",
             "complaint_id": complaint.pk,
             "audio_url": request.build_absolute_uri(complaint.complaint_audio.url),
-            "transcript": transcript
+            "transcript": transcript,
+            "ai_summary": complaint.complaint_summary,
+            "ai_solution": complaint.solution
         })
 
     except Exception as e:
