@@ -126,7 +126,8 @@ export default function ComplaintUpload() {
             }
 
             console.log("Complaint uploaded:", data);
-            navigate("/complaintList");
+            alert("Complaint saved successfully!");
+            window.location.href = "/complaintList";
         } catch (err) {
             console.error(err);
             setError("Failed to upload complaint.");
