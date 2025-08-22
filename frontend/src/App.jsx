@@ -26,6 +26,8 @@ import ArchiveList from './components/ArchiveList';
 import CommentFilePage from './components/CommentAnalyser';
 import FAQ from "./components/Faq";
 import Transcript from "./components/Transcript";
+import MeetingAttachments from "./components/MeetingAttachments";
+
 
 function App() {
   // file upload and listing
@@ -117,14 +119,20 @@ function App() {
           } 
         />
 
-        <Route
+    <Route path="/meetingAttachments/:meetingId" element={ <div className="min-h-screen bg-gray-100">
+      <MeetingAttachments />
+    </div>} />
+
+ <Route path="/meetingGenerator/:meetingId" element={<MeetingGenerator />} />
+
+        {/* <Route
           path="/MeetingGenerator2"
           element={
             <div className="min-h-screen bg-gray-100">
               <MeetingGenerator2 />
             </div>
           }
-        />
+        /> */}
 
         <Route
           path="/details"

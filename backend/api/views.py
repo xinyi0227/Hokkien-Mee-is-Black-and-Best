@@ -1795,3 +1795,41 @@ def get_complaint_summary_and_solution(complaint_data, transcript_text):
 
 
 
+
+@api_view(['GET'])
+def meeting_full(request, meeting_id):
+    """
+    Returns both meeting details and attachments for a given meeting_id
+    """
+    try:
+        # Get meeting details
+        meeting = Meeting.objects.get(pk=meeting_id)
+        meeting_data = MeetingSerializer(meeting).data
+
+        # Get attachments
+        attachments = MeetingFile.objects.filter(meeting__pk=meeting_id)
+        attachments_data = MeetingFileSerializer(attachments, many=True, context={'request': request}).data
+        
+        print("Meeting data:", meeting_data)
+        print("Attachments data:", attachments_data)
+
+        # Combine and return
+        return Response({
+            "meeting": meeting_data,
+            "attachments": attachments_data
+        })
+    except Meeting.DoesNotExist:
+        return Response({"error": "Meeting not found"}, status=404)
+
+@api_view(['GET'])
+def meeting_files_check(request):
+    meeting_id = request.GET.get('meeting_id')
+    if not meeting_id:
+        return Response({"error": "meeting_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    files = MeetingFile.objects.filter(meeting=meeting_id)
+    
+    # Check if any file has meeting_org
+    has_meeting_org = files.filter(meeting_org__isnull=False).exists()
+    
+    return Response({"has_meeting_org_file": has_meeting_org})
