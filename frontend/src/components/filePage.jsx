@@ -55,7 +55,7 @@ const FilePage = () =>{
         <Header />
             <div className="min-h-screen w-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="mx-auto p-6">
-                    <h1 className="text-3xl font-bold mb-8">File Upload Manager</h1>
+                    <h1 className="text-3xl font-bold mb-8">Business Data Analyser</h1>
                     
                     <div className="mx-auto flex flex-row w-full">
                         {user.employee_id && (

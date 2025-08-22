@@ -1,18 +1,26 @@
 import uuid
 from django.db import models
 
+from django.db import models
+from django.contrib.auth.models import User  # assuming you use Django's built-in User model
+
+from django.db import models
+
 class Task(models.Model):
-    title = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    completed = models.BooleanField(default=False)
+    task_id = models.AutoField(primary_key=True)  # match Supabase PK
+    task_title = models.CharField(max_length=255, default="Untitled Task")
+    task_content = models.TextField(default="No content provided")
+    urgent_level = models.CharField(max_length=50, default="pending")
+    deadline = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=50, default="Pending")
+    assignee_id = models.IntegerField(null=True, blank=True)
+    comment = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return self.title
-
     class Meta:
-        ordering = ['-created_at']
+        db_table = 'task'
+
 
 class BusinessData(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -85,7 +93,7 @@ class Employee(models.Model):
 
 class MeetingFile(models.Model):
     meeting_file_id = models.BigAutoField(primary_key=True)
-    meeting_summary = models.CharField(max_length=255)
+    meeting_summary =  models.FileField(upload_to='', null=True, blank=True)
     meeting_org = models.FileField(upload_to='')   # empty string = upload directly to MEDIA_ROOT
     ind_file1 = models.FileField(upload_to='', null=True, blank=True)
     ind_file2 = models.FileField(upload_to='', null=True, blank=True)
@@ -104,6 +112,20 @@ class MeetingFile(models.Model):
     
     class Meta:
         db_table = 'meeting_files'
+
+class CommentReport(models.Model):
+    id = models.AutoField(primary_key=True)
+    filename = models.CharField(max_length=255)
+    file_url = models.ForeignKey('BusinessData', on_delete=models.CASCADE)
+    file_content = models.JSONField()
+    pdf_url = models.URLField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'userComment_data'
+    
+    def __str__(self):
+        return self.filename
         
 class Complaint(models.Model):
     complaint_id = models.AutoField(primary_key=True)  

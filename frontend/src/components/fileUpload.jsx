@@ -50,7 +50,8 @@ const FileUpload = ({ onUploadSuccess }) => {
       const { data, error } = await supabase
         .from('business_data')
         .select('*')
-        .eq('uploader', user.employee_id);
+        .eq('uploader', user.employee_id)
+        .in('UseCase', 'sales');
         
       if (error) throw error;
       setFiles(data || []);
@@ -79,6 +80,7 @@ const FileUpload = ({ onUploadSuccess }) => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `uploads/${fileName}`;
+      const filetype = "sales";
 
       // 3. Upload file to storage
       const { error: uploadError } = await supabase.storage
@@ -101,7 +103,8 @@ const FileUpload = ({ onUploadSuccess }) => {
         .insert([{
           fileName: file.name,
           uploader: user.employee_id,
-          file_url: publicUrl
+          file_url: publicUrl,
+          UseCase: filetype
         }]);
 
       if (dbError) throw dbError;
