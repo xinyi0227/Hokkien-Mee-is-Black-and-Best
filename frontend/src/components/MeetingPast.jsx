@@ -280,7 +280,7 @@ export default function MeetingPast() {
                       onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
                       className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
                     >
-                      Next →
+                      Upload Audios →
                     </button>
                   )}
                 </div>

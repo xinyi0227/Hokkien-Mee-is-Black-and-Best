@@ -23,7 +23,9 @@ urlpatterns = [
     path('view_meeting_files/', views.MeetingFileListView.as_view(), name='view-meeting-files'),
     path('complaintList/', views.ComplaintListView.as_view(), name='complaint-list-create'),
     path('complaintDetails/<int:complaint_id>/', views.ComplaintDetailView.as_view(), name='complaint-update'),
-
     path("approve_summary/<int:meeting_id>/", transcript.approve_summary, name="approve-summary"),
+    path('meeting_full/<int:meeting_id>/', views.meeting_full, name='meeting-full'),
+    path('meeting_files_check/', views.meeting_files_check, name='meeting_files_check'),
+
 
 ]

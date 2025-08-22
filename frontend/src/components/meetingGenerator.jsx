@@ -11,6 +11,7 @@ const Meeting = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [hasUploadedFiles, setHasUploadedFiles] = useState(false);
 
 
   // Audio upload states
@@ -22,6 +23,44 @@ const Meeting = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [employees, setEmployees] = useState([]); // all employees from DB
   const navigate = useNavigate();
+
+   // --- Fetch meeting data & check uploaded files ---
+useEffect(() => {
+  if (!meetingId) return;
+
+  const fetchMeetingFiles = async () => {
+    try {
+      // Fetch meeting details
+      const meetingRes = await fetch(`http://localhost:8000/api/meetings_detail/${meetingId}/`);
+      if (!meetingRes.ok) throw new Error("Failed to fetch meeting data");
+      const meeting = await meetingRes.json();
+      setMeetingData(meeting);
+
+      // Fetch meeting files
+    // Fetch meeting files
+      const filesRes = await fetch(`http://localhost:8000/api/meeting_files_check/?meeting_id=${meetingId}`);
+      if (!filesRes.ok) throw new Error("Failed to fetch meeting files");
+      const data = await filesRes.json();
+
+      console.log(data.has_meeting_org_file); // true or false
+      setHasUploadedFiles(data.has_meeting_org_file);
+
+      // Determine number of individual mics
+      const mics = [meeting.meeting_mic1, meeting.meeting_mic2, meeting.meeting_mic3];
+      const micCount = mics.filter((m) => m !== null && m !== "").length;
+      setIndividualFiles(Array(micCount).fill(null));
+      setIndividualMapping(Array(micCount).fill(null));
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchMeetingFiles();
+}, [meetingId]);
+
 
 
   // --- Fetch meeting data ---
@@ -221,7 +260,9 @@ const handleTranscribe = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 rounded-lg">
+       {/* Conditional rendering */}
+        {!hasUploadedFiles && !uploadSuccess ? (
+      <form  className="mb-8 p-6 bg-gray-50 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Upload Audio Files</h2>
 
         {/* Main File */}
@@ -305,8 +346,9 @@ const handleTranscribe = () => {
           )}
         </button>
       </form>
-
-       {uploadSuccess && (
+  ) : (
+      //  {uploadSuccess && (
+        
   <div className="mt-4">
     <button
       onClick={handleTranscribe}
@@ -343,7 +385,7 @@ const handleTranscribe = () => {
           Transcribing...
         </>
       ) : (
-        "Transcribe Meeting"
+        "Summary the audio"
       )}
     </button>
   </div>

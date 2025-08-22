@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import jsPDF from "jspdf";
 import { FiTrash2, FiX } from 'react-icons/fi'
 import { MdFormatListBulletedAdd } from "react-icons/md";
-
+import { useNavigate } from "react-router-dom";
 
 const TranscriptPage = () => {
   const { meetingId } = useParams();
@@ -17,6 +17,7 @@ const TranscriptPage = () => {
   const [editableSummary, setEditableSummary] = useState(geminiResult.summary || []);
   const [editableTasks, setEditableTasks] = useState(geminiResult.tasks || {});
 
+  const navigate = useNavigate();  
 
   useEffect(() => {
     fetch(`http://localhost:8000/api/transcript/${meetingId}/`, { method: "POST" })
@@ -41,6 +42,7 @@ const TranscriptPage = () => {
 }, [geminiResult]);
 
 const handleApprove = async () => {
+
   try {
     const response = await fetch(`http://localhost:8000/api/approve_summary/${meetingData.ID}/`, {
       method: "POST",
@@ -55,6 +57,7 @@ const handleApprove = async () => {
 
     if (response.ok) {
       alert("Summary and tasks saved successfully!");
+      navigate("/setup");
     } else {
       alert("Failed to save data.");
     }

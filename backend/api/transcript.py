@@ -204,9 +204,9 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import simpleSplit
 
 from .models import Meeting, MeetingFile, Employee, Task
-
 
 @csrf_exempt
 def approve_summary(request, meeting_id):
@@ -258,54 +258,92 @@ def approve_summary(request, meeting_id):
         p = canvas.Canvas(buffer, pagesize=letter)
         width, height = letter
 
-        p.setFont("Helvetica-Bold", 14)
-        p.drawString(100, height - 50, f"Meeting Summary (Meeting ID: {meeting.meeting_title})")
+        # Define margins
+        left_margin = 80
+        right_margin = 80
+        top_margin = 60
 
-        y = height - 100
+        p.setFont("Helvetica-Bold", 18)
+        p.setFillColorRGB(0, 0, 1)  # Blue
+        p.drawString(left_margin, height - top_margin, f"Meeting Summary of {meeting.meeting_title}")
+        y = height - top_margin - 30
+
         p.setFont("Helvetica", 12)
-
+        p.setFillColorRGB(0, 0, 0)  # Black
         # Meeting details
-        p.drawString(100, y, f"Title: {meeting.meeting_title}")
-        y -= 20
-        p.drawString(100, y, f"Date: {meeting.meeting_date} {meeting.meeting_time}")
-        y -= 20
-        p.drawString(100, y, f"Location: {meeting.meeting_location}")
-        y -= 20
-        p.drawString(100, y, f"Department(s): {', '.join(department_names)}")
-        y -= 20
-        p.drawString(100, y, f"Participants: {', '.join(participants)}")
-        y -= 20
-        p.drawString(100, y, "Microphones Assigned: " + ", ".join(mic_employees))
-        y -= 40
+        details = [
+        f"Title: {meeting.meeting_title}",
+        f"Date: {meeting.meeting_date} {meeting.meeting_time}",
+        f"Location: {meeting.meeting_location}",
+        f"Department(s): {', '.join(department_names)}",
+        f"Participants: {', '.join(participants)}",
+        "Mic 1, Mic 2, Mic 3: " + ", ".join(mic_employees),
+            ]
+
+        for d in details:
+            lines = simpleSplit(d, "Helvetica", 12, width - left_margin - right_margin)  # ✅ wrap
+            for line in lines:
+                p.drawString(left_margin, y, line)
+                y -= 18
+        y -= 15
+
 
         # Summary section
-        p.drawString(100, y, "Summary:")
+        p.setFont("Helvetica-Bold", 14)
+        p.setFillColorRGB(0, 0, 1)  # Blue
+        p.drawString(left_margin, y, "Summary:")
         y -= 20
+
+        # Summary points (normal text)
+        p.setFont("Helvetica", 11)
+        p.setFillColorRGB(0, 0, 0)
         for point in summary:
-            p.drawString(120, y, f"- {point}")
-            y -= 20
+            p.drawString(left_margin + 20, y, f"- {point}")
+            y -= 15
 
         # Tasks section
         y -= 20
-        p.drawString(100, y, "Tasks:")
+        p.setFont("Helvetica-Bold", 14)
+        p.setFillColorRGB(0, 0, 1)  # Blue
+        p.drawString(left_margin, y, "Tasks:")
         y -= 20
+
+        # Task details
+        p.setFont("Helvetica", 11)
+        p.setFillColorRGB(0, 0, 0)
         for assignee, task_list in tasks.items():
-            p.drawString(110, y, f"{assignee}:")
-            y -= 20
-            for task in task_list:
-                p.drawString(130, y, f"Title: {task['task_title']}")
+            p.drawString(left_margin + 10, y, f"{assignee}:")
+            y -= 18
+            for i, task in enumerate(task_list, 1):  # ✅ add numbering
+                task_header = f"{i}) Title: {task['task_title']}"
+                lines = simpleSplit(task_header, "Helvetica", 11, width - left_margin - right_margin)
+                for line in lines:
+                    p.drawString(left_margin + 25, y, line)
+                    y -= 15
+
+                # Content
+                content_text = f"    Content: {task['task_content']}"
+                lines = simpleSplit(content_text, "Helvetica", 11, width - left_margin - right_margin)
+                for line in lines:
+                    p.drawString(left_margin + 40, y, line)
+                    y -= 15
+                    
+
+                # Urgency + deadline
+                p.drawString(left_margin + 25, y, f"    Urgency: {task['urgent_level']}")
                 y -= 15
-                p.drawString(130, y, f"Content: {task['task_content']}")
-                y -= 15
-                p.drawString(130, y, f"Urgency: {task['urgent_level']}, Deadline: {task['deadline']}")
-                y -= 30
+
+                #deadline
+                p.drawString(left_margin + 25, y, f"    Deadline: {task['deadline']}")
+                y -= 25
+
 
         p.save()
         buffer.seek(0)
 
         # ✅ Save PDF into MeetingFile table
         meeting_file = MeetingFile.objects.filter(meeting=meeting).first()
-        file_name = f"meeting_{meeting_id}_summary.pdf"
+        file_name = f"meeting_{meeting.meeting_title}_summary.pdf"
 
         if meeting_file:
             meeting_file.meeting_summary.save(file_name, ContentFile(buffer.getvalue()), save=True)

@@ -21,6 +21,12 @@ export default function MeetingToday() {
   const [currentPage, setCurrentPage] = useState(1);
   const meetingsPerPage = 6;
 
+   const isMeetingOver = (meeting) => {
+          if (!meeting.meeting_date || !meeting.meeting_time) return false;
+          const meetingDateTime = new Date(`${meeting.meeting_date}T${meeting.meeting_time}`);
+          return new Date() >= meetingDateTime;
+        };
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -254,8 +260,9 @@ export default function MeetingToday() {
                   .map(id => getEmployeeInfo(id))
                   .join(", ")}</p>
 
-                <div className="mt-6 flex justify-end gap-3">
-                  {hasUploadedFiles(selectedMeeting.meeting_id) ? (
+             <div className="mt-6 flex justify-end gap-3">
+                {isMeetingOver(selectedMeeting) && (
+                  hasUploadedFiles(selectedMeeting.meeting_id) ? (
                     <button
                       onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`)}
                       className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
@@ -267,10 +274,12 @@ export default function MeetingToday() {
                       onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
                       className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
                     >
-                      Next →
+                      Upload Audios →
                     </button>
-                  )}
-                </div>
+                  )
+                )}
+              </div>
+
               </div>
             </div>
           )}

@@ -93,7 +93,7 @@ class Employee(models.Model):
 
 class MeetingFile(models.Model):
     meeting_file_id = models.BigAutoField(primary_key=True)
-    meeting_summary =  models.FileField(upload_to='', null=True, blank=True)
+    meeting_summary =  models.FileField(upload_to='transcripts/', null=True, blank=True)
     meeting_org = models.FileField(upload_to='')   # empty string = upload directly to MEDIA_ROOT
     ind_file1 = models.FileField(upload_to='', null=True, blank=True)
     ind_file2 = models.FileField(upload_to='', null=True, blank=True)

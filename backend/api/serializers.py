@@ -82,9 +82,17 @@ class ComplaintSubmitSerializer(serializers.ModelSerializer):
 
 
 class MeetingFileSerializer(serializers.ModelSerializer):
+    meeting_summary_url = serializers.SerializerMethodField()
+
     class Meta:
         model = MeetingFile
         fields = '__all__'
+
+    def get_meeting_summary_url(self, obj):
+        request = self.context.get('request')
+        if obj.meeting_summary:
+            return request.build_absolute_uri(obj.meeting_summary.url)
+        return None
         
 class ViewComplaintSerializer(serializers.ModelSerializer):
     class Meta:
