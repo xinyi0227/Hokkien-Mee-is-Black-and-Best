@@ -347,10 +347,15 @@ def approve_summary(request, meeting_id):
 
         if meeting_file:
             meeting_file.meeting_summary.save(file_name, ContentFile(buffer.getvalue()), save=True)
+            meeting_file.updated_date = timezone.now().date()
+            meeting_file.updated_time = timezone.now().time()
+            meeting_file.save()
         else:
             meeting_file = MeetingFile.objects.create(
                 meeting=meeting,
                 meeting_summary=ContentFile(buffer.getvalue(), file_name),
+                updated_date=timezone.now().date(),
+                updated_time=timezone.now().time(),
             )
 
         # ✅ Also save PDF into local folder (MEDIA_ROOT/transcripts)
