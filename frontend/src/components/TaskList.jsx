@@ -38,8 +38,8 @@ const normalizePriority = (p) => {
   return ['low', 'medium', 'high'].includes(x) ? x : 'low'
 }
 
-const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']            // 列表分组
-const STATUS_OPTIONS_FOR_EDIT = STATUS_GROUP_ORDER                                 // 编辑下拉不含 archieve
+const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']           
+const STATUS_OPTIONS_FOR_EDIT = STATUS_GROUP_ORDER                                
 const STATUS_META = {
   pending: { label: 'PENDING', badge: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100' },
   'in progress': { label: 'IN PROGRESS', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
