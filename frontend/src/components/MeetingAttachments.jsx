@@ -49,7 +49,7 @@ export default function MeetingAttachments() {
     {attachments.length === 0 || attachments.every(file => !file.meeting_summary_url) ? (
       <>
         <p className="text-red-600">
-          No meeting summary available. You have forget to summary audios, click the button below to make a summary.
+          No meeting summary available. You may forget to summary audios, click the button below to make a summary.
         </p>
 
          <button

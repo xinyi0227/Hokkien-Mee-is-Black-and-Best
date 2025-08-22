@@ -16,6 +16,7 @@ const TranscriptPage = () => {
   const [geminiResult, setGeminiResult] = useState(""); // 📝 Gemini result state
   const [editableSummary, setEditableSummary] = useState(geminiResult.summary || []);
   const [editableTasks, setEditableTasks] = useState(geminiResult.tasks || {});
+  const [geminiReady, setGeminiReady] = useState(false);
 
   const navigate = useNavigate();  
 
@@ -34,12 +35,20 @@ const TranscriptPage = () => {
       .finally(() => setLoading(false));
   }, [meetingId]);
 
-  useEffect(() => {
+
+useEffect(() => {
   if (geminiResult) {
     setEditableSummary(geminiResult.summary || []);
     setEditableTasks(geminiResult.tasks || {});
+
+    // ✅ Mark Gemini as ready only when it has data
+    if ((geminiResult.summary && geminiResult.summary.length > 0) ||
+        (geminiResult.tasks && Object.keys(geminiResult.tasks).length > 0)) {
+      setGeminiReady(true);
+    }
   }
 }, [geminiResult]);
+
 
 const handleApprove = async () => {
 
@@ -284,6 +293,14 @@ if (error) return <p className="text-red-500">{error}</p>;
           Meeting Summary of {meetingData.title}
         </h2>
 
+ {!geminiReady ? (
+    // ⏳ Show loading state until Gemini has real content
+    <div className="flex flex-col items-center justify-center p-6">
+      <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <p className="mt-3 text-blue-600 font-semibold">Analyzing meeting with Gemini...</p>
+    </div>
+  ) : (
+    <>
         {/* Summary */}
         <h3 className="text-lg font-semibold text-blue-600">Summary</h3>
         {editableSummary.length > 0 ? (
@@ -318,6 +335,8 @@ if (error) return <p className="text-red-500">{error}</p>;
           + Add Point
           
         </button>
+
+        
 
         {/* Tasks */}
         <h3 className="text-lg font-semibold text-blue-600 mt-6">Tasks Assigned</h3>
@@ -472,7 +491,9 @@ if (error) return <p className="text-red-500">{error}</p>;
         >
           Approve & Save
         </button>
-      </div>
+      </>
+  )}
+</div>
     </div>
   );
 };
