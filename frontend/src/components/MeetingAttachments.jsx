@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useLocation  } from "react-router-dom";
 
 
 export default function MeetingAttachments() {
@@ -9,7 +9,15 @@ export default function MeetingAttachments() {
   const [meetingDetails, setMeetingDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
+  const fromPage = location.state?.from;
+
+const handleBack = () => {
+  if (fromPage === "today") navigate("/meetingsToday");
+  else if (fromPage === "past") navigate("/meetingsPast");
+  else navigate(-1); // fallback if no state
+};
 
  useEffect(() => {
   const fetchData = async () => {
@@ -78,7 +86,12 @@ export default function MeetingAttachments() {
       </ul>
     )}
 
-
+      <button
+        onClick={handleBack}
+        className="mt-8 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+      >
+        ← Back
+      </button>
     </div>
   );
 }

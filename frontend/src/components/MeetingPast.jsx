@@ -270,7 +270,7 @@ export default function MeetingPast() {
                 <div className="mt-6 flex justify-end gap-3">
                   {hasUploadedFiles(selectedMeeting.meeting_id) ? (
                     <button
-                      onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`)}
+                      onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`, { state: { from: "past" } })}
                       className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
                     >
                       📎 Attachment
