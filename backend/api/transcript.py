@@ -475,3 +475,51 @@ def complaint_upload(request):
     except Exception as e:
         print("🔥 Unexpected error:", e)
         return JsonResponse({"error": str(e)}, status=500)
+    
+@csrf_exempt
+def generate_ai_summary(request, complaint_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid method"}, status=405)
+
+    try:
+        complaint = Complaint.objects.get(pk=complaint_id)
+
+        # Ensure transcript exists
+        if not complaint.complaint_transcript or complaint.complaint_transcript.strip() == "":
+            return JsonResponse({"error": "Transcript not available"}, status=400)
+
+        # Step 1: Generate AI summary & solution
+        try:
+            ai_result = get_complaint_summary_and_solution({
+                "customer_name": complaint.customer_name,
+                "customer_contact": complaint.customer_contact,
+                "employee_name": complaint.employee_id,
+                "complaint_date": complaint.complaint_date
+            }, complaint.complaint_transcript)
+
+            print("🔹 AI Result:", ai_result)
+
+            complaint.complaint_summary = ai_result.get("complaint_summary") or "Summary not available"
+            complaint.solution = ai_result.get("solution") or "Solution not available"
+            complaint.save()
+
+        except Exception as ai_error:
+            print("🔥 AI summary/solution generation failed:", ai_error)
+            return JsonResponse({
+                "error": "AI summary/solution failed",
+                "details": str(ai_error)
+            }, status=500)
+
+        # ✅ Success response
+        return JsonResponse({
+            "message": "AI summary & solution generated",
+            "complaint_id": complaint.pk,
+            "summary": complaint.complaint_summary,
+            "solution": complaint.solution
+        })
+
+    except Complaint.DoesNotExist:
+        return JsonResponse({"error": "Complaint not found"}, status=404)
+    except Exception as e:
+        print("🔥 Unexpected error:", e)
+        return JsonResponse({"error": str(e)}, status=500)
