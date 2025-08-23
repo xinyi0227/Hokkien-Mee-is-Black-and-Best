@@ -137,6 +137,9 @@ const Header = () => {
             FAQ
           </a>
 
+          <a href="/faq-admin" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+            FAQ Admin
+          </a>
 
           {/* Theme toggle */}
           <button

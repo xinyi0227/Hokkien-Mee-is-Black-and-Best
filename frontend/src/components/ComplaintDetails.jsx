@@ -19,6 +19,7 @@ export default function ComplaintDetails() {
         employee_id: "",
         complaint_transcript: "",
     });
+    const [aiLoading, setAiLoading] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -116,7 +117,36 @@ export default function ComplaintDetails() {
         }
     };
 
+    const handleGenerateAI = async () => {
+        setAiLoading(true);
+        try {
+            const res = await fetch(`/api/complaintDetails/${complaint_id}/generate_ai_summary/`, {
+                method: "POST",
+            });
 
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error("AI generation failed:", errorText);
+                alert("Failed to generate AI summary. Check console.");
+                return;
+            }
+
+            const data = await res.json();
+            setFormData(prev => ({
+                ...prev,
+                complaint_summary: data.ai_summary,
+                solution: data.ai_solution,
+            }));
+
+            alert("AI summary and solution generated!");
+            window.location.reload();
+        } catch (err) {
+            console.error("Error generating AI:", err);
+            alert("Unexpected error during AI generation.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
 
     const getEmployeeName = (empId) => {
@@ -243,15 +273,38 @@ export default function ComplaintDetails() {
                                 rows={6}
                             />
                         </div>
+                        <div className="flex justify-between mt-4">
+                            {/* Left side: Generate button */}
+                            <button
+                                type="button"
+                                onClick={handleGenerateAI}
+                                disabled={aiLoading}
+                                className={`px-4 py-2 rounded text-white ${aiLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                                    }`}
+                            >
+                                {aiLoading ? "Generating..." : "Generate AI Summary"}
+                            </button>
 
-                        <div className="flex gap-2 mt-4">
-                            <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                                Save
-                            </button>
-                            <button type="button" onClick={() => navigate("/complaintList")} className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
-                                Back
-                            </button>
+
+                            {/* Right side: Save + Back */}
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => window.location.href = "/complaintList"}
+                                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                                >
+                                    Back
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                >
+                                    Save
+                                </button>
+                            </div>
                         </div>
+
+
                     </form>
                 </div>
             </div>

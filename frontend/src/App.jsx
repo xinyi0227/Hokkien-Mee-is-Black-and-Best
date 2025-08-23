@@ -25,6 +25,7 @@ import FilePage from './components/filePage';
 import ArchiveList from './components/ArchiveList';
 import CommentFilePage from './components/CommentAnalyser';
 import FAQ from "./components/Faq";
+import FaqAdmin from "./components/FaqAdmin";
 import Transcript from "./components/Transcript";
 import MeetingAttachments from "./components/MeetingAttachments";
 
@@ -156,6 +157,8 @@ function App() {
             <FAQ />
           }
         />
+
+        <Route path="/faq-admin" element={<FaqAdmin />} />
 
         {/* CSV Upload route */}
         <Route
