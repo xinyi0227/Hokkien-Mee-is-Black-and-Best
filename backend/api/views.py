@@ -1602,7 +1602,7 @@ class MeetingFileListView(generics.ListAPIView):
     serializer_class = MeetingFileSerializer
     
 class ComplaintListView(generics.ListCreateAPIView):
-    queryset = Complaint.objects.all()
+    queryset = Complaint.objects.all().order_by('-created_at')  # always newest first
 
     def get_serializer_class(self):
         if self.request.method == 'POST':

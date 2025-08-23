@@ -416,26 +416,53 @@ def complaint_upload(request):
 
         # Step 2: Transcribe using the saved file path
         abs_path = complaint.complaint_audio.path
-        transcript = azure_transcribe(abs_path)
+        print("📂 File saved at:", abs_path)
+        print("📁 File exists:", os.path.exists(abs_path))
+        print("📊 File size:", os.path.getsize(abs_path) if os.path.exists(abs_path) else "File not found")
+
+
+        try:
+            transcript = azure_transcribe(abs_path)
+        except Exception as transcribe_error:
+            print("🔥 Transcription failed:", transcribe_error)
+            return JsonResponse({
+                "error": "Transcription failed",
+                "details": str(transcribe_error)
+            }, status=500)
+
+        if not transcript or transcript.strip() == "":
+            print("❌ No transcript generated")
+            return JsonResponse({
+                "error": "No speech recognized in the audio file"
+            }, status=400)
+
+        # Save transcript
         complaint.complaint_transcript = transcript
         complaint.save()
 
         # Step 3: Generate AI summary & solution
-        ai_result = get_complaint_summary_and_solution({
-            "customer_name": complaint.customer_name,
-            "customer_contact": complaint.customer_contact,
-            "employee_name": complaint.employee_id,
-            "complaint_date": complaint.complaint_date
-        }, transcript)
+        try:
+            ai_result = get_complaint_summary_and_solution({
+                "customer_name": complaint.customer_name,
+                "customer_contact": complaint.customer_contact,
+                "employee_name": complaint.employee_id,
+                "complaint_date": complaint.complaint_date
+            }, transcript)
 
-        # 🔍 Log AI output to console for debugging
-        print("🔹 AI Result:", ai_result)
+            print("🔹 AI Result:", ai_result)
 
-        # Step 4: Safely save AI summary and solution to DB
-        complaint.complaint_summary = ai_result.get("complaint_summary") or ["Summary not available"]
-        complaint.solution = ai_result.get("solution") or "Solution not available"
-        complaint.save()
+            complaint.complaint_summary = ai_result.get("complaint_summary") or "Summary not available"
+            complaint.solution = ai_result.get("solution") or "Solution not available"
+            complaint.save()
 
+        except Exception as ai_error:
+            print("🔥 AI summary/solution generation failed:", ai_error)
+            return JsonResponse({
+                "error": "AI summary/solution failed",
+                "details": str(ai_error)
+            }, status=500)
+
+        # ✅ Success response
         return JsonResponse({
             "message": "Complaint uploaded and transcribed",
             "complaint_id": complaint.pk,
@@ -446,5 +473,5 @@ def complaint_upload(request):
         })
 
     except Exception as e:
-        print("ERROR:", e)
+        print("🔥 Unexpected error:", e)
         return JsonResponse({"error": str(e)}, status=500)
