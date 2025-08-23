@@ -114,9 +114,13 @@ def transcript_view(request, meeting_id):
 
         for mf in meeting_files:
             if mf.meeting_org:
+
+                audio_url = request.build_absolute_uri(settings.MEDIA_URL + mf.meeting_org.name)
+
                 file_path = os.path.join(settings.MEDIA_ROOT, mf.meeting_org.name)
                 transcript_text = azure_transcribe(file_path)
 
+                
                 # 📂 Make transcripts folder
                 transcript_dir = os.path.join(settings.MEDIA_ROOT, "transcripts")
                 os.makedirs(transcript_dir, exist_ok=True)
@@ -181,11 +185,11 @@ def transcript_view(request, meeting_id):
                 file_field = getattr(mf, file_attr, None)
                 if file_field:
                     url = request.build_absolute_uri(settings.MEDIA_URL + file_field.name)
-                    file_urls.append(url)
+                    # file_urls.append(url)
 
         return JsonResponse({
             "meeting": meeting_data,
-            "audio_files": file_urls,
+            "audio_files": audio_url,
             "transcript_files": transcript_file_urls,
             "transcript": transcript_text,
             "gemini": get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file_urls)
