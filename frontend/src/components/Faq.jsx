@@ -5,6 +5,32 @@ import { supabase } from "../lib/supabase";
 export default function FAQ() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  const needSync = async () => {
+    const [qNull, aNull, bestNull] = await Promise.all([
+      supabase.from("faq_question").select("id", { head: true, count: "exact" }).is("embedding", null),
+      supabase.from("faq_answer").select("id", { head: true, count: "exact" }).is("embedding", null),
+      supabase.from("faq_question").select("id", { head: true, count: "exact" }).is("best_answer_id", null),
+    ]);
+    const qNeed = (qNull.count ?? 0) > 0;
+    const aNeed = (aNull.count ?? 0) > 0;
+    const mNeed = (bestNull.count ?? 0) > 0;
+    return qNeed || aNeed || mNeed;
+  };
+
+  const runSyncIfNeeded = async () => {
+    try {
+      if (await needSync()) {
+        setSyncing(true);
+        await supabase.functions.invoke("faq-sync", { body: {} });
+      }
+    } catch (e) {
+      console.error("auto sync failed:", e);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -17,7 +43,12 @@ export default function FAQ() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    (async () => {
+      await runSyncIfNeeded();
+      await load();
+    })();
+  }, []);
 
   return (
     <>
@@ -26,9 +57,19 @@ export default function FAQ() {
         <div className="max-w-5xl mx-auto p-6 text-gray-900 dark:text-gray-100">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold">FAQ</h1>
-            <button onClick={load} className="px-3 py-2 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
-              Refresh
-            </button>
+            <div className="flex items-center gap-3">
+              {syncing && (
+                <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                  Rebuilding mapping…
+                </span>
+              )}
+              <button
+                onClick={async () => { await runSyncIfNeeded(); await load(); }}
+                className="px-3 py-2 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
           {loading ? <div>Loading...</div> : rows.length === 0 ? (
