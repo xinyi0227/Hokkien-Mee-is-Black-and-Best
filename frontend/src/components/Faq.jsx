@@ -3,21 +3,18 @@ import Header from "./header";
 import { supabase } from "../lib/supabase";
 
 export default function FAQ() {
-  const [data, setData] = useState(null);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("faq-build", { body: { top_k: 3 } });
-      if (error) throw error;
-      setData(data);
-    } catch (e) {
-      console.error(e);
-      alert("加载失败");
-    } finally {
-      setLoading(false);
-    }
+    const { data, error } = await supabase
+      .from("faq_q_with_best")
+      .select("*")
+      .order("question_updated_at", { ascending: false });
+    if (error) console.error(error);
+    setRows(data || []);
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -34,25 +31,22 @@ export default function FAQ() {
             </button>
           </div>
 
-          {loading ? <div>Loading...</div> : !data || data.items?.length===0 ? (
+          {loading ? <div>Loading...</div> : rows.length === 0 ? (
             <div className="text-sm text-gray-500">No data</div>
           ) : (
             <div className="space-y-4">
-              {data.items.map((it) => (
-                <section key={it.question_id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
-                  <div className="font-semibold">{it.question}</div>
-                  {it.best ? (
+              {rows.map((r) => (
+                <section key={r.question_id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                  <div className="font-semibold">{r.question}</div>
+                  {r.answer ? (
                     <div className="text-sm text-gray-700 dark:text-gray-300 mt-2 whitespace-pre-wrap">
-                      {it.best.answer}
-                      <span className="ml-2 text-xs text-gray-500">({it.best.score.toFixed(3)})</span>
+                      {r.answer}
+                      {typeof r.best_score === "number" && (
+                        <span className="ml-2 text-xs text-gray-500">({r.best_score.toFixed(3)})</span>
+                      )}
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-500 mt-2">No confident answer</div>
-                  )}
-                  {it.alternatives?.length > 0 && (
-                    <div className="text-xs text-gray-500 mt-2">
-                      Alternatives: {it.alternatives.map(a => a.score.toFixed(2)).join(", ")}
-                    </div>
+                    <div className="text-sm text-gray-500 mt-2">No matched answer</div>
                   )}
                 </section>
               ))}
