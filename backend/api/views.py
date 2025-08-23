@@ -23,8 +23,7 @@ from datetime import date, datetime
 from django.utils import timezone
 import json
 import re
-
-
+import time
 
 class FileProcessingView(generics.CreateAPIView):
 
@@ -1728,6 +1727,7 @@ def get_meeting_summary_and_tasks(meeting_data, transcript_text, transcript_file
     except Exception as e:
         return {"error": str(e)}
     
+        
 def get_complaint_summary_and_solution(complaint_data, transcript_text):
     """
     Analyze complaint transcript to generate a summary and solution.
@@ -1794,12 +1794,6 @@ def get_complaint_summary_and_solution(complaint_data, transcript_text):
     except Exception as e:
         return {"complaint_summary": "Error generating summary.", "solution": str(e)}
     
-    
-
-
-
-
-
 @api_view(['GET'])
 def meeting_full(request, meeting_id):
     """
