@@ -16,6 +16,7 @@ export default function MeetingAttachments() {
 const handleBack = () => {
   if (fromPage === "today") navigate("/meetingsToday");
   else if (fromPage === "past") navigate("/meetingsPast");
+  else if (fromPage === "calendar") navigate("/tasks", { state: { view: "calendar" } });
   else navigate(-1); // fallback if no state
 };
 

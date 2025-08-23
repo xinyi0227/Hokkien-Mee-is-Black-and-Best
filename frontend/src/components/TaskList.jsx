@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Header from './header'
 import { FiTrash2, FiX } from 'react-icons/fi'
@@ -108,6 +108,7 @@ const computeDiffsFromSnapshot = (beforeSnap = {}, afterObj = {}) => {
 
 const TaskList = ({ currentUser }) => {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [tasks, setTasks] = useState([])
   const [employees, setEmployees] = useState([])
@@ -163,6 +164,12 @@ const TaskList = ({ currentUser }) => {
     fetchMeetingFiles()
   }, [])
 
+  useEffect(() => {
+    if (location.state?.view === 'calendar') {
+      setView(VIEWS.CAL)
+    }
+  }, [location.state])
+
   const fetchTasks = async () => {
     try {
       const { data, error } = await supabase
@@ -191,7 +198,6 @@ const TaskList = ({ currentUser }) => {
     }
   }
 
-  // 新增：部门/全部会议/会议文件
   const fetchDepartments = async () => {
     try {
       const r = await fetch('/api/departments')
@@ -234,14 +240,14 @@ const TaskList = ({ currentUser }) => {
   }
 
   const isParticipant = (m) => {
-  const myId = String(currentUser?.employee_id ?? '')
-  if (!myId) return false
-  const participantIds = String(m.meeting_participant || '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter(Boolean)
-  return participantIds.includes(myId)
-}
+    const myId = String(currentUser?.employee_id ?? '')
+    if (!myId) return false
+    const participantIds = String(m.meeting_participant || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+    return participantIds.includes(myId)
+  }
 
   const getEmployeeInfo = (employeeId) => {
     const emp = employees.find(e => String(e.employee_id) === String(employeeId))
@@ -599,7 +605,7 @@ const TaskList = ({ currentUser }) => {
       if (currentUser.role === 'manager') {
         return meetingDeptIds.includes(String(currentUser.department_id))
       }
-      return true 
+      return true
     })
   }, [meetings, currentUser])
 
@@ -977,7 +983,7 @@ const TaskList = ({ currentUser }) => {
                   <aside className="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 overflow-y-auto space-y-6">
                     <div>
                       <div className="text-sm font-semibold mb-3">Activity</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
+                      {/* <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
                       <ul className="space-y-2 mb-4">
                         <li className="text-sm">
                           Created at:{' '}
@@ -991,7 +997,7 @@ const TaskList = ({ currentUser }) => {
                             {currentTask.updated_at ? new Date(currentTask.updated_at).toLocaleString() : '—'}
                           </span>
                         </li>
-                      </ul>
+                      </ul> */}
 
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Change log</div>
                       {activityLoading ? (
@@ -1105,14 +1111,22 @@ const TaskList = ({ currentUser }) => {
                   {isMeetingOver(selectedMeeting) && isParticipant(selectedMeeting) && (
                     hasUploadedFiles(selectedMeeting.meeting_id) ? (
                       <button
-                        onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`)}
+                        onClick={() =>
+                          navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`, {
+                            state: { from: 'calendar' }
+                          })
+                        }
                         className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
                       >
                         📎 Attachment
                       </button>
                     ) : (
                       <button
-                        onClick={() => navigate('/meetingGenerator', { state: { meetingId: selectedMeeting.meeting_id } })}
+                        onClick={() =>
+                          navigate('/meetingGenerator', {
+                            state: { meetingId: selectedMeeting.meeting_id, from: 'calendar' }
+                          })
+                        }
                         className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
                       >
                         Upload Audios →
