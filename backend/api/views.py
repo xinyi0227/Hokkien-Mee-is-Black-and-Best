@@ -1,6 +1,8 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, Complaint, CommentReport
 from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, ViewComplaintSerializer, ComplaintSubmitSerializer, CommentReportSerializer
 
@@ -79,8 +81,7 @@ class FileProcessingView(generics.CreateAPIView):
                     'cleaned_excel_url': cleaned_excel_url,
                     'cleaning_pdf_url': cleaning_pdf_url
                 },
-                pdf_url=pdf_url,
-                ppt_url=ppt_url
+                pdf_url=pdf_url
             )
 
             serializer = ProcessedReportSerializer(processed_report)
@@ -1775,7 +1776,7 @@ class FileProcessingView(generics.CreateAPIView):
             raise Exception(f"Failed to generate specialized PPT: {str(e)}")
 
 class FeedbackAnalysisView(generics.CreateAPIView):
-    
+    MIN_PROMPT_LEN = 100
     def post(self, request, *args, **kwargs):
         """Process feedback data with AI analysis and visualization"""
         file_id = request.data.get('file_id')
@@ -1789,16 +1790,21 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             # Step 1: Read and clean feedback data
             cleaned_data, cleaning_log = self.clean_feedback_data(file_content, business_data.fileName)
             
-            # Step 2: AI analysis of column meanings and feedback content
+            # Step 2: AI analysis of column meanings
             column_analysis = self.analyze_columns_with_gemini(cleaned_data, business_data.fileName)
-            feedback_insights = self.analyze_feedback_content(cleaned_data, column_analysis)
+
+            # If we get here, column analysis was successful
+            print("Column analysis completed successfully, proceeding with feedback analysis")
             
-            # Step 3: Generate visualizations based on feedback analysis
-            visualizations = self.create_feedback_visualizations(cleaned_data, column_analysis, feedback_insights)
+            # Step 3: Comprehensive feedback analysis with Gemini
+            feedback_analysis = self.comprehensive_feedback_analysis(cleaned_data, column_analysis)
             
-            # Step 4: Generate comprehensive report
-            pdf_url = self.generate_feedback_report(
-                cleaned_data, column_analysis, feedback_insights, visualizations, business_data.fileName
+            # Step 4: Generate visualizations based on AI analysis
+            visualizations = self.create_ai_driven_visualizations(cleaned_data, column_analysis, feedback_analysis)
+            
+            # Step 5: Generate AI-powered report with descriptions
+            pdf_url = self.generate_ai_enhanced_report(
+                cleaned_data, column_analysis, feedback_analysis, visualizations, business_data.fileName
             )
             
             # Save results
@@ -1808,7 +1814,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
                 file_content={
                     'cleaning_log': cleaning_log,
                     'column_analysis': column_analysis,
-                    'feedback_insights': feedback_insights,
+                    'feedback_analysis': feedback_analysis,
                     'visualizations': [v['url'] for v in visualizations]
                 },
                 pdf_url=pdf_url
@@ -1817,6 +1823,8 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             serializer = CommentReportSerializer(processed_report)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
+        except BusinessData.DoesNotExist:
+            return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(f"Feedback processing error: {str(e)}")
             import traceback
@@ -1831,7 +1839,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
         elif filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(BytesIO(file_content))
         else:
-            raise Exception("Unsupported file format")
+            raise ValueError("Unsupported file format. Only CSV and Excel files are supported.")
 
         cleaning_log = {
             'original_shape': df.shape,
@@ -1869,305 +1877,651 @@ class FeedbackAnalysisView(generics.CreateAPIView):
 
     def analyze_columns_with_gemini(self, df, filename):
         """Use Gemini AI to understand column meanings and purposes"""
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        import json
+        try:
+            # Check if API key is available
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                raise Exception("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
 
-        # Prepare column information for AI analysis
-        column_info = {}
-        for col in df.columns:
-            sample_values = df[col].dropna().head(5).tolist()
-            column_info[col] = {
-                'dtype': str(df[col].dtype),
-                'unique_values': df[col].nunique(),
-                'missing_values': df[col].isnull().sum(),
-                'sample_data': sample_values
-            }
+            # Prepare a simplified version of column information
+            column_info = []
+            for col in df.columns:
+                # Get a small sample of data
+                samples = df[col].dropna().head(3).tolist()
+                # Convert to string representation
+                sample_str = ", ".join([str(x) for x in samples[:3]])
+                
+                column_info.append({
+                    "name": col,
+                    "type": str(df[col].dtype),
+                    "sample_values": sample_str,
+                    "unique_count": int(df[col].nunique()),
+                    "missing_count": int(df[col].isnull().sum())
+                })
 
-        prompt = f"""
-        Analyze this feedback dataset and provide insights about each column:
+            # Create a simpler prompt
+            prompt = f"""
+            Analyze this dataset and classify each column's purpose.
 
-        Filename: {filename}
-        Dataset Shape: {df.shape}
-        Column Information: {column_info}
+            FILENAME: {filename}
+            ROWS: {len(df)}
+            COLUMNS: {len(df.columns)}
 
-        Please provide for each column:
-        1. What type of information this column likely contains
-        2. Its purpose in the feedback context
-        3. Potential relationships with other columns
-        4. Suggestions for visualization
+            COLUMN INFORMATION:
+            {json.dumps(column_info, indent=2)}
 
-        Format your response as JSON with this structure:
-        {{
+            For each column, classify it as one of these types:
+            - feedback_text: Contains customer comments, reviews, or feedback text
+            - numeric_rating: Contains numerical ratings (1-5, 1-10 scores)
+            - timestamp: Date/time when feedback was provided  
+            - categorical: Product categories, user types, locations, etc.
+            - demographic: Customer name, email, age, etc.
+            - irrelevant: IDs, indexes, system data (should be excluded from analysis)
+            - other: Doesn't fit above categories but might be useful
+
+            Return ONLY a JSON object with this structure:
+            {{
             "columns_analysis": [
                 {{
-                    "column_name": "column1",
-                    "likely_purpose": "description",
-                    "data_category": "category (e.g., demographic, rating, text_feedback, timestamp)",
-                    "visualization_suggestions": ["chart_type1", "chart_type2"],
-                    "key_insights": ["insight1", "insight2"]
+                "column_name": "string",
+                "detected_type": "string",
+                "confidence": "high|medium|low",
+                "reasoning": "brief explanation",
+                "include_in_analysis": true|false
                 }}
             ],
-            "overall_assessment": "brief summary"
-        }}
-        """
+            "primary_feedback_column": "column_name_or_null",
+            "primary_rating_column": "column_name_or_null",
+            "notes": "any_important_observations"
+            }}
 
-        try:
+            Focus on identifying columns that contain feedback text or ratings.
+            """
+
+            print(f"Sending column analysis request to Gemini with prompt length: {len(prompt)}")
+            
             response = model.generate_content(prompt)
+            response_text = response.text.strip()
+        
+            # Remove markdown code blocks if they exist
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]  # Remove ```json
+            elif response_text.startswith('```'):
+                response_text = response_text[3:]   # Remove ```
+                
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]  # Remove trailing ```
+                
+            response_text = response_text.strip()
+        
+            # Check if response is valid before trying to parse it as JSON
             import json
-            return json.loads(response.text)
+            try:
+                
+                result = json.loads(response_text)
+                
+                # Validate the structure
+                if isinstance(result, dict) and 'columns_analysis' in result:
+                    print(f"Successfully parsed Gemini response with {len(result.get('columns_analysis', []))} columns")
+                    return result
+                else:
+                    print("Gemini response missing expected structure; using fallback")
+                
+            except json.JSONDecodeError as json_error:
+                print(f"JSON parsing failed: {json_error}")
+                print(f"Response text (first 500 chars): {response_text[:500]}")
+                return self.fallback_column_analysis(df, filename)
+                
         except Exception as e:
-            # Fallback analysis
-            return self.fallback_column_analysis(df, filename)
+            error_msg = f"Gemini column analysis failed: {str(e)}"
+            print(f"Gemini column analysis failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            print(error_msg)
+            raise Exception(error_msg)
 
     def fallback_column_analysis(self, df, filename):
         """Fallback column analysis when Gemini fails"""
-        analysis = {"columns_analysis": [], "overall_assessment": "Basic feedback data analysis"}
+        analysis = {
+            "columns_analysis": [], 
+            "primary_feedback_column": None,
+            "primary_rating_column": None,
+            "notes": "Basic feedback data analysis (fallback)"
+        }
         
         for col in df.columns:
             col_lower = col.lower()
             col_info = {
                 "column_name": col,
-                "likely_purpose": "",
-                "data_category": "unknown",
-                "visualization_suggestions": [],
-                "key_insights": []
+                "detected_type": "other",
+                "confidence": "low",
+                "reasoning": "Fallback analysis based on column name",
+                "include_in_analysis": True
             }
             
             # Basic pattern matching for common feedback columns
             if any(keyword in col_lower for keyword in ['rating', 'score', 'rate']):
-                col_info["likely_purpose"] = "Numeric evaluation score"
-                col_info["data_category"] = "rating"
-                col_info["visualization_suggestions"] = ["histogram", "box_plot", "bar_chart"]
+                col_info["detected_type"] = "numeric_rating"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests rating data"
+                if not analysis["primary_rating_column"]:
+                    analysis["primary_rating_column"] = col
+                    
             elif any(keyword in col_lower for keyword in ['comment', 'feedback', 'review', 'suggestion']):
-                col_info["likely_purpose"] = "Textual feedback content"
-                col_info["data_category"] = "text_feedback"
-                col_info["visualization_suggestions"] = ["word_cloud", "sentiment_chart"]
+                col_info["detected_type"] = "feedback_text"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests feedback text"
+                if not analysis["primary_feedback_column"]:
+                    analysis["primary_feedback_column"] = col
+                    
             elif any(keyword in col_lower for keyword in ['date', 'time', 'timestamp']):
-                col_info["likely_purpose"] = "When feedback was provided"
-                col_info["data_category"] = "timestamp"
-                col_info["visualization_suggestions"] = ["timeline", "time_series"]
+                col_info["detected_type"] = "timestamp"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests timestamp data"
+                
             elif any(keyword in col_lower for keyword in ['name', 'user', 'customer', 'email']):
-                col_info["likely_purpose"] = "Identifier information"
-                col_info["data_category"] = "demographic"
-                col_info["visualization_suggestions"] = ["bar_chart", "pie_chart"]
-            else:
-                col_info["likely_purpose"] = "Additional feedback data"
-                col_info["data_category"] = "miscellaneous"
+                col_info["detected_type"] = "demographic"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests demographic data"
+                
+            elif any(keyword in col_lower for keyword in ['id', 'index', 'key']):
+                col_info["detected_type"] = "irrelevant"
+                col_info["include_in_analysis"] = False
+                col_info["reasoning"] = "Column name suggests ID/index data"
             
             analysis["columns_analysis"].append(col_info)
         
         return analysis
 
-    def analyze_feedback_content(self, df, column_analysis):
-        """Analyze feedback content using Gemini AI"""
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-1.5-flash')
-
-        # Identify text feedback columns
-        text_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'text_feedback':
-                text_columns.append(col_info['column_name'])
+    def comprehensive_feedback_analysis(self, df, column_analysis):
+        """Comprehensive feedback analysis using Gemini AI"""
         
-        if not text_columns:
-            text_columns = df.select_dtypes(include=['object']).columns.tolist()
-        
-        # Sample feedback for analysis
-        sample_feedback = []
-        for col in text_columns[:2]:  # Analyze first 2 text columns max
-            sample_data = df[col].dropna().head(20).tolist()
-            sample_feedback.append({col: sample_data})
-
-        prompt = f"""
-        Analyze this customer feedback data and provide insights:
-
-        Dataset Overview:
-        - Total records: {len(df)}
-        - Text feedback columns: {text_columns}
-        
-        Sample Feedback:
-        {sample_feedback}
-
-        Please provide:
-        1. Overall sentiment analysis (positive/negative/neutral distribution)
-        2. Common themes and topics mentioned
-        3. Key pain points or areas for improvement
-        4. Positive aspects and strengths identified
-        5. Actionable recommendations based on feedback
-        
-        """
-
-        try:
-            response = model.generate_content(prompt)
-            import json
-            return json.loads(response.text)
-        except Exception as e:
-            return self.basic_sentiment_analysis(df, text_columns)
-
-    def basic_sentiment_analysis(self, df, text_columns):
-        """Basic sentiment analysis fallback"""
-        from textblob import TextBlob
-        
-        sentiments = []
-        for col in text_columns:
-            for text in df[col].dropna():
-                if text and text != 'No feedback provided':
-                    analysis = TextBlob(text)
-                    sentiments.append(analysis.sentiment.polarity)
-        
-        positive = len([s for s in sentiments if s > 0.1])
-        negative = len([s for s in sentiments if s < -0.1])
-        neutral = len(sentiments) - positive - negative
-        
-        total = len(sentiments) if sentiments else 1
-        
-        return {
-            "sentiment_analysis": {
-                "positive_percentage": (positive / total) * 100,
-                "negative_percentage": (negative / total) * 100,
-                "neutral_percentage": (neutral / total) * 100,
-                "overall_sentiment": "positive" if positive > negative else "negative" if negative > positive else "neutral"
+        # Default structure to return if AI analysis fails
+        default_analysis = {
+            "sentiment_summary": {
+                "positive_percentage": 0.0,
+                "negative_percentage": 0.0,
+                "neutral_percentage": 0.0,
+                "overall_sentiment": "neutral"
             },
-            "key_themes": [{"theme": "General feedback", "frequency": "high", "sentiment": "mixed"}],
-            "strengths": ["Product functionality", "Customer service", "Ease of use"],
-            "improvement_areas": ["Response time", "Documentation", "Pricing"],
-            "recommendations": [
-                "Improve response time for customer inquiries",
-                "Enhance documentation with more examples",
-                "Consider tiered pricing options"
-            ]
+            "positive_feedback_analysis": {
+                "categories": []
+            },
+            "negative_feedback_analysis": {
+                "categories": []
+            },
+            "recommendations": [],
+            "analysis_status": "fallback_used",
+            "error_message": None
         }
+        
+        try:
+            # Check if API key is available
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                raise Exception("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
 
-    def create_feedback_visualizations(self, df, column_analysis, feedback_insights):
-        """Create visualizations based on feedback analysis"""
+            # Identify relevant columns for analysis
+            feedback_columns = []
+            rating_columns = []
+            
+            for col_info in column_analysis.get('columns_analysis', []):
+                if col_info.get('include_in_analysis', True):
+                    if col_info.get('detected_type') == 'feedback_text':
+                        feedback_columns.append(col_info['column_name'])
+                    elif col_info.get('detected_type') == 'numeric_rating':
+                        rating_columns.append(col_info['column_name'])
+
+            # If no feedback columns found, return default with message
+            if not feedback_columns:
+                default_analysis["analysis_status"] = "no_feedback_columns"
+                default_analysis["error_message"] = "No feedback text columns identified for analysis"
+                print("No feedback columns found for analysis")
+                return default_analysis
+
+            # Prepare sample data for analysis with JSON-serializable types
+            sample_data = []
+            max_samples = 50
+            
+            for col in feedback_columns:
+                if col in df.columns:
+                    samples = df[col].dropna().head(max_samples)
+                    # Convert to native Python types
+                    sample_list = []
+                    for sample in samples:
+                        if hasattr(sample, 'item'):
+                            sample_list.append(sample.item())
+                        else:
+                            sample_list.append(str(sample))
+                    
+                    sample_data.append({
+                        'column': col,
+                        'samples': sample_list[:10]  # First 10 samples per column
+                    })
+
+            # Get rating distribution if available - convert to native types
+            rating_info = {}
+            for col in rating_columns:
+                if col in df.columns:
+                    # Convert numpy types to native Python types
+                    avg_val = float(df[col].mean()) if not pd.isna(df[col].mean()) else 0.0
+                    
+                    dist = df[col].value_counts()
+                    dist_dict = {}
+                    for key, value in dist.items():
+                        if hasattr(key, 'item'):
+                            dist_dict[key.item()] = int(value)
+                        else:
+                            dist_dict[key] = int(value)
+                    
+                    rating_info[col] = {
+                        'average': avg_val,
+                        'distribution': dist_dict
+                    }
+
+            prompt = f"""
+            ACT as a Customer Experience (CX) Analyst with expertise in feedback analysis.
+
+            DATASET OVERVIEW:
+            - Total records: {int(len(df))}
+            - Feedback columns: {feedback_columns}
+            - Rating columns: {rating_columns}
+            - Rating statistics: {json.dumps(rating_info, indent=2, default=str)}
+
+            SAMPLE FEEDBACK DATA:
+            {json.dumps(sample_data, indent=2, default=str)}
+
+            YOUR COMPREHENSIVE ANALYSIS TASK:
+            Perform a detailed analysis of the customer feedback and provide insights in the following JSON structure:
+
+            {{
+                "sentiment_summary": {{
+                    "positive_percentage": float,
+                    "negative_percentage": float,
+                    "neutral_percentage": float,
+                    "overall_sentiment": "positive/negative/neutral"
+                }},
+                "positive_feedback_analysis": {{
+                    "categories": [
+                        {{
+                            "category": "string",
+                            "percentage": float,
+                            "examples": ["string"],
+                            "key_themes": ["string"]
+                        }}
+                    ]
+                }},
+                "negative_feedback_analysis": {{
+                    "categories": [
+                        {{
+                            "category": "string",
+                            "percentage": float,
+                            "examples": ["string"],
+                            "key_issues": ["string"]
+                        }}
+                    ]
+                }},
+                "recommendations": [
+                    {{
+                        "area": "string",
+                        "action": "string",
+                        "priority": "high/medium/low",
+                        "impact": "string",
+                        "timeline": "short/medium/long-term"
+                    }}
+                ]
+            }}
+
+            Focus on:
+            1. Identifying key themes in positive feedback
+            2. Categorizing and quantifying negative feedback
+            3. Providing actionable recommendations
+            4. Calculating sentiment distribution
+
+            Return ONLY valid JSON, no markdown or explanation.
+            """
+
+            print(f"Sending feedback analysis request to Gemini API")
+            response = model.generate_content(prompt)
+            response_text = response.text.strip()
+        
+            # Remove markdown code blocks if they exist
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]  # Remove ```json
+            elif response_text.startswith('```'):
+                response_text = response_text[3:]   # Remove ```
+                
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]  # Remove trailing ```
+                
+            response_text = response_text.strip()
+            
+            # Check if response is valid before trying to parse it as JSON
+            if response and hasattr(response, 'text') and response.text:
+                try:
+                    result = json.loads(response_text)
+                    
+                    # Validate required structure
+                    required_keys = ['sentiment_summary', 'positive_feedback_analysis', 'negative_feedback_analysis', 'recommendations']
+                    if all(key in result for key in required_keys):
+                        result["analysis_status"] = "success"
+                        print("Successfully parsed Gemini feedback analysis")
+                        return result
+                    else:
+                        print(f"Missing required keys in response: {[k for k in required_keys if k not in result]}")
+                        default_analysis["analysis_status"] = "invalid_structure"
+                        default_analysis["error_message"] = "AI response missing required fields"
+                        return default_analysis
+                        
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse Gemini response as JSON: {e}")
+                    default_analysis["analysis_status"] = "json_parse_error"
+                    default_analysis["error_message"] = f"JSON parsing failed: {str(e)}"
+                    return default_analysis
+            else:
+                print("Empty or invalid response from Gemini API")
+                default_analysis["analysis_status"] = "empty_response"
+                default_analysis["error_message"] = "Empty response from AI service"
+                return default_analysis
+                
+        except Exception as e:
+            error_msg = f"Gemini feedback analysis failed: {str(e)}"
+            print(error_msg)
+            raise Exception(error_msg)  # Re-raise the exception to stop execution
+
+    def create_ai_driven_visualizations(self, df, column_analysis, feedback_analysis):
+        """Create visualizations based on AI analysis with AI-generated descriptions"""
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         import seaborn as sns
+        import numpy as np
         
         visualizations = []
-        
-        # 1. Sentiment distribution pie chart
-        sentiment_data = feedback_insights.get('sentiment_analysis', {})
-        if sentiment_data:
-            plt.figure(figsize=(10, 8))
-            labels = ['Positive', 'Negative', 'Neutral']
-            sizes = [
-                sentiment_data.get('positive_percentage', 0),
-                sentiment_data.get('negative_percentage', 0),
-                sentiment_data.get('neutral_percentage', 0)
-            ]
-            colors = ['#4CAF50', '#F44336', '#FFC107']
-            
-            plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-            plt.title('Feedback Sentiment Distribution')
-            plt.axis('equal')
-            
-            chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_sentiment_pie.png")
-            visualizations.append({
-                'type': 'pie_chart',
-                'title': 'Feedback Sentiment Analysis',
-                'url': chart_url,
-                'description': f"Overall sentiment: {sentiment_data.get('overall_sentiment', 'unknown')}"
-            })
-            plt.close()
-
-        # 2. Rating distribution (if numeric rating columns exist)
-        rating_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'rating' and col_info['column_name'] in df.columns:
-                rating_columns.append(col_info['column_name'])
-        
-        for rating_col in rating_columns[:2]:  # First 2 rating columns max
-            if df[rating_col].dtype in ['int64', 'float64']:
-                plt.figure(figsize=(10, 6))
-                plt.hist(df[rating_col].dropna(), bins=10, alpha=0.7, color='skyblue', edgecolor='black')
-                plt.title(f'Distribution of {rating_col} Ratings')
-                plt.xlabel('Rating Value')
-                plt.ylabel('Frequency')
-                plt.grid(True, alpha=0.3)
+        try:
+            # Add validation to ensure we have the required data
+            if not feedback_analysis:
+                raise Exception("No feedback analysis data provided for visualizations")
                 
-                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_{rating_col}_distribution.png")
-                visualizations.append({
-                    'type': 'histogram',
-                    'title': f'{rating_col} Distribution',
-                    'url': chart_url,
-                    'description': f'Distribution of customer ratings for {rating_col}'
-                })
-                plt.close()
+            if not isinstance(feedback_analysis, dict):
+                raise Exception(f"Invalid feedback analysis data type: {type(feedback_analysis)}")
+            
+            # Get relevant columns for visualization
+            relevant_columns = []
+            if isinstance(column_analysis, dict):
+                for col_info in column_analysis.get('columns_analysis', []):
+                    if col_info.get('include_in_analysis', True) and col_info['column_name'] in df.columns:
+                        relevant_columns.append(col_info['column_name'])
 
-        # 3. Timeline of feedback (if date column exists)
-        date_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'timestamp' and col_info['column_name'] in df.columns:
-                date_columns.append(col_info['column_name'])
-        
-        if date_columns:
-            date_col = date_columns[0]
-            try:
-                df_date = df.copy()
-                df_date[date_col] = pd.to_datetime(df_date[date_col])
-                feedback_by_date = df_date.groupby(df_date[date_col].dt.date).size()
+            # 1. Sentiment Distribution Chart
+            sentiment_data = feedback_analysis.get('sentiment_summary', {})
+            if sentiment_data and any(sentiment_data.get(key, 0) > 0 for key in ['positive_percentage', 'negative_percentage', 'neutral_percentage']):
+                try:
+                    plt.figure(figsize=(10, 8))
+                    labels = ['Positive', 'Negative', 'Neutral']
+                    sizes = [
+                        sentiment_data.get('positive_percentage', 0),
+                        sentiment_data.get('negative_percentage', 0),
+                        sentiment_data.get('neutral_percentage', 0)
+                    ]
+                    colors = ['#4CAF50', '#F44336', '#FFC107']
+                    
+                    # Only create pie chart if we have non-zero values
+                    if sum(sizes) > 0:
+                        plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+                        plt.title('Feedback Sentiment Distribution')
+                        plt.axis('equal')
+                        
+                        chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_sentiment_pie.png")
+                        
+                        # Generate AI description for this chart
+                        chart_description = self.generate_chart_description(
+                            'sentiment_pie',
+                            sentiment_data,
+                            feedback_analysis
+                        )
+                        
+                        visualizations.append({
+                            'type': 'pie_chart',
+                            'title': 'Feedback Sentiment Analysis',
+                            'url': chart_url,
+                            'description': chart_description
+                        })
+                    plt.close()
+                except Exception as e:
+                    print(f"Error creating sentiment chart: {e}")
+                    plt.close()
+
+            # 2. Combined Positive/Negative Category Distribution
+            positive_cats = feedback_analysis.get('positive_feedback_analysis', {}).get('categories', [])
+            negative_cats = feedback_analysis.get('negative_feedback_analysis', {}).get('categories', [])
+            
+            # Create combined chart if we have both positive and negative categories
+            if positive_cats and negative_cats:
+                # Get top categories from both (limit to 5 each for readability)
+                top_positive = sorted(positive_cats, key=lambda x: x['percentage'], reverse=True)[:5]
+                top_negative = sorted(negative_cats, key=lambda x: x['percentage'], reverse=True)[:5]
                 
-                plt.figure(figsize=(12, 6))
-                plt.plot(feedback_by_date.index, feedback_by_date.values, marker='o', linewidth=2)
-                plt.title('Feedback Volume Over Time')
-                plt.xlabel('Date')
-                plt.ylabel('Number of Feedback Entries')
-                plt.xticks(rotation=45)
-                plt.grid(True, alpha=0.3)
+                # Get all unique category names
+                all_categories = set()
+                for cat in top_positive:
+                    all_categories.add(cat['category'])
+                for cat in top_negative:
+                    all_categories.add(cat['category'])
+                
+                # Create data for the chart
+                categories = list(all_categories)
+                positive_values = []
+                negative_values = []
+                
+                for category in categories:
+                    # Find matching positive category
+                    pos_match = next((cat for cat in top_positive if cat['category'] == category), None)
+                    positive_values.append(pos_match['percentage'] if pos_match else 0)
+                    
+                    # Find matching negative category
+                    neg_match = next((cat for cat in top_negative if cat['category'] == category), None)
+                    negative_values.append(neg_match['percentage'] if neg_match else 0)
+                
+                # Create the combined bar chart
+                plt.figure(figsize=(14, 8))
+                
+                x = np.arange(len(categories))
+                width = 0.35
+                
+                plt.bar(x - width/2, positive_values, width, label='Positive', color='#4CAF50', alpha=0.8)
+                plt.bar(x + width/2, negative_values, width, label='Negative', color='#F44336', alpha=0.8)
+                
+                plt.xlabel('Feedback Categories')
+                plt.ylabel('Percentage')
+                plt.title('Positive vs Negative Feedback by Category')
+                plt.xticks(x, categories, rotation=45, ha='right')
+                plt.legend()
                 plt.tight_layout()
                 
-                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_feedback_timeline.png")
+                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_combined_categories.png")
+                
+                # Prepare data for description
+                chart_data = {
+                    'categories': categories,
+                    'positive_values': positive_values,
+                    'negative_values': negative_values
+                }
+                
+                chart_description = self.generate_chart_description('combined_categories', chart_data, feedback_analysis)
+                
                 visualizations.append({
-                    'type': 'line_chart',
-                    'title': 'Feedback Volume Timeline',
+                    'type': 'bar_chart',
+                    'title': 'Positive vs Negative Feedback by Category',
                     'url': chart_url,
-                    'description': 'Shows how feedback volume has changed over time'
+                    'description': chart_description
                 })
                 plt.close()
-            except:
-                pass  # Skip if date conversion fails
-
-        # 4. Word cloud for text feedback (if text columns exist)
-        text_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'text_feedback' and col_info['column_name'] in df.columns:
-                text_columns.append(col_info['column_name'])
-        
-        if text_columns:
-            try:
-                from wordcloud import WordCloud
-                
-                text_data = ' '.join(df[text_columns[0]].dropna().astype(str))
-                wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text_data)
-                
+            
+            # 3. Individual category charts (optional - you can keep these or remove them)
+            if positive_cats:
                 plt.figure(figsize=(12, 6))
-                plt.imshow(wordcloud, interpolation='bilinear')
-                plt.axis('off')
-                plt.title('Common Words in Feedback')
+                categories = [cat['category'] for cat in positive_cats[:5]]  # Limit to top 5
+                percentages = [cat['percentage'] for cat in positive_cats[:5]]
                 
-                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_wordcloud.png")
+                plt.barh(categories, percentages, color='green', alpha=0.7)
+                plt.title('Top Positive Feedback Categories')
+                plt.xlabel('Percentage')
+                plt.tight_layout()
+                
+                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_positive_categories.png")
+                chart_description = self.generate_chart_description('positive_categories', positive_cats[:5], feedback_analysis)
+                
                 visualizations.append({
-                    'type': 'word_cloud',
-                    'title': 'Feedback Word Cloud',
+                    'type': 'bar_chart',
+                    'title': 'Top Positive Feedback Categories',
                     'url': chart_url,
-                    'description': 'Visual representation of most common words in feedback'
+                    'description': chart_description
                 })
                 plt.close()
-            except ImportError:
-                pass  # Skip if wordcloud not installed
 
-        return visualizations
+            if negative_cats:
+                plt.figure(figsize=(12, 6))
+                categories = [cat['category'] for cat in negative_cats[:5]]  # Limit to top 5
+                percentages = [cat['percentage'] for cat in negative_cats[:5]]
+                
+                plt.barh(categories, percentages, color='red', alpha=0.7)
+                plt.title('Top Negative Feedback Categories')
+                plt.xlabel('Percentage')
+                plt.tight_layout()
+                
+                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_negative_categories.png")
+                chart_description = self.generate_chart_description('negative_categories', negative_cats[:5], feedback_analysis)
+                
+                visualizations.append({
+                    'type': 'bar_chart',
+                    'title': 'Top Negative Feedback Categories',
+                    'url': chart_url,
+                    'description': chart_description
+                })
+                plt.close()
+            
+            # 4. Rating distribution charts (if available)
+            rating_columns = []
+            for col_info in column_analysis.get('columns_analysis', []):
+                if (col_info.get('detected_type') == 'numeric_rating' and 
+                    col_info.get('include_in_analysis', True) and 
+                    col_info['column_name'] in df.columns):
+                    rating_columns.append(col_info['column_name'])
+            
+            for rating_col in rating_columns[:2]:  # Limit to first 2 rating columns
+                if df[rating_col].dtype in ['int64', 'float64']:
+                    plt.figure(figsize=(10, 6))
+                    
+                    # Convert to native Python list for plotting
+                    rating_data = [float(x) for x in df[rating_col].dropna() if not pd.isna(x)]
+                    
+                    plt.hist(rating_data, bins=10, alpha=0.7, color='skyblue', edgecolor='black')
+                    plt.title(f'Distribution of {rating_col} Ratings')
+                    plt.xlabel('Rating Value')
+                    plt.ylabel('Frequency')
+                    plt.grid(True, alpha=0.3)
+                    
+                    chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_{rating_col}_distribution.png")
+                    
+                    # Convert describe() to native Python types for JSON serialization
+                    desc = df[rating_col].describe()
+                    desc_dict = {}
+                    for key, value in desc.items():
+                        if hasattr(value, 'item'):
+                            desc_dict[key] = value.item()
+                        else:
+                            desc_dict[key] = value
+                    
+                    chart_description = self.generate_chart_description('rating_distribution', {
+                        'column': rating_col,
+                        'data': desc_dict
+                    }, feedback_analysis)
+                    
+                    visualizations.append({
+                        'type': 'histogram',
+                        'title': f'{rating_col} Distribution',
+                        'url': chart_url,
+                        'description': chart_description
+                    })
+                    plt.close()
 
-    def generate_feedback_report(self, df, column_analysis, feedback_insights, visualizations, filename):
-        """Generate comprehensive PDF report for feedback analysis"""
+            return visualizations
+        except Exception as e:
+            error_msg = f"Visualization creation failed: {str(e)}"
+            print(error_msg)
+            raise Exception(error_msg)  # Re-raise the exception to stop execution
+
+    def generate_chart_description(self, chart_type, chart_data, feedback_analysis):
+        """Use Gemini AI to generate descriptive analysis for charts"""
         try:
+            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            model = genai.GenerativeModel('gemini-1.5-flash')
+
+            # Ensure chart_data is JSON serializable
+            serializable_data = self.convert_to_serializable(chart_data)
+
+            prompt = f"""
+            You are a data visualization expert. Analyze this chart data and provide a concise, insightful description.
+
+            CHART TYPE: {chart_type}
+            CHART DATA: {json.dumps(serializable_data, indent=2, default=str)}
+            FEEDBACK ANALYSIS CONTEXT: {json.dumps(self.convert_to_serializable(feedback_analysis), indent=2, default=str)[:1000]}...
+
+            Provide a 2-3 sentence description that:
+            1. Explains what the chart shows
+            2. Highlights key insights or patterns
+            3. Relates it to the overall feedback analysis
+            4. Uses clear, professional language
+
+            Output only the description text, no markdown or formatting.
+            """
+
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            print(f"Chart description generation failed: {str(e)}")
+            return f"Chart showing {chart_type} data from feedback analysis."
+
+    def convert_to_serializable(self, obj):
+        """Recursively convert numpy/pandas types to native Python types"""
+        if hasattr(obj, 'item'):
+            return obj.item()
+        elif isinstance(obj, dict):
+            return {k: self.convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.convert_to_serializable(item) for item in obj]
+        elif isinstance(obj, (np.integer, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64)):
+            return float(obj)
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif pd.isna(obj):
+            return None
+        else:
+            return obj
+
+    def generate_ai_enhanced_report(self, df, column_analysis, feedback_analysis, visualizations, filename):
+        """Generate comprehensive PDF report with AI-enhanced insights"""
+        try:
+            # Import here to avoid circular imports
             from .utils.report_generators import PDFGenerator
+            
+            # Generate AI-powered executive summary
+            executive_summary = self.generate_executive_summary(feedback_analysis, visualizations)
             
             pdf_generator = PDFGenerator()
             pdf_content = pdf_generator.create_feedback_report(
-                df, column_analysis, feedback_insights, visualizations, filename
+                df, column_analysis, feedback_analysis, visualizations, 
+                executive_summary, filename
             )
             
             # Upload to Supabase
@@ -2175,7 +2529,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             supabase_key = os.getenv('SUPABASE_KEY')
             supabase = create_client(supabase_url, supabase_key)
             
-            pdf_filename = f"commentsreport/{uuid.uuid4()}_feedback_analysis_report.pdf"
+            pdf_filename = f"commentsreport/{uuid.uuid4()}_ai_feedback_analysis_report.pdf"
             res = supabase.storage.from_("business_files").upload(
                 path=pdf_filename,
                 file=pdf_content,
@@ -2185,37 +2539,232 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             return supabase.storage.from_("business_files").get_public_url(pdf_filename)
             
         except Exception as e:
-            print(f"Feedback PDF Generation Error: {str(e)}")
-            raise Exception(f"Failed to generate feedback PDF: {str(e)}")
+            print(f"AI Enhanced PDF Generation Error: {str(e)}")
+            raise Exception(f"Failed to generate AI-enhanced PDF: {str(e)}")
+
+    def generate_executive_summary(self, feedback_analysis, visualizations):
+        """Generate structured executive summary using Gemini AI"""
+        try:
+            # Check if API key is available
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                return("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+
+            # Create a simplified version of the data for the prompt
+            simplified_analysis = {
+                'sentiment_summary': feedback_analysis.get('sentiment_summary', {}),
+                'positive_categories': [cat.get('category', '') for cat in 
+                                    feedback_analysis.get('positive_feedback_analysis', {}).get('categories', [])[:3]],
+                'negative_categories': [cat.get('category', '') for cat in 
+                                    feedback_analysis.get('negative_feedback_analysis', {}).get('categories', [])[:3]],
+                'recommendations': [rec.get('action', '') for rec in 
+                                feedback_analysis.get('recommendations', [])[:3]]
+            }
+
+            prompt = f"""
+            As a senior business analyst, create a structured executive summary based on this feedback analysis.
+
+            FEEDBACK ANALYSIS RESULTS:
+            {json.dumps(self.convert_to_serializable(feedback_analysis), indent=2, default=str)}
+
+            VISUALIZATIONS GENERATED:
+            {json.dumps([v['title'] for v in visualizations], indent=2, default=str)}
+
+            Create a comprehensive executive summary with the following structure:
+
+            # Executive Summary: Customer Feedback Analysis
+
+            KEY FINDINGS:
+            - Overall sentiment: {simplified_analysis['sentiment_summary'].get('overall_sentiment', 'N/A')}
+            - Positive: {simplified_analysis['sentiment_summary'].get('positive_percentage', 0)}%
+            - Negative: {simplified_analysis['sentiment_summary'].get('negative_percentage', 0)}%
+            - Neutral: {simplified_analysis['sentiment_summary'].get('neutral_percentage', 0)}%
+            
+            TOP POSITIVE CATEGORIES: {', '.join(simplified_analysis['positive_categories'])}
+            TOP NEGATIVE CATEGORIES: {', '.join(simplified_analysis['negative_categories'])}
+            KEY RECOMMENDATIONS: {', '.join(simplified_analysis['recommendations'])}
+            
+            Create a comprehensive executive summary with the following structure:
+
+            # Executive Summary: Customer Feedback Analysis
+
+            ## 📊 Overall Sentiment Distribution
+            [Provide sentiment percentages in a bullet point format]
+
+            ## 👍 Positive Feedback Highlights
+            [Key positive themes in bullet points]
+
+            ## ⚠️ Areas Needing Improvement  
+            [Key negative themes in bullet points]
+
+            ## 🎯 Recommended Actions
+            [Priority recommendations in bullet points with priority levels]
+
+            ## 📈 Expected Outcomes
+            [Potential benefits of implementing recommendations]
+
+            ## 🔜 Next Steps
+            [Actionable next steps in numbered list]
+
+            Write in professional business language suitable for executives.
+            Focus on actionable insights and strategic implications.
+            Use concise bullet points and sections as shown above.
+            Keep the response under 500 words.
+            """
+
+            print(f"Sending executive summary request to Gemini with prompt length: {len(prompt)}")
+            
+            response = model.generate_content(prompt)
+            
+            if response.text and response.text.strip():
+                print(f"Received executive summary: {response.text[:100]}...")
+                return response.text
+            else:
+                return("Empty response from Gemini for executive summary")
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return (f"Executive summary generation failed: {str(e)}")
+            
+            # return self.fallback_executive_summary(feedback_analysis)
+
+    def basic_feedback_analysis(self, df, text_columns):
+        """Basic sentiment analysis fallback with proper structure"""
+        from textblob import TextBlob
+        
+        sentiments = []
+        for col in text_columns:
+            for text in df[col].dropna():
+                if text and text != 'No feedback provided':
+                    try:
+                        analysis = TextBlob(str(text))
+                        sentiments.append(analysis.sentiment.polarity)
+                    except:
+                        continue
+        
+        total = len(sentiments) if sentiments else 1
+        positive = len([s for s in sentiments if s > 0.1])
+        negative = len([s for s in sentiments if s < -0.1])
+        neutral = total - positive - negative
+
+        # Return properly structured data that matches the expected format
+        return {
+            "sentiment_summary": {
+                "positive_percentage": (positive / total) * 100,
+                "negative_percentage": (negative / total) * 100,
+                "neutral_percentage": (neutral / total) * 100,
+                "overall_sentiment": "positive" if positive > negative else "negative" if negative > positive else "neutral"
+            },
+            "positive_feedback_analysis": {
+                "categories": [
+                    {
+                        "category": "General Positive Feedback",
+                        "percentage": (positive / total) * 100,
+                        "examples": ["Satisfied customers", "Positive experiences"],
+                        "key_themes": ["satisfaction", "quality"]
+                    }
+                ]
+            },
+            "negative_feedback_analysis": {
+                "categories": [
+                    {
+                        "category": "General Concerns",
+                        "percentage": (negative / total) * 100,
+                        "examples": ["Areas for improvement", "Customer concerns"],
+                        "key_issues": ["service", "quality"]
+                    }
+                ]
+            },
+            "recommendations": [
+                {
+                    "area": "General Improvement",
+                    "action": "Address customer concerns",
+                    "priority": "Medium",
+                    "impact": "Improved customer satisfaction",
+                    "timeline": "Short-term"
+                }
+            ]
+        }
 
     def save_chart_to_supabase(self, plt_figure, chart_path):
         """Save matplotlib chart to Supabase storage"""
-        img_buffer = BytesIO()
-        plt_figure.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
-        img_content = img_buffer.getvalue()
-        
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        res = supabase.storage.from_("business_files").upload(
-            path=chart_path,
-            file=img_content,
-            file_options={"content-type": "image/png"}
-        )
-        
-        return supabase.storage.from_("business_files").get_public_url(chart_path)
+        try:
+            img_buffer = BytesIO()
+            plt_figure.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+            img_content = img_buffer.getvalue()
+            
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+            
+            res = supabase.storage.from_("business_files").upload(
+                path=chart_path,
+                file=img_content,
+                file_options={"content-type": "image/png"}
+            )
+            
+            return supabase.storage.from_("business_files").get_public_url(chart_path)
+        except Exception as e:
+            print(f"Failed to save chart to Supabase: {str(e)}")
+            # Return a placeholder URL or handle the error appropriately
+            return "https://example.com/placeholder.png"
 
     def download_file_from_supabase(self, file_url):
         """Download file content from Supabase Storage"""
         try:
-            response = requests.get(file_url, timeout=30)
+            response = requests.get(file_url)
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to download file from Supabase: {str(e)}")
-
               
+class GenerateEditedPDFView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        report_id = request.data.get('report_id')
+        
+        try:
+            # Get the latest report data from database
+            report = CommentReport.objects.get(id=report_id)
+            business_data = report.file_url  # This is the BusinessData instance
+            
+            # Use the saved data from the database
+            report_data = report.file_content
+            
+            # Generate PDF with the latest data
+            pdf_generator = PDFGenerator()
+            pdf_content = pdf_generator.create_feedback_report(
+                report_data,  # Use the data from database
+                business_data.fileName
+            )
+            
+            # Upload to Supabase
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+            
+            pdf_filename = f"commentsreport/{uuid.uuid4()}_edited_feedback_report.pdf"
+            res = supabase.storage.from_("business_files").upload(
+                path=pdf_filename,
+                file=pdf_content,
+                file_options={"content-type": "application/pdf"}
+            )
+            
+            pdf_url = supabase.storage.from_("business_files").get_public_url(pdf_filename)
+            
+            return Response({'pdf_url': pdf_url}, status=status.HTTP_200_OK)
+            
+        except CommentReport.DoesNotExist:
+            return Response({'error': 'Report not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': f'Failed to generate PDF: {str(e)}'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 from django.http import JsonResponse
 
 def transcript_view(request):

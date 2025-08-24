@@ -1,7 +1,8 @@
-// FileList.jsx
+// CommentFileList.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../lib/supabase";
 import axios from 'axios';
+import EditReportModal from './FeedbackReport';
 
 const CommentFileList = ({ uploader }) => {
   const [files, setFiles] = useState([]); 
@@ -9,7 +10,45 @@ const CommentFileList = ({ uploader }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [processingFiles, setProcessingFiles] = useState({});
-  const [analysisResult, setAnalysisResult] = useState(null); 
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingReport, setEditingReport] = useState(null);
+
+  const openEditModal = (report) => {
+    setEditingReport(report);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingReport(null);
+  };
+
+  const handleSaveReport = async (reportId, updatedData) => {
+    try {
+      // Update the report in the database
+      const { error } = await supabase
+        .from('userComment_data')
+        .update({ file_content: updatedData })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      // Update the local state
+      setProcessedReports(prev => 
+        prev.map(report => 
+          report.id === reportId 
+            ? { ...report, file_content: updatedData }
+            : report
+        )
+      );
+
+      alert('Report updated successfully!');
+    } catch (err) {
+      console.error('Error updating report:', err);
+      setError('Failed to update report: ' + err.message);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -238,24 +277,41 @@ const CommentFileList = ({ uploader }) => {
           <h3 className="text-lg font-semibold mb-4">Generated Reports</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {processedReports.map((report) => (
-              <div key={report.id} className="bg-gray-50 p-4 rounded-lg">
+              <div key={report.id} className="bg-gray-50 p-4 rounded-lg relative">
                 <h4 className="font-medium">{report.filename}</h4>
                 <p className="text-sm text-gray-600">
                   Generated: {new Date(report.created_at).toLocaleDateString()}
                 </p>
-                {report.pdf_url && (
-                  <a 
-                    href={report.pdf_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
+                <div className="mt-3 flex space-x-2">
+                  {report.pdf_url && (
+                    <a 
+                      href={report.pdf_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 bg-blue-100 rounded"
+                    >
+                      PDF Report
+                    </a>
+                  )}
+                  <button 
+                    onClick={() => openEditModal(report)}
+                    className="text-green-600 hover:text-green-800 text-sm px-3 py-1 bg-green-100 rounded"
                   >
-                     PDF Report
-                  </a>
-                )}
+                    Edit
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+          
+          {/* Edit Modal */}
+          {isEditModalOpen && (
+            <EditReportModal 
+              report={editingReport} 
+              onClose={closeEditModal} 
+              onSave={handleSaveReport}
+            />
+          )}
         </div>
       )}
 

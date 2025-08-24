@@ -110,7 +110,7 @@ const Header = () => {
             <span className="ml-1"></span>
           </a>
           <a
-            href="#"
+            href="/feedbackAnalyser"
             className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
           >
             Feedback Analyzer
