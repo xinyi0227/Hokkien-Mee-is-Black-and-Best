@@ -8,15 +8,17 @@ import { useNavigate } from "react-router-dom";
 const TranscriptPage = () => {
   const { meetingId } = useParams();
   const [meetingData, setMeetingData] = useState(null);
-  const [audioFiles, setAudioFiles] = useState([]);
-  const [transcriptFiles, setTranscriptFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [transcript, setTranscript] = useState("");
-  const [geminiResult, setGeminiResult] = useState(""); // 📝 Gemini result state
-  const [editableSummary, setEditableSummary] = useState(geminiResult.summary || []);
-  const [editableTasks, setEditableTasks] = useState(geminiResult.tasks || {});
-  const [geminiReady, setGeminiReady] = useState(false);
+const [audioFiles, setAudioFiles] = useState([]);
+const [transcriptFiles, setTranscriptFiles] = useState([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState("");
+const [transcript, setTranscript] = useState("");
+
+// order fixed 👇
+const [geminiResult, setGeminiResult] = useState(null);
+const [editableSummary, setEditableSummary] = useState([]);
+const [editableTasks, setEditableTasks] = useState({});
+const [geminiReady, setGeminiReady] = useState(false);
 
   const navigate = useNavigate();  
 
@@ -37,15 +39,14 @@ const TranscriptPage = () => {
 
 
 useEffect(() => {
-  if (geminiResult) {
+  if (geminiResult !== null) {
     setEditableSummary(geminiResult.summary || []);
     setEditableTasks(geminiResult.tasks || {});
 
-    // ✅ Mark Gemini as ready only when it has data
-    if ((geminiResult.summary && geminiResult.summary.length > 0) ||
-        (geminiResult.tasks && Object.keys(geminiResult.tasks).length > 0)) {
-      setGeminiReady(true);
-    }
+    const hasSummary = Array.isArray(geminiResult.summary) && geminiResult.summary.length > 0;
+    const hasTasks = geminiResult.tasks && Object.keys(geminiResult.tasks).length > 0;
+
+    setGeminiReady(hasSummary || hasTasks);
   }
 }, [geminiResult]);
 
@@ -77,99 +78,99 @@ const handleApprove = async () => {
 
 
    // 📌 Function to download Gemini result as PDF
-const downloadGeminiPDF = () => {
-  try {
-    const doc = new jsPDF("p", "mm", "a4"); // portrait, millimeters, A4
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15; // left/right margin
-    const usableWidth = pageWidth - margin * 2;
+// const downloadGeminiPDF = () => {
+//   try {
+//     const doc = new jsPDF("p", "mm", "a4"); // portrait, millimeters, A4
+//     const pageWidth = doc.internal.pageSize.getWidth();
+//     const pageHeight = doc.internal.pageSize.getHeight();
+//     const margin = 15; // left/right margin
+//     const usableWidth = pageWidth - margin * 2;
 
-    let yOffset = 20;
+//     let yOffset = 20;
 
-    // Title
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(`Meeting Summary of ${meetingData.title}`, margin, yOffset);
-    yOffset += 10;
+//     // Title
+//     doc.setFont("helvetica", "bold");
+//     doc.setFontSize(16);
+//     doc.text(`Meeting Summary of ${meetingData.title}`, margin, yOffset);
+//     yOffset += 10;
 
-    // Summary Section
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(0, 102, 204); // blue color for heading
-    doc.text("Summary", margin, yOffset);
-    yOffset += 10;
+//     // Summary Section
+//     doc.setFont("helvetica", "bold");
+//     doc.setFontSize(12);
+//     doc.setTextColor(0, 102, 204); // blue color for heading
+//     doc.text("Summary", margin, yOffset);
+//     yOffset += 10;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0); // reset back to black for task details
+//     doc.setFont("helvetica", "normal");
+//     doc.setFontSize(11);
+//     doc.setTextColor(0, 0, 0); // reset back to black for task details
 
-    if (geminiResult.summary && geminiResult.summary.length > 0) {
-      geminiResult.summary.forEach((point) => {
-        let wrappedText = doc.splitTextToSize(`~ ${point}`, usableWidth);
-        doc.text(wrappedText, margin, yOffset);
-        yOffset += wrappedText.length * 7;
+//     if (geminiResult.summary && geminiResult.summary.length > 0) {
+//       geminiResult.summary.forEach((point) => {
+//         let wrappedText = doc.splitTextToSize(`~ ${point}`, usableWidth);
+//         doc.text(wrappedText, margin, yOffset);
+//         yOffset += wrappedText.length * 7;
 
-        // ✅ Auto add new page if overflow
-        if (yOffset > pageHeight - margin) {
-          doc.addPage();
-          yOffset = margin;
-        }
-      });
-    } else {
-      doc.text("No summary provided", margin, yOffset);
-      yOffset += 10;
-    }
+//         // ✅ Auto add new page if overflow
+//         if (yOffset > pageHeight - margin) {
+//           doc.addPage();
+//           yOffset = margin;
+//         }
+//       });
+//     } else {
+//       doc.text("No summary provided", margin, yOffset);
+//       yOffset += 10;
+//     }
 
-    // Tasks Section
-    yOffset += 10;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(0, 102, 204); // blue color for heading
-    doc.text("Tasks Assigned", margin, yOffset);
-    yOffset += 10;
+//     // Tasks Section
+//     yOffset += 10;
+//     doc.setFont("helvetica", "bold");
+//     doc.setFontSize(12);
+//     doc.setTextColor(0, 102, 204); // blue color for heading
+//     doc.text("Tasks Assigned", margin, yOffset);
+//     yOffset += 10;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0); // reset back to black for task details
+//     doc.setFont("helvetica", "normal");
+//     doc.setFontSize(11);
+//     doc.setTextColor(0, 0, 0); // reset back to black for task details
 
-    if (geminiResult.tasks && Object.keys(geminiResult.tasks).length > 0) {
-    Object.entries(geminiResult.tasks).forEach(([name, tasks]) => {
-      doc.setFont("helvetica", "bold");
-      doc.text(`${name}:`, margin, yOffset);
-      yOffset += 7;
+//     if (geminiResult.tasks && Object.keys(geminiResult.tasks).length > 0) {
+//     Object.entries(geminiResult.tasks).forEach(([name, tasks]) => {
+//       doc.setFont("helvetica", "bold");
+//       doc.text(`${name}:`, margin, yOffset);
+//       yOffset += 7;
 
-      doc.setFont("helvetica", "normal");
-      tasks.forEach((task, idx) => {
-        let taskBlock = [
-          `${idx + 1}) ${task.task_title}`,
-          `   Content: ${task.task_content}`,
-          `   Urgency: ${task.urgent_level}`,
-          `   Deadline: ${task.deadline || "Not specified"}`
-        ];
-        let wrappedTask = doc.splitTextToSize(taskBlock.join("\n"), usableWidth);
-        doc.text(wrappedTask, margin + 5, yOffset);
-        yOffset += wrappedTask.length * 7;
+//       doc.setFont("helvetica", "normal");
+//       tasks.forEach((task, idx) => {
+//         let taskBlock = [
+//           `${idx + 1}) ${task.task_title}`,
+//           `   Content: ${task.task_content}`,
+//           `   Urgency: ${task.urgent_level}`,
+//           `   Deadline: ${task.deadline || "Not specified"}`
+//         ];
+//         let wrappedTask = doc.splitTextToSize(taskBlock.join("\n"), usableWidth);
+//         doc.text(wrappedTask, margin + 5, yOffset);
+//         yOffset += wrappedTask.length * 7;
 
-        if (yOffset > pageHeight - margin) {
-          doc.addPage();
-          yOffset = margin;
-        }
-      });
-      yOffset += 5;
-    });
+//         if (yOffset > pageHeight - margin) {
+//           doc.addPage();
+//           yOffset = margin;
+//         }
+//       });
+//       yOffset += 5;
+//     });
 
-    } else {
-      doc.text("No tasks recorded", margin, yOffset);
-    }
+//     } else {
+//       doc.text("No tasks recorded", margin, yOffset);
+//     }
 
-    // Save
-    doc.save(`Meeting_Summary_of_${meetingData.title}.pdf`);
-  } catch (error) {
-    console.error("Error generating PDF:", error);
-    alert("Failed to generate PDF. Make sure the AI response is valid JSON.");
-  }
-};
+//     // Save
+//     doc.save(`Meeting_Summary_of_${meetingData.title}.pdf`);
+//   } catch (error) {
+//     console.error("Error generating PDF:", error);
+//     alert("Failed to generate PDF. Make sure the AI response is valid JSON.");
+//   }
+// };
 
 
 if (loading) {
@@ -199,7 +200,7 @@ if (error) return <p className="text-red-500">{error}</p>;
           <p><strong>Time:</strong> {meetingData.time}</p>
           <p><strong>Location:</strong> {meetingData.location}</p>
 
-          <p><strong>Mic Employees:</strong></p>
+          {/* <p><strong>Mic Employees:</strong></p>
           <ul className="ml-4 list-disc">
             {meetingData.mics.map((name, idx) => (
               <li key={idx}>{name || `Mic ${idx + 1} not assigned`}</li>
@@ -211,39 +212,38 @@ if (error) return <p className="text-red-500">{error}</p>;
             {meetingData.departments.map((dept, idx) => (
               <li key={idx}>{dept}</li>
             ))}
-          </ul>
+          </ul>*/}
 
           <p><strong>Participants:</strong></p>
           <ul className="ml-4 list-disc">
             {meetingData.participants.map((participant, idx) => (
               <li key={idx}>{participant}</li>
             ))}
-          </ul>
+          </ul> 
 
           {/* 📝 Transcript preview */}
-          {transcript && (
+          {/*transcript && (
             <div className="mt-6 p-4 bg-white border rounded">
               <h3 className="text-xl font-semibold mb-2">Transcript Preview</h3>
               <p className="whitespace-pre-wrap">{transcript}</p>
             </div>
-          )}
+          )*/}
         </div>
       )}
 
-      {/* 🎵 Audio Files */}
-      <div className="mt-6">
-        <h3 className="text-xl font-semibold mb-2">Audio Files</h3>
-        {audioFiles.length > 0 ? (
-          audioFiles.map((url, idx) => (
-            <div key={idx} className="mb-4">
-              <audio controls src={url} className="w-full"></audio>
-              <p className="text-sm text-gray-500">URL: {url}</p>
+        {/* 🎵 Audio File */}
+        <div className="mt-6">
+          <h3 className="text-xl font-semibold mb-2">Audio File</h3>
+          {audioFiles ? (
+            <div className="mb-4">
+              <audio controls src={audioFiles} className="w-full"></audio>
+              <p className="text-sm text-gray-500">URL: {audioFiles}</p>
             </div>
-          ))
-        ) : (
-          <p>No audio files found.</p>
-        )}
-      </div>
+          ) : (
+            <p>No audio file found.</p>
+          )}
+        </div>
+
 
       {/* 📂 Transcript Files */}
       {/* <div className="mt-6">
@@ -270,7 +270,7 @@ if (error) return <p className="text-red-500">{error}</p>;
      */}
 
       {/* 🤖 Gemini Result */}
-     {geminiResult && (
+     {/* {geminiResult && (
         <div className="mt-6 p-4 bg-white border rounded">
           <h3 className="text-xl font-semibold mb-2">Gemini Result</h3>
           <pre className="whitespace-pre-wrap text-sm bg-gray-100 p-2 rounded">
@@ -284,7 +284,7 @@ if (error) return <p className="text-red-500">{error}</p>;
             Download Gemini Result as PDF
           </button>
         </div>
-      )}
+      )} */}
 
 
       {/* Editable Summary + Tasks */}

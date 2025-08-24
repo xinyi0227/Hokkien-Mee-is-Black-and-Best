@@ -264,7 +264,7 @@ export default function MeetingToday() {
                 {isMeetingOver(selectedMeeting) && (
                   hasUploadedFiles(selectedMeeting.meeting_id) ? (
                     <button
-                      onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`)}
+                    onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`, { state: { from: "today" } })}
                       className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
                     >
                       📎 Attachment

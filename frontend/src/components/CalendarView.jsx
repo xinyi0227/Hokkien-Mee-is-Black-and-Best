@@ -7,6 +7,8 @@ const PRIORITY_BORDER = {
   low: 'border-l-4 border-gray-400',
 }
 
+const MEETING_BORDER = 'border-l-4 border-indigo-500'
+
 const toDateOnly = (v) => {
   if (!v) return ''
   if (typeof v === 'string') {
@@ -26,7 +28,13 @@ const isArchived = (s) => {
   return x === 'archieve' || x === 'archived'
 }
 
-export default function CalendarView({ tasks, employees, onOpenTask }) {
+export default function CalendarView({
+  tasks,
+  meetings,
+  employees,
+  onOpenTask,
+  onOpenMeeting,
+}) {
   const [cursor, setCursor] = useState(() => {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
@@ -52,7 +60,7 @@ export default function CalendarView({ tasks, employees, onOpenTask }) {
     const rank = { high: 0, medium: 1, low: 2 }
     for (const t of tasks) {
       if (!t?.deadline) continue
-      if (isArchived(t.status)) continue 
+      if (isArchived(t.status)) continue
       const key = toDateOnly(t.deadline)
       if (!key) continue
       if (!map.has(key)) map.set(key, [])
@@ -69,6 +77,21 @@ export default function CalendarView({ tasks, employees, onOpenTask }) {
     }
     return map
   }, [tasks])
+
+  const meetingsByDay = useMemo(() => {
+    const map = new Map()
+    for (const m of meetings || []) {
+      const key = toDateOnly(m.meeting_date)
+      if (!key) continue
+      if (!map.has(key)) map.set(key, [])
+      map.get(key).push(m)
+    }
+    for (const [k, list] of map.entries()) {
+      list.sort((a, b) => String(a.meeting_time || '').localeCompare(String(b.meeting_time || '')))
+      map.set(k, list)
+    }
+    return map
+  }, [meetings])
 
   const goPrev = () => setCursor(new Date(year, month - 1, 1))
   const goNext = () => setCursor(new Date(year, month + 1, 1))
@@ -98,21 +121,41 @@ export default function CalendarView({ tasks, employees, onOpenTask }) {
       <div className="grid grid-cols-7 grid-rows-6">
         {days.map((d) => {
           const ymd = toDateOnly(d)
-          const list = tasksByDay.get(ymd) || []
+          const dayMeetings = meetingsByDay.get(ymd) || []
+          const dayTasks = tasksByDay.get(ymd) || []
           return (
-            <div key={ymd}
-              className={`min-h[108px] border-r border-b border-gray-200 dark:border-gray-700 p-1 sm:p-2
+            <div
+              key={ymd}
+              className={`min-h-[108px] border-r border-b border-gray-200 dark:border-gray-700 p-1 sm:p-2
                 ${isCurrentMonth(d) ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-950/60'}`}>
               <div className={`text-xs mb-1 sm:mb-2 ${isCurrentMonth(d) ? 'text-gray-700 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'}`}>
                 {d.getDate()}
               </div>
+
+              {/* Meetings */}
+              <div className="space-y-1 mb-1">
+                {dayMeetings.map((m) => (
+                  <button
+                    key={`m-${m.meeting_id}`}
+                    onClick={() => onOpenMeeting?.(m)}
+                    className={`w-full text-left ${MEETING_BORDER} rounded bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 px-2 py-1`}
+                    title={m.meeting_title}
+                  >
+                    <div className="truncate text-xs sm:text-[13px] font-medium">
+                      🗓 {m.meeting_time ? `${m.meeting_time} • ` : ''}{m.meeting_title}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tasks */}
               <div className="space-y-1">
-                {list.length ? list.map((t) => {
+                {dayTasks.length ? dayTasks.map((t) => {
                   const emp = employees.find((e) => String(e.employee_id) === String(t.assignee_id))
                   const cls = PRIORITY_BORDER[String(t.urgent_level || 'low').toLowerCase()] || PRIORITY_BORDER.low
                   return (
                     <button
-                      key={t.task_id}
+                      key={`t-${t.task_id}`}
                       onClick={() => onOpenTask?.(t)}
                       className={`w-full text-left ${cls} rounded bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 px-2 py-1`}
                       title={t.task_title}
