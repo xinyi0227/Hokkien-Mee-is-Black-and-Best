@@ -581,6 +581,7 @@ const TaskList = ({ currentUser }) => {
     })
   }, [tasks, filter, currentUser, empMap])
 
+  
   const grouped = useMemo(() => {
     const res = Object.fromEntries(STATUS_GROUP_ORDER.map((s) => [s, []]))
     for (const t of filteredTasks) {
@@ -591,23 +592,30 @@ const TaskList = ({ currentUser }) => {
     return res
   }, [filteredTasks])
 
-  const filteredMeetings = useMemo(() => {
-    if (!currentUser) return []
-    return (meetings || []).filter(m => {
-      const participantIds = String(m.meeting_participant || '')
-        .split(',').map(id => id.trim()).filter(Boolean)
-      const meetingDeptIds = String(m.meeting_department || '')
-        .split(',').map(id => id.trim()).filter(Boolean)
+const filteredMeetings = useMemo(() => {
+  if (!currentUser) return []
 
-      if (currentUser.role === 'employee') {
-        return participantIds.includes(String(currentUser.employee_id))
-      }
-      if (currentUser.role === 'manager') {
-        return meetingDeptIds.includes(String(currentUser.department_id))
-      }
-      return true
-    })
-  }, [meetings, currentUser])
+  const list = meetings || []
+  const myId = String(currentUser.employee_id ?? '')
+  const myDeptId = String(currentUser.department_id ?? '')
+
+  const inCsv = (csv, needle) =>
+    String(csv || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .includes(String(needle || ''))
+
+    switch (filter) {
+      case FILTERS.MINE:
+        return list.filter(m => inCsv(m.meeting_participant, myId))
+      case FILTERS.DEPT:
+        return list.filter(m => inCsv(m.meeting_department, myDeptId))
+      case FILTERS.ALL:
+      default:
+        return list
+    }
+  }, [meetings, currentUser, filter])
 
   if (loading) return <div className="text-center text-gray-700 dark:text-gray-200">Loading...</div>
 
