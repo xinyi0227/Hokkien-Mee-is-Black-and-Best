@@ -256,6 +256,10 @@ def approve_summary(request, meeting_id):
                     except Employee.DoesNotExist:
                         participants.append(f"Unknown (ID {pid})")
 
+        # ✅ Generate mic employee labels dynamically
+        mic_labels = [f"Mic {i+1}: {name}" for i, name in enumerate(mic_employees)]
+        mic_line = ", ".join(mic_labels)
+
 
         # ✅ Generate PDF in memory
         buffer = io.BytesIO()
@@ -281,7 +285,7 @@ def approve_summary(request, meeting_id):
         f"Location: {meeting.meeting_location}",
         f"Department(s): {', '.join(department_names)}",
         f"Participants: {', '.join(participants)}",
-        "Mic 1, Mic 2, Mic 3: " + ", ".join(mic_employees),
+        mic_line,
             ]
 
         for d in details:
