@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import Header from "./header";
 import { supabase } from "../lib/supabase";
 
+  const COLOR = {
+    primary: "bg-[#1985a1] text-white hover:bg-[#89c2d9] hover:text-white",
+    primaryOutline:
+      "border border-[#1985a1] text-[#1985a1] hover:bg-[#89c2d9] hover:text-white dark:text-[#89c2d9] dark:border-[#89c2d9] dark:hover:bg-[#1985a1] dark:hover:text-white",
+    save: "bg-[#aad576] text-white hover:bg-[#c1fba4] hover:text-white",
+    cancel:
+      "border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800",
+    icon:
+      "px-2 py-1 rounded border border-transparent text-[#1985a1] hover:bg-[#e6f4f9] dark:hover:bg-gray-800",
+  };
+
 export default function FAQ() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +53,17 @@ export default function FAQ() {
     }
   };
 
+  const openAdd = () => {
+    setQText("");
+    setAText("");
+    setShowAdd(true);
+  };
+  const closeAdd = () => {
+    setShowAdd(false);
+    setQText("");
+    setAText("");
+  };
+
   const handleCreateQA = async () => {
     if (!qText.trim() || !aText.trim()) {
       alert("Please fill in both Question and Answer.");
@@ -59,9 +81,7 @@ export default function FAQ() {
         .insert([{ question: qText.trim() }]);
       if (errQ) throw errQ;
 
-      setShowAdd(false);
-      setQText("");
-      setAText("");
+      closeAdd();
       await load();
     } catch (e) {
       console.error("Create Q&A failed:", e);
@@ -85,14 +105,14 @@ export default function FAQ() {
                 </span>
               )}
               <button
-                onClick={() => setShowAdd(true)}
-                className="px-3 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                onClick={openAdd}
+                className={`px-3 py-2 rounded-lg ${COLOR.primary}`}
               >
                 Add
               </button>
               <button
                 onClick={handleRefresh}
-                className="px-3 py-2 rounded-lg bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                className={`px-3 py-2 rounded-lg ${COLOR.primaryOutline}`}
               >
                 Refresh
               </button>
@@ -130,11 +150,14 @@ export default function FAQ() {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 w-full max-w-lg rounded-2xl p-5 shadow-2xl">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xl font-semibold">Add Question &amp; Answer</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Add Question &amp; Answer
+              </h2>
               <button
-                onClick={() => setShowAdd(false)}
-                className="px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+                onClick={closeAdd}
+                className={COLOR.icon}
                 aria-label="Close"
+                title="Close"
               >
                 ✕
               </button>
@@ -148,7 +171,7 @@ export default function FAQ() {
                 <textarea
                   value={qText}
                   onChange={(e) => setQText(e.target.value)}
-                  className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"
+                  className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                   rows={3}
                   placeholder="Type your question…"
                 />
@@ -161,7 +184,7 @@ export default function FAQ() {
                 <textarea
                   value={aText}
                   onChange={(e) => setAText(e.target.value)}
-                  className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700"
+                  className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                   rows={6}
                   placeholder="Type the answer…"
                 />
@@ -169,8 +192,8 @@ export default function FAQ() {
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
-                  onClick={() => setShowAdd(false)}
-                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700"
+                  onClick={closeAdd}
+                  className={`px-3 py-2 rounded-lg ${COLOR.cancel}`}
                   disabled={saving}
                 >
                   Cancel
@@ -178,7 +201,7 @@ export default function FAQ() {
                 <button
                   onClick={handleCreateQA}
                   disabled={saving || !qText.trim() || !aText.trim()}
-                  className="px-3 py-2 rounded-lg bg-green-600 text-white disabled:opacity-50"
+                  className={`px-3 py-2 rounded-lg ${COLOR.save} disabled:opacity-50`}
                 >
                   {saving ? "Saving…" : "Save"}
                 </button>
