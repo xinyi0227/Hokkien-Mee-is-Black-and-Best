@@ -4,6 +4,8 @@ import jsPDF from "jspdf";
 import { FiTrash2, FiX } from 'react-icons/fi'
 import { MdFormatListBulletedAdd } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
+import "../styles/makeSummary.css";   // adjust path if needed
+
 
 const TranscriptPage = () => {
   const { meetingId } = useParams();
@@ -175,7 +177,7 @@ const handleApprove = async () => {
 
 if (loading) {
   return (
-    <div className="flex flex-col items-center justify-center h-screen bg-white/80">
+    <div className="flex flex-col items-center justify-center h-screen bg-white/80"  style={{ backgroundColor: "#dcdcdd" }}>
       {/* Spinner */}
       <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent border-solid rounded-full animate-spin"></div>
       
@@ -190,15 +192,16 @@ if (loading) {
 if (error) return <p className="text-red-500">{error}</p>;
 
   return (
+   <div className="p-6 min-h-screen bg-[#dcdcdd] dark:bg-gray-900">
     <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Meeting Transcript & Audio</h1>
+      <h1 className="text-3xl font-bold mb-6 dark:text-white">Meeting Summarizing</h1>
 
       {meetingData && (
-        <div className="mb-6 p-6 bg-gray-50 rounded-lg">
-          <h2 className="text-2xl font-semibold mb-2">{meetingData.title}</h2>
-          <p><strong>Date:</strong> {meetingData.date}</p>
-          <p><strong>Time:</strong> {meetingData.time}</p>
-          <p><strong>Location:</strong> {meetingData.location}</p>
+         <div className="mb-6 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow">
+          <h2 className="text-2xl font-semibold mb-2 dark:text-white">{meetingData.title}</h2>
+          <p className="dark:text-gray-200 "><strong>Date:</strong> {meetingData.date}</p>
+          <p className="dark:text-gray-200"><strong>Time:</strong> {meetingData.time}</p>
+          <p className="dark:text-gray-200"><strong>Location:</strong> {meetingData.location}</p>
 
           {/* <p><strong>Mic Employees:</strong></p>
           <ul className="ml-4 list-disc">
@@ -214,12 +217,12 @@ if (error) return <p className="text-red-500">{error}</p>;
             ))}
           </ul>*/}
 
-          <p><strong>Participants:</strong></p>
-          <ul className="ml-4 list-disc">
+          <p className="dark:text-gray-200"><strong>Participants:</strong></p>
+          <ul className="ml-4 list-disc dark:text-gray-300">
             {meetingData.participants.map((participant, idx) => (
               <li key={idx}>{participant}</li>
             ))}
-          </ul> 
+          </ul>
 
           {/* 📝 Transcript preview */}
           {/*transcript && (
@@ -232,17 +235,17 @@ if (error) return <p className="text-red-500">{error}</p>;
       )}
 
         {/* 🎵 Audio File */}
-        <div className="mt-6">
-          <h3 className="text-xl font-semibold mb-2">Audio File</h3>
-          {audioFiles ? (
-            <div className="mb-4">
-              <audio controls src={audioFiles} className="w-full"></audio>
-              <p className="text-sm text-gray-500">URL: {audioFiles}</p>
-            </div>
-          ) : (
-            <p>No audio file found.</p>
-          )}
-        </div>
+       <div className="mt-6">
+        <h3 className="text-xl font-semibold mb-2 dark:text-white">Play Audio</h3>
+        {audioFiles ? (
+          <div className="mb-4">
+            <audio controls src={audioFiles} className="w-full"></audio>
+            <p className="text-sm text-gray-500 dark:text-gray-400">URL: {audioFiles}</p>
+          </div>
+        ) : (
+          <p className="dark:text-gray-300">No audio file found.</p>
+        )}
+      </div>
 
 
       {/* 📂 Transcript Files */}
@@ -288,49 +291,51 @@ if (error) return <p className="text-red-500">{error}</p>;
 
 
       {/* Editable Summary + Tasks */}
-      <div className="p-6 bg-white rounded-lg shadow-md mt-6">
-        <h2 className="text-xl font-bold mb-4">
+     <div className="p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mt-6 border border-gray-300 dark:border-gray-700">
+        <h2 className="text-xl font-bold mb-4 dark:text-white">
           Meeting Summary of {meetingData.title}
         </h2>
 
- {!geminiReady ? (
-    // ⏳ Show loading state until Gemini has real content
-    <div className="flex flex-col items-center justify-center p-6">
-      <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-      <p className="mt-3 text-blue-600 font-semibold">Analyzing meeting with Gemini...</p>
-    </div>
-  ) : (
-    <>
+       {!geminiReady ? (
+          <div className="flex flex-col items-center justify-center p-6">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-3 text-blue-600 dark:text-blue-400 font-semibold">
+              Analyzing meeting with Gemini...
+            </p>
+          </div>
+        ) : (
+          <>
         {/* Summary */}
-        <h3 className="text-lg font-semibold text-blue-600">Summary</h3>
-        {editableSummary.length > 0 ? (
-          editableSummary.map((point, idx) => (
-            <div key={idx} className="flex items-start gap-2 mb-2">
-              <textarea
-                className="w-full border rounded p-2 text-gray-700"
-                value={point}
-                onChange={(e) => {
-                  const newSummary = [...editableSummary];
-                  newSummary[idx] = e.target.value;
-                  setEditableSummary(newSummary);
-                }}
+        <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 mb-3">Summary</h3>
+            {editableSummary.length > 0 ? (
+              editableSummary.map((point, idx) => (
+                <div key={idx} className="flex items-start gap-2 mb-2">
+                  <textarea
+                    className="w-full border rounded p-2 text-gray-700 dark:text-gray-200 dark:bg-gray-900 border-gray-400 dark:border-gray-600" 
+                    value={point}
+                    onChange={(e) => {
+                      const newSummary = [...editableSummary];
+                      newSummary[idx] = e.target.value;
+                      setEditableSummary(newSummary);
+                    }}
+                  
               />
-              <button
-                onClick={() => {
-                  setEditableSummary(editableSummary.filter((_, i) => i !== idx));
-                }}
-              className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50  mt-3"
-              >
-                <FiTrash2 size={17} />
-              </button>
+               <button
+                    onClick={() => {
+                      setEditableSummary(editableSummary.filter((_, i) => i !== idx));
+                    }}
+                    className="mt-3 btn-delete"
+                  >
+                    <FiTrash2 size={17} />
+                  </button>
             </div>
           ))
         ) : (
-          <p className="text-gray-500">No summary provided</p>
+          <p className="text-gray-500 dark:text-gray-400">No summary provided</p>
         )}
         <button
           onClick={() => setEditableSummary([...editableSummary, ""])}
-          className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+          className="btn-add mb-10"
         >
           + Add Point
           
@@ -339,84 +344,84 @@ if (error) return <p className="text-red-500">{error}</p>;
         
 
         {/* Tasks */}
-        <h3 className="text-lg font-semibold text-blue-600 mt-6">Tasks Assigned</h3>
-        {Object.keys(editableTasks).length > 0 ? (
-          Object.entries(editableTasks).map(([name, tasks]) => (
-            <div key={name} className="mb-6 border rounded-lg p-3 shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <p className="font-semibold">{name}:</p>
-                <div>
+        <h3 className="text-lg font-semibold text-blue-600 dark:text-blue-400 mt-6 mb-3">Tasks Assigned</h3>
+            {Object.keys(editableTasks).length > 0 ? (
+              Object.entries(editableTasks).map(([name, tasks]) => (
+                <div key={name} className="mb-6 border border-gray-400 dark:border-gray-600 rounded-lg p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="font-semibold dark:text-gray-200">{name}:</p>
+                    <div>
                   <button
-                    className="bg-red-500 text-white px-2 py-1 rounded text-sm mr-2"
-                    onClick={() => {
-                      const newTasks = { ...editableTasks };
-                      delete newTasks[name];
-                      setEditableTasks(newTasks);
-                    }}
-                  >
-                    Delete Employee
-                  </button>
+                        className="btn-delete"
+                        onClick={() => {
+                          const newTasks = { ...editableTasks };
+                          delete newTasks[name];
+                          setEditableTasks(newTasks);
+                        }}
+                      >
+                        Delete Employee
+                      </button>
                 </div>
               </div>
 
               {/* Tasks per employee */}
               {tasks.map((task, idx) => (
-                <div key={idx} className="border rounded p-2 mb-2 bg-gray-50">
-                  <p>
-                    <span className="font-semibold">Title:</span>
-                    <input
-                      type="text"
-                      className="ml-1 border rounded p-1 w-full"
-                      value={task.task_title}
-                      onChange={(e) => {
-                        const newTasks = { ...editableTasks };
-                        newTasks[name][idx].task_title = e.target.value;
-                        setEditableTasks(newTasks);
-                      }}
-                    />
-                  </p>
-                  <p>
-                    <span className="font-semibold">Content:</span>
-                    <textarea
-                      className="ml-1 border rounded p-1 w-full"
-                      value={task.task_content}
-                      onChange={(e) => {
-                        const newTasks = { ...editableTasks };
-                        newTasks[name][idx].task_content = e.target.value;
-                        setEditableTasks(newTasks);
-                      }}
-                    />
-                  </p>
-                  <p>
-                    <span className="font-semibold">Urgency level:</span>
-                    <input
-                      type="text"
-                      className="ml-1 border rounded p-1 w-full"
-                      value={task.urgent_level}
-                      onChange={(e) => {
-                        const newTasks = { ...editableTasks };
-                        newTasks[name][idx].urgent_level = e.target.value;
-                        setEditableTasks(newTasks);
-                      }}
-                    />
-                  </p>
-                  <p>
-                    <span className="font-semibold">Deadline:</span>
-                    <input
-                      type="text"
-                      className="ml-1 border rounded p-1 w-full"
-                      value={task.deadline || ""}
-                      onChange={(e) => {
-                        const newTasks = { ...editableTasks };
-                        newTasks[name][idx].deadline = e.target.value;
-                        setEditableTasks(newTasks);
-                      }}
-                    />
-                  </p>
+                    <div key={idx} className="border rounded p-2 mb-2 bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700">
+                      <p className="dark:text-gray-200">
+                        <span className="font-semibold">Title:</span>
+                        <input
+                          type="text"
+                          className="ml-1 border rounded p-1 w-full dark:bg-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+                          value={task.task_title}
+                          onChange={(e) => {
+                            const newTasks = { ...editableTasks };
+                            newTasks[name][idx].task_title = e.target.value;
+                            setEditableTasks(newTasks);
+                          }}
+                        />
+                      </p>
+                  <p className="dark:text-gray-200 mt-4">
+                        <span className="font-semibold">Content:</span>
+                        <textarea
+                          className="ml-1 border rounded p-1 w-full dark:bg-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+                          value={task.task_content}
+                          onChange={(e) => {
+                            const newTasks = { ...editableTasks };
+                            newTasks[name][idx].task_content = e.target.value;
+                            setEditableTasks(newTasks);
+                          }}
+                        />
+                      </p>
+                      <p className="dark:text-gray-200 mt-4">
+                        <span className="font-semibold">Urgency level:</span>
+                        <input
+                          type="text"
+                          className="ml-1 border rounded p-1 w-full dark:bg-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+                          value={task.urgent_level}
+                          onChange={(e) => {
+                            const newTasks = { ...editableTasks };
+                            newTasks[name][idx].urgent_level = e.target.value;
+                            setEditableTasks(newTasks);
+                          }}
+                        />
+                      </p>
+                      <p className="dark:text-gray-200 mt-4">
+                        <span className="font-semibold">Deadline:</span>
+                        <input
+                          type="text"
+                          className="ml-1 border rounded p-1 w-full dark:bg-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600"
+                          value={task.deadline || ""}
+                          onChange={(e) => {
+                            const newTasks = { ...editableTasks };
+                            newTasks[name][idx].deadline = e.target.value;
+                            setEditableTasks(newTasks);
+                          }}
+                        />
+                      </p>
 
                   {/* Delete Task Button */}
                   <button
-                    className="bg-red-400 text-white px-2 py-1 mt-2 rounded text-sm"
+                    className="btn-delete"
                     onClick={() => {
                       const newTasks = { ...editableTasks };
                       newTasks[name].splice(idx, 1);
@@ -430,7 +435,7 @@ if (error) return <p className="text-red-500">{error}</p>;
 
               {/* Add Task Button */}
               <button
-                className="bg-green-500 text-white px-3 py-1 rounded text-sm mt-2"
+                className="btn-add"
                 onClick={() => {
                   const newTasks = { ...editableTasks };
                   newTasks[name].push({
@@ -451,49 +456,50 @@ if (error) return <p className="text-red-500">{error}</p>;
         )}
 
         {/* Add Employee Dropdown */}
-        <div className="mt-4">
-          <label className="font-semibold mr-2">Add Employee:</label>
-          <select
-            onChange={(e) => {
-              const employeeName = e.target.value;
-              if (employeeName && !editableTasks[employeeName]) {
-                setEditableTasks({
-                  ...editableTasks,
-                  [employeeName]: [
-                    {
-                      task_title: "",
-                      task_content: "",
-                      urgent_level: "",
-                      deadline: "",
-                    },
-                  ],
-                });
-              }
-            }}
-            defaultValue=""
-            className="border rounded p-1"
-          >
-            <option value="" disabled>
-              Select participant
-            </option>
-            {meetingData.participants.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </div>
+         <div className="mt-4">
+              <label className="font-semibold mr-2 dark:text-gray-200">Add Employee:</label>
+              <select
+                onChange={(e) => {
+                  const employeeName = e.target.value;
+                  if (employeeName && !editableTasks[employeeName]) {
+                    setEditableTasks({
+                      ...editableTasks,
+                      [employeeName]: [
+                        {
+                          task_title: "",
+                          task_content: "",
+                          urgent_level: "",
+                          deadline: "",
+                        },
+                      ],
+                    });
+                  }
+                }}
+                defaultValue=""
+                className="border-2 border-[#aad576] rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-[#aad576] dark:bg-gray-900 dark:text-gray-200"
+              >
+                <option value="" disabled>
+                  Select participant
+                </option>
+                {meetingData.participants.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
 
         {/* Approve Button */}
         <button
           onClick={handleApprove}
-         className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+         className="mt-8 btn-custom"
         >
           Approve & Save
         </button>
       </>
-  )}
-</div>
+      )}
+    </div>
+    </div>
     </div>
   );
 };

@@ -1,0 +1,35 @@
+.btn-custom {
+  @apply flex items-center justify-center text-white px-6 py-2 rounded-lg transition-colors duration-200;
+  background-color: #468faf; /* base color */
+}
+
+.btn-custom:hover {
+  background-color: #89c2d9; /* hover color */
+color: black;
+
+}
+
+.btn-delete {
+  @apply flex items-center justify-center text-white px-4 py-1 rounded-lg transition-colors duration-200 mt-3;
+  background-color: #c71f37; /* base color */
+  color: white;
+}
+
+.btn-delete:hover {
+  background-color: #f08080; /* hover color */
+    color: black;
+
+}
+
+.btn-add {
+  @apply flex items-center justify-center text-white px-4 py-1 rounded-lg transition-colors duration-200;
+  background-color: #aad576; /* base color */
+  color: white;
+}
+
+.btn-add:hover {
+  background-color: #c1fba4; /* hover color */
+    color: black;
+
+}
+

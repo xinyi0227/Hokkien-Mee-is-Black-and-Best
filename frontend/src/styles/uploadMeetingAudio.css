@@ -1,0 +1,14 @@
+.btn-custom {
+  @apply flex items-center justify-center text-white px-6 py-2 rounded-lg transition-colors duration-200;
+  background-color: #468faf; /* base color */
+}
+
+.btn-custom:hover {
+  background-color: #89c2d9; /* hover color */
+color: black;
+
+}
+
+.btn-custom:disabled {
+  @apply opacity-75 cursor-not-allowed;
+}
