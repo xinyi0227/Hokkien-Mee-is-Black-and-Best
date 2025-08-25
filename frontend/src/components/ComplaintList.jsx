@@ -64,13 +64,13 @@ export default function ComplaintList() {
   const getStatusBadge = (status) => {
     switch (status) {
       case "In Progress":
-        return <span className="px-2 py-1 rounded bg-yellow-300 text-yellow-800">{status}</span>;
+        return <span className="inline-block text-xs px-2 py-1 rounded-full text-blue-800 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">{status}</span>;
       case "Pending":
-        return <span className="px-2 py-1 rounded bg-orange-300 text-orange-800">{status}</span>;
+        return <span className="inline-block text-xs px-2 py-1 rounded-full text-grey-800 bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100">{status}</span>;
       case "Resolved":
-        return <span className="px-2 py-1 rounded bg-green-300 text-green-800">{status}</span>;
+        return <span className="inline-block text-xs px-2 py-1 rounded-full text-green-800 bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">{status}</span>;
       default:
-        return <span className="px-2 py-1 rounded bg-gray-200 text-gray-800">Unknown</span>;
+        return <span className="inline-block text-xs px-2 py-1 rounded-full text-gray-800 ">Unknown</span>;
     }
   };
 
@@ -151,9 +151,8 @@ export default function ComplaintList() {
       doc.setFontSize(10);
       doc.setTextColor(100, 100, 100);
       doc.setFont("helvetica", "normal");
-      doc.text("Company Name Inc.", margin, 15);
-      doc.text("123 Business Avenue", margin, 20);
-      doc.text("New York, NY 10001", margin, 25);
+      doc.text("NewTown Inc.", margin, 15);
+      doc.text("Malaysia", margin, 20);
 
       // Report title
       doc.setFontSize(18);
@@ -308,13 +307,13 @@ export default function ComplaintList() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-100 pt-12 px-4">
-        <div className="max-w-7xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-          <div className="flex justify-between items-center mb-6">
+      <main className="min-h-screen pt-2 px-4 bg-gray-50 dark:bg-gray-950">
+        <div className="max-w-7xl mx-auto p-8 rounded-lg shadow-lg dark:bg-dark-800 dark:text-gray-200">
+          <div className="flex justify-between items-center mb-6 ">
             <h1 className="text-2xl font-bold">Customer Complaints</h1>
             <button
               onClick={() => navigate("/complaintUpload")}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              className="bg-[#1985a1] text-white px-4 py-2 rounded hover:bg-[#89c2d9]"
             >
               + Add Complaint
             </button>
@@ -323,13 +322,20 @@ export default function ComplaintList() {
           {currentUser && (currentUser.role === "manager" || currentUser.role === "boss") && (
             <div className="mb-4 flex gap-2">
               <button
-                className={`px-3 py-1 rounded ${viewMine ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+                className={`px-3 py-1 rounded 
+      ${viewMine
+                    ? "bg-[#1985a1] text-white dark:bg-blue-500 dark:text-gray-100 dark:bg-[#1985a1]"
+                    : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"}`}
                 onClick={() => setViewMine(true)}
               >
                 Show Mine
               </button>
+
               <button
-                className={`px-3 py-1 rounded ${!viewMine ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+                className={`px-3 py-1 rounded 
+      ${!viewMine
+                    ? "bg-[#1985a1] text-white dark:bg-blue-500 dark:text-gray-100 dark:bg-[#1985a1]"
+                    : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"}`}
                 onClick={() => setViewMine(false)}
               >
                 Show All
@@ -350,18 +356,23 @@ export default function ComplaintList() {
                       name="departments"
                       options={
                         currentUser.role === "boss"
-                          ? departments.map(d => ({ value: d.department_id, label: d.department_name }))
+                          ? departments.map(d => ({
+                            value: d.department_id,
+                            label: d.department_name,
+                          }))
                           : departments
                             .filter(d => String(d.department_id) === String(currentUser.department_id))
-                            .map(d => ({ value: d.department_id, label: d.department_name }))
+                            .map(d => ({
+                              value: d.department_id,
+                              label: d.department_name,
+                            }))
                       }
                       value={filters.departments
                         .map(depId => {
                           const d = departments.find(d => String(d.department_id) === String(depId));
                           return d ? { value: d.department_id, label: d.department_name } : null;
                         })
-                        .filter(Boolean) // remove nulls
-                      }
+                        .filter(Boolean)}
                       onChange={(selectedOptions) =>
                         setFilters({
                           ...filters,
@@ -370,8 +381,30 @@ export default function ComplaintList() {
                       }
                       placeholder="Select Departments"
                       isSearchable
+                      classNames={{
+                        control: ({ isFocused }) =>
+                          `border rounded px-2 py-1 ${isFocused
+                            ? "border-blue-500"
+                            : "border-gray-300 dark:border-gray-600"
+                          } bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100`,
+                        menu: () =>
+                          "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded",
+                        option: ({ isFocused, isSelected }) =>
+                          `px-2 py-1 cursor-pointer ${isSelected
+                            ? "bg-blue-600 text-white"
+                            : isFocused
+                              ? "bg-gray-100 dark:bg-gray-700"
+                              : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          }`,
+                        multiValue: () =>
+                          "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded px-1",
+                        multiValueLabel: () => "text-xs",
+                        multiValueRemove: () =>
+                          "cursor-pointer text-blue-600 dark:text-blue-300 hover:text-blue-800",
+                      }}
                     />
                   </div>
+
                 )}
 
                 {/* Handled By Filter */}
@@ -380,24 +413,50 @@ export default function ComplaintList() {
                     <Select
                       isMulti
                       name="handledBy"
-                      options={getFilteredEmployees().map(e => ({ value: e.employee_id, label: e.employee_name }))}
+                      options={getFilteredEmployees().map(e => ({
+                        value: e.employee_id,
+                        label: e.employee_name,
+                      }))}
                       value={filters.handledBy
                         .map(empId => {
                           const e = employees.find(e => String(e.employee_id) === String(empId));
                           return e ? { value: e.employee_id, label: e.employee_name } : null;
                         })
-                        .filter(Boolean) // remove nulls
-                      }
+                        .filter(Boolean)}
                       onChange={(selectedOptions) =>
                         setFilters({
                           ...filters,
-                          handledBy: selectedOptions ? selectedOptions.map(opt => opt.value) : [],
+                          handledBy: selectedOptions
+                            ? selectedOptions.map((opt) => opt.value)
+                            : [],
                         })
                       }
                       placeholder="Select Employees"
                       isSearchable
+                      classNames={{
+                        control: ({ isFocused }) =>
+                          `border rounded px-2 py-1 ${isFocused
+                            ? "border-blue-500"
+                            : "border-gray-300 dark:border-gray-600"
+                          } bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100`,
+                        menu: () => "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded",
+                        option: ({ isFocused, isSelected }) =>
+                          `px-2 py-1 cursor-pointer ${isSelected
+                            ? "bg-blue-600 text-white"
+                            : isFocused
+                              ? "bg-gray-100 dark:bg-gray-700"
+                              : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                          }`,
+                        multiValue: () =>
+                          "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded px-1",
+                        multiValueLabel: () => "text-xs",
+                        multiValueRemove: () =>
+                          "cursor-pointer text-blue-600 dark:text-blue-300 hover:text-blue-800",
+                      }}
                     />
                   </div>
+
+
                 )}
 
                 {/* Status Filter */}
@@ -405,7 +464,7 @@ export default function ComplaintList() {
                   name="status"
                   value={filters.status}
                   onChange={handleFilterChange}
-                  className="border px-2 py-1 rounded"
+                  className="border px-2 py-1 rounded dark:bg-gray-900"
                 >
                   <option value="">All Status</option>
                   <option value="Pending">Pending</option>
@@ -419,7 +478,7 @@ export default function ComplaintList() {
                   name="complaintDate"
                   value={filters.complaintDate}
                   onChange={handleFilterChange}
-                  className="border px-2 py-1 rounded"
+                  className="border px-2 py-1 rounded dark:bg-gray-900"
                 />
               </div>
             </div>
@@ -429,9 +488,9 @@ export default function ComplaintList() {
           {loading ? (
             <p className="text-gray-500">Loading complaints...</p>
           ) : displayedComplaints.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border border-gray-200 text-sm">
-                <thead className="bg-gray-100">
+            <div className="overflow-x-auto dark:bg-gray-900 ">
+              <table className="min-w-full border border-gray-200 text-sm dark:bg-gray-820">
+                <thead className="bg-gray-100 dark:bg-gray-900">
                   <tr>
                     <th className="px-4 py-2 border">No</th>
                     <th className="px-4 py-2 border">Complaint Date</th>
@@ -445,7 +504,7 @@ export default function ComplaintList() {
                 </thead>
                 <tbody>
                   {currentComplaints.map((c, index) => (
-                    <tr key={c.complaint_id} className="hover:bg-gray-50">
+                    <tr key={c.complaint_id}>
                       <td className="px-4 py-2 border">{indexOfFirstComplaint + index + 1}</td>
                       <td className="px-4 py-2 border">{c.complaint_date}</td>
                       <td className="px-4 py-2 border">{getEmployeeInfo(c.employee)}</td>
@@ -464,7 +523,7 @@ export default function ComplaintList() {
                       <td className="px-4 py-2 border text-center">
                         <button
                           onClick={() => setSelectedComplaint(c)}
-                          className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
+                          className="bg-[#1985a1] text-white px-3 py-1 rounded hover:bg-[#16748e]"
                         >
                           View
                         </button>
@@ -475,43 +534,52 @@ export default function ComplaintList() {
               </table>
             </div>
           ) : (
-            <p className="text-gray-500">No complaints found.</p>
+            <p className="text-gray-500 ">No complaints found.</p>
           )}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="mt-6 flex justify-center gap-2">
+            {/* Prev button */}
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage((prev) => prev - 1)}
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 text-gray-800 dark:text-gray-200"
             >
               Prev
             </button>
+
+            {/* Page numbers */}
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 rounded ${currentPage === page ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+                className={`px-3 py-1 rounded ${currentPage === page
+                    ? "bg-blue-600 text-white dark:bg-blue-500"
+                    : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                  }`}
               >
                 {page}
               </button>
             ))}
+
+            {/* Next button */}
             <button
               disabled={currentPage === totalPages}
               onClick={() => setCurrentPage((prev) => prev + 1)}
-              className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 text-gray-800 dark:text-gray-200"
             >
               Next
             </button>
           </div>
+
         )}
 
         {/* Modal */}
         {selectedComplaint && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-xl relative">
+            <div className="bg-white w-full max-w-2xl p-6 rounded-xl shadow-xl relative dark:bg-gray-900 border-gray-200 dark:border-gray-700">
               {/* Close Button */}
               <button
                 onClick={() => setSelectedComplaint(null)}
@@ -521,8 +589,8 @@ export default function ComplaintList() {
               </button>
 
 
-              <h2 className="text-2xl font-bold mb-4 text-gray-800">Complaint Details</h2>
-              <div className="space-y-3 text-gray-700">
+              <h2 className="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-200">Complaint Details</h2>
+              <div className="space-y-3 text-gray-700 dark:text-gray-200">
                 <p><strong>Date:</strong> {selectedComplaint.complaint_date}</p>
                 <p><strong>Handled By:</strong> {getEmployeeInfo(selectedComplaint.employee)}</p>
                 <p><strong>Customer:</strong> {selectedComplaint.customer_name}</p>
@@ -537,7 +605,7 @@ export default function ComplaintList() {
                     <audio
                       id="complaintAudio"
                       controls
-                      className="w-full rounded border border-gray-300"
+                      className="w-full rounded border border-gray-300 dark:bg-gray-900"
                       src={selectedComplaint.complaint_audio}
                     >
                       Your browser does not support the audio element.
@@ -545,7 +613,7 @@ export default function ComplaintList() {
 
                     {/* Custom clickable progress bar */}
                     <div
-                      className="h-2 bg-gray-200 rounded mt-2 cursor-pointer"
+                      className="h-2 bg-gray-200 rounded mt-2 cursor-pointer dark:bg-gray-900"
                       onClick={(e) => {
                         const audio = document.getElementById("complaintAudio");
                         const rect = e.currentTarget.getBoundingClientRect();
@@ -563,7 +631,7 @@ export default function ComplaintList() {
                 {/* Edit Button */}
                 <button
                   onClick={() => navigate(`/complaintDetails/${selectedComplaint.complaint_id}`)}
-                  className="absolute top-4 right-16 bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700"
+                  className="absolute top-4 right-16 bg-[#8b2fc9] text-white px-4 py-1 rounded hover:bg-[#d2b7e5]"
                 >
                   Edit
                 </button>
@@ -571,7 +639,7 @@ export default function ComplaintList() {
 
                 <button
                   onClick={() => downloadPDF(selectedComplaint)}
-                  className="absolute top-4 right-32 bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700"
+                  className="absolute top-4 right-32 bg-[#1985a1] text-white px-4 py-1 rounded hover:bg-[#89c2d9]"
                 >
                   Download as PDF
                 </button>
@@ -580,7 +648,8 @@ export default function ComplaintList() {
           </div>
         )}
 
-      </div>
+
+      </main>
     </>
   );
 }
