@@ -16,7 +16,7 @@ from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION
 
 from io import BytesIO
-import datetime
+import datetime, requests
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -695,264 +695,389 @@ class PDFGenerator:
 # PPT Generator
 # ---------------------------
 
-    def create_feedback_report(self, df, column_analysis, feedback_insights, visualizations, filename):
-        """Create comprehensive feedback analysis report with embedded charts"""
-        from datetime import datetime
-        buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=0.5*inch, bottomMargin=0.5*inch)
-        styles = getSampleStyleSheet()
-        story = []
+    def create_feedback_report(self, df, column_analysis, feedback_analysis, visualizations, executive_summary, filename):
+        """Generate comprehensive PDF report with AI-enhanced insights"""
+        try:
+            from reportlab.lib.pagesizes import A4, letter
+            from reportlab.lib import colors
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+            from reportlab.lib.units import inch
+            from io import BytesIO
+            from datetime import datetime
+            import requests
+            
+            # Create PDF buffer
+            buffer = BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=A4, 
+                                topMargin=0.5*inch, 
+                                bottomMargin=0.5*inch,
+                                leftMargin=0.5*inch,
+                                rightMargin=0.5*inch)
+            
+            styles = getSampleStyleSheet()
+            story = []
 
-        # Custom styles for feedback report
-        title_style = ParagraphStyle(
-            'FeedbackTitle',
-            parent=styles['Heading1'],
-            fontSize=20,
-            spaceAfter=20,
-            textColor=colors.darkblue,
-            alignment=1,
-            fontName='Helvetica-Bold'
-        )
+            # Custom styles for AI-enhanced report
+            title_style = ParagraphStyle(
+                'AITitle',
+                parent=styles['Heading1'],
+                fontSize=22,
+                spaceAfter=20,
+                textColor=colors.HexColor('#2C3E50'),
+                alignment=1,
+                fontName='Helvetica-Bold'
+            )
 
-        section_style = ParagraphStyle(
-            'FeedbackSection',
-            parent=styles['Heading2'],
-            fontSize=14,
-            spaceAfter=10,
-            spaceBefore=15,
-            textColor=colors.darkblue,
-            fontName='Helvetica-Bold'
-        )
+            section_style = ParagraphStyle(
+                'AISection',
+                parent=styles['Heading2'],
+                fontSize=16,
+                spaceAfter=12,
+                spaceBefore=15,
+                textColor=colors.HexColor('#34495E'),
+                fontName='Helvetica-Bold'
+            )
 
-        insight_style = ParagraphStyle(
-            'FeedbackInsight',
-            parent=styles['Normal'],
-            fontSize=11,
-            spaceAfter=8,
-            leftIndent=15,
-            textColor=colors.darkgreen,
-            fontName='Helvetica'
-        )
+            subsection_style = ParagraphStyle(
+                'AISubsection',
+                parent=styles['Heading3'],
+                fontSize=13,
+                spaceAfter=8,
+                spaceBefore=10,
+                textColor=colors.HexColor('#2C3E50'),
+                fontName='Helvetica-Bold'
+            )
 
-        theme_style = ParagraphStyle(
-            'FeedbackTheme',
-            parent=styles['Normal'],
-            fontSize=10,
-            spaceAfter=5,
-            leftIndent=25,
-            textColor=colors.purple,
-            fontName='Helvetica-Oblique'
-        )
+            insight_style = ParagraphStyle(
+                'AIInsight',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=6,
+                leftIndent=15,
+                textColor=colors.HexColor('#27AE60'),
+                fontName='Helvetica'
+            )
 
-        # Title and metadata
-        story.append(Paragraph("📋 Customer Feedback Analysis Report", title_style))
-        story.append(Spacer(1, 10))
-        
-        # Metadata table
-        metadata_data = [
-            ["File Name:", filename],
-            ["Total Records:", str(len(df))],
-            ["Analysis Date:", datetime.now().strftime('%Y-%m-%d')],
-            ["Data Quality:", f"{df.notna().sum().sum() / (df.shape[0] * df.shape[1]) * 100:.1f}%"]
-        ]
-        
-        metadata_table = Table(metadata_data, colWidths=[2*inch, 3*inch])
-        metadata_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-            ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.grey)
-        ]))
-        story.append(metadata_table)
-        story.append(Spacer(1, 20))
+            recommendation_style = ParagraphStyle(
+                'AIRecommendation',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=6,
+                leftIndent=15,
+                textColor=colors.HexColor('#E74C3C'),
+                fontName='Helvetica'
+            )
 
-        # Sentiment Analysis Section
-        sentiment_data = feedback_insights.get('sentiment_analysis', {})
-        story.append(Paragraph("🎭 Sentiment Analysis", section_style))
-        
-        if sentiment_data:
-            sentiment_table_data = [
-                ["Sentiment", "Percentage", "Description"],
-                ["Positive", f"{sentiment_data.get('positive_percentage', 0):.1f}%", 
-                "Customers expressing satisfaction or positive experiences"],
-                ["Negative", f"{sentiment_data.get('negative_percentage', 0):.1f}%", 
-                "Customers reporting issues or dissatisfaction"],
-                ["Neutral", f"{sentiment_data.get('neutral_percentage', 0):.1f}%", 
-                "Customers providing factual information without strong emotion"],
-                ["Overall", sentiment_data.get('overall_sentiment', 'N/A').title(), 
-                "General sentiment trend across all feedback"]
+            quote_style = ParagraphStyle(
+                'AIQuote',
+                parent=styles['Italic'],
+                fontSize=10,
+                spaceAfter=5,
+                leftIndent=25,
+                textColor=colors.HexColor('#7D3C98'),
+                fontName='Helvetica-Oblique'
+            )
+
+            # Title and Executive Summary
+            story.append(Paragraph("🤖 AI-Powered Customer Feedback Analysis Report", title_style))
+            story.append(Spacer(1, 15))
+            
+            # Executive Summary from AI analysis
+            # exec_summary = feedback_analysis.get('executive_summary', 'Comprehensive analysis of customer feedback revealing key insights and improvement opportunities.')
+            story.append(Paragraph("📋 Executive Summary", section_style))
+            story.append(Paragraph(executive_summary, styles['Normal']))
+            story.append(Spacer(1, 20))
+
+            # Metadata table
+            metadata_data = [
+                ["📄 File Name:", filename],
+                ["📊 Total Records:", f"{len(df):,}"],
+                ["📅 Analysis Date:", datetime.now().strftime('%Y-%m-%d %H:%M')],
+                ["⭐ Data Quality Score:", f"{(df.notna().sum().sum() / (df.shape[0] * df.shape[1]) * 100):.1f}%"],
+                ["🔍 Columns Analyzed:", str(len([col for col in column_analysis.get('columns_analysis', []) 
+                                            if col.get('include_in_analysis', True)]))]
             ]
             
-            sentiment_table = Table(sentiment_table_data, colWidths=[1.5*inch, 1*inch, 3*inch])
-            sentiment_table.setStyle(TableStyle([
-                ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
-                ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-                ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+            metadata_table = Table(metadata_data, colWidths=[1.5*inch, 4*inch])
+            metadata_table.setStyle(TableStyle([
+                ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F8F9F9')),
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5D8DC'))
             ]))
-            story.append(sentiment_table)
-        else:
-            story.append(Paragraph("No sentiment data available", styles['Normal']))
-        
-        story.append(Spacer(1, 15))
+            story.append(metadata_table)
+            story.append(Spacer(1, 25))
 
-        # Key Themes and Insights
-        story.append(Paragraph("🔍 Key Themes & Insights", section_style))
-        
-        themes = feedback_insights.get('key_themes', [])
-        if themes:
-            for i, theme in enumerate(themes, 1):
-                theme_text = f"{i}. {theme.get('theme', 'Unknown Theme')} "
-                theme_text += f"({theme.get('frequency', 'unknown').title()} frequency, "
-                theme_text += f"{theme.get('sentiment', 'mixed').title()} sentiment)"
-                
-                story.append(Paragraph(theme_text, insight_style))
-                
-                # Add example quotes if available
-                examples = theme.get('example_quotes', [])
-                if examples:
-                    for example in examples[:2]:  # Show max 2 examples per theme
-                        story.append(Paragraph(f'"{example}"', theme_style))
-        else:
-            story.append(Paragraph("No specific themes identified in the feedback", styles['Normal']))
-        
-        story.append(Spacer(1, 15))
-
-        # Strengths and Improvement Areas
-        col_widths = [2.5*inch, 2.5*inch]
-        strengths_improvement_data = [["✅ Strengths", "📈 Improvement Areas"]]
-        
-        strengths = feedback_insights.get('strengths', [])
-        improvements = feedback_insights.get('improvement_areas', [])
-        
-        max_rows = max(len(strengths), len(improvements))
-        for i in range(max_rows):
-            strength = strengths[i] if i < len(strengths) else ""
-            improvement = improvements[i] if i < len(improvements) else ""
-            strengths_improvement_data.append([strength, improvement])
-        
-        si_table = Table(strengths_improvement_data, colWidths=col_widths)
-        si_table.setStyle(TableStyle([
-            ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 11),
-            ('FONT', (0, 1), (-1, -1), 'Helvetica', 10),
-            ('BACKGROUND', (0, 0), (0, 0), colors.lightgreen),
-            ('BACKGROUND', (1, 0), (1, 0), colors.lightcoral),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-        ]))
-        story.append(si_table)
-        story.append(Spacer(1, 15))
-
-        # Recommendations
-        story.append(Paragraph("💡 Actionable Recommendations", section_style))
-        
-        recommendations = feedback_insights.get('recommendations', [])
-        if recommendations:
-            for i, recommendation in enumerate(recommendations, 1):
-                story.append(Paragraph(f"{i}. {recommendation}", insight_style))
-        else:
-            story.append(Paragraph("No specific recommendations available", styles['Normal']))
-        
-        story.append(Spacer(1, 20))
-
-        # Data Visualizations Section
-        story.append(Paragraph("📊 Feedback Visualizations", section_style))
-        story.append(Spacer(1, 10))
-
-        if visualizations:
-            # Group visualizations by type for better organization
-            visualization_groups = {}
-            for viz in visualizations:
-                viz_type = viz.get('type', 'unknown')
-                if viz_type not in visualization_groups:
-                    visualization_groups[viz_type] = []
-                visualization_groups[viz_type].append(viz)
+            # Sentiment Analysis Section
+            sentiment_data = feedback_analysis.get('sentiment_summary', {})
+            story.append(Paragraph("🎭 Comprehensive Sentiment Analysis", section_style))
             
-            # Display each visualization with description
-            for viz_type, viz_list in visualization_groups.items():
-                story.append(Paragraph(f"{viz_type.title()} Charts", styles['Heading3']))
+            if sentiment_data:
+                # Sentiment distribution table
+                sentiment_table_data = [
+                    ["Sentiment", "Percentage", "Key Characteristics"],
+                    ["😊 Positive", f"{sentiment_data.get('positive_percentage', 0):.1f}%", 
+                    "Satisfaction, praise, positive experiences"],
+                    ["😠 Negative", f"{sentiment_data.get('negative_percentage', 0):.1f}%", 
+                    "Issues, complaints, dissatisfaction"],
+                    ["😐 Neutral", f"{sentiment_data.get('neutral_percentage', 0):.1f}%", 
+                    "Factual information, suggestions, mixed feedback"],
+                    ["📊 Overall", sentiment_data.get('overall_sentiment', 'N/A').title(), 
+                    "General sentiment trend across all feedback"]
+                ]
                 
-                for viz in viz_list:
+                sentiment_table = Table(sentiment_table_data, colWidths=[1.2*inch, 1*inch, 3.3*inch])
+                sentiment_table.setStyle(TableStyle([
+                    ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
+                    ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498DB')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+                ]))
+                story.append(sentiment_table)
+                story.append(Spacer(1, 15))
+
+                # Example quotes from each sentiment
+                sentiment_examples = sentiment_data.get('sentiment_distribution', {})
+                if sentiment_examples:
+                    story.append(Paragraph("💬 Representative Feedback Examples", subsection_style))
+                    
+                    for sentiment, examples in sentiment_examples.items():
+                        if examples and len(examples) > 0:
+                            story.append(Paragraph(f"{sentiment.title()} Examples:", styles['Normal']))
+                            for example in examples[:2]:  # Show 2 examples per sentiment
+                                story.append(Paragraph(f'"{example}"', quote_style))
+                            story.append(Spacer(1, 5))
+            else:
+                story.append(Paragraph("No sentiment data available", styles['Normal']))
+            
+            story.append(Spacer(1, 20))
+
+            # Positive Feedback Analysis
+            positive_analysis = feedback_analysis.get('positive_feedback_analysis', {})
+            story.append(Paragraph("✅ Positive Feedback Analysis", section_style))
+            
+            if positive_analysis:
+                positive_cats = positive_analysis.get('categories', [])
+                
+                if positive_cats:
+                    # Positive categories table
+                    pos_table_data = [["Category", "Percentage", "Key Strengths"]]
+                    for cat in positive_cats:
+                        pos_table_data.append([
+                            cat.get('category', 'N/A'),
+                            f"{cat.get('percentage', 0):.1f}%",
+                            ', '.join(cat.get('key_themes', []))[:40] + '...'
+                        ])
+                    
+                    pos_table = Table(pos_table_data, colWidths=[1.5*inch, 1*inch, 3*inch])
+                    pos_table.setStyle(TableStyle([
+                        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
+                        ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#27AE60')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+                    ]))
+                    story.append(pos_table)
+                    story.append(Spacer(1, 15))
+
+                # Top positive aspects
+                top_positives = positive_analysis.get('top_positive_aspects', [])
+                if top_positives:
+                    story.append(Paragraph("🏆 Top Positive Aspects:", subsection_style))
+                    for aspect in top_positives[:5]:
+                        story.append(Paragraph(f"• {aspect}", insight_style))
+            else:
+                story.append(Paragraph("No positive feedback analysis available", styles['Normal']))
+            
+            story.append(Spacer(1, 20))
+
+            # Negative Feedback Analysis
+            negative_analysis = feedback_analysis.get('negative_feedback_analysis', {})
+            story.append(Paragraph("❌ Negative Feedback Analysis", section_style))
+            
+            if negative_analysis:
+                negative_cats = negative_analysis.get('categories', [])
+                
+                if negative_cats:
+                    # Negative categories table
+                    neg_table_data = [["Category", "Percentage", "Main Issues"]]
+                    for cat in negative_cats:
+                        neg_table_data.append([
+                            cat.get('category', 'N/A'),
+                            f"{cat.get('percentage', 0):.1f}%",
+                            ', '.join(cat.get('key_issues', []))[:40] + '...'
+                        ])
+                    
+                    neg_table = Table(neg_table_data, colWidths=[1.5*inch, 1*inch, 3*inch])
+                    neg_table.setStyle(TableStyle([
+                        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
+                        ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E74C3C')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
+                    ]))
+                    story.append(neg_table)
+                    story.append(Spacer(1, 15))
+
+                # Top improvement areas
+                top_improvements = negative_analysis.get('top_improvement_areas', [])
+                if top_improvements:
+                    story.append(Paragraph("🔧 Top Improvement Areas:", subsection_style))
+                    for area in top_improvements[:5]:
+                        story.append(Paragraph(f"• {area}", recommendation_style))
+            else:
+                story.append(Paragraph("No negative feedback analysis available", styles['Normal']))
+            
+            story.append(Spacer(1, 20))
+
+            # Actionable Recommendations
+            recommendations = feedback_analysis.get('recommendations', [])
+            story.append(Paragraph("💡 AI-Generated Recommendations", section_style))
+            
+            if recommendations:
+                rec_table_data = [["Area", "Action", "Priority", "Timeline"]]
+                
+                for rec in recommendations[:8]:  # Show top 8 recommendations
+                    rec_table_data.append([
+                        rec.get('area', 'General'),
+                        rec.get('action', 'No action specified'),
+                        rec.get('priority', 'Medium'),
+                        rec.get('timeline', 'Short-term')
+                    ])
+                
+                rec_table = Table(rec_table_data, colWidths=[1.2*inch, 2.5*inch, 0.8*inch, 1*inch])
+                rec_table.setStyle(TableStyle([
+                    ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),
+                    ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F39C12')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT')
+                ]))
+                story.append(rec_table)
+            else:
+                story.append(Paragraph("No specific recommendations available", styles['Normal']))
+            
+            story.append(Spacer(1, 25))
+
+            # Data Visualizations Section
+            story.append(Paragraph("📊 AI-Enhanced Visualizations", section_style))
+            story.append(Spacer(1, 10))
+
+            if visualizations:
+                # Display each visualization with AI-generated description
+                for i, viz in enumerate(visualizations, 1):
                     try:
+                        story.append(Paragraph(f"Chart {i}: {viz.get('title', 'Visualization')}", subsection_style))
+                        
                         # Download the chart image from Supabase URL
                         chart_url = viz.get('url')
                         if chart_url:
-                            response = requests.get(chart_url)
+                            response = requests.get(chart_url, timeout=10)
                             if response.status_code == 200:
                                 chart_buffer = BytesIO(response.content)
                                 
-                                # Convert to ReportLab Image
+                                # Convert to ReportLab Image with appropriate sizing
                                 chart_image = Image(chart_buffer, width=5.5*inch, height=3.5*inch)
                                 chart_image.hAlign = 'CENTER'
                                 story.append(chart_image)
                                 
-                                # Add chart description
+                                # Add AI-generated chart description
                                 description = viz.get('description', 'No description available')
-                                story.append(Paragraph(description, styles['Italic']))
-                                story.append(Spacer(1, 10))
+                                story.append(Paragraph(f"📝 Analysis: {description}", styles['Italic']))
+                                story.append(Spacer(1, 15))
                     except Exception as e:
-                        print(f"Error loading chart: {e}")
-                        story.append(Paragraph(f"Chart could not be loaded: {viz.get('title', 'Unknown')}", styles['Normal']))
-        else:
-            story.append(Paragraph("No visualizations available for this feedback analysis", styles['Normal']))
-        
-        story.append(Spacer(1, 20))
-
-        # Column Analysis Summary
-        story.append(Paragraph("📋 Data Structure Analysis", section_style))
-        
-        columns_analysis = column_analysis.get('columns_analysis', [])
-        if columns_analysis:
-            column_data = [["Column", "Purpose", "Category", "Insights"]]
+                        print(f"Error loading chart {i}: {e}")
+                        continue
+            else:
+                story.append(Paragraph("No visualizations available for this analysis", styles['Normal']))
             
-            for col_analysis in columns_analysis:
-                column_data.append([
-                    col_analysis.get('column_name', 'N/A'),
-                    col_analysis.get('likely_purpose', 'N/A'),
-                    col_analysis.get('data_category', 'N/A'),
-                    ', '.join(col_analysis.get('key_insights', ['No insights']))[:50] + '...'
-                ])
+            story.append(Spacer(1, 25))
+
+            # Column Analysis Summary
+            story.append(Paragraph("🔍 Data Structure Insights", section_style))
             
-            column_table = Table(column_data, colWidths=[1.2*inch, 1.8*inch, 1.2*inch, 1.8*inch])
-            column_table.setStyle(TableStyle([
-                ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),
-                ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-                ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT')
-            ]))
-            story.append(column_table)
-        else:
-            story.append(Paragraph("No column analysis available", styles['Normal']))
-        
-        story.append(Spacer(1, 20))
+            columns_analysis = column_analysis.get('columns_analysis', [])
+            relevant_columns = [col for col in columns_analysis if col.get('include_in_analysis', True)]
+            
+            if relevant_columns:
+                column_data = [["Column", "Type", "Purpose", "Analysis Relevance"]]
+                
+                for col_analysis in relevant_columns[:10]:  # Show top 10 relevant columns
+                    column_data.append([
+                        col_analysis.get('column_name', 'N/A'),
+                        col_analysis.get('detected_type', 'unknown'),
+                        col_analysis.get('reasoning', 'No purpose specified')[:30] + '...',
+                        "✅ Included" if col_analysis.get('include_in_analysis', True) else "❌ Excluded"
+                    ])
+                
+                column_table = Table(column_data, colWidths=[1.2*inch, 1.2*inch, 2.1*inch, 1*inch])
+                column_table.setStyle(TableStyle([
+                    ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
+                    ('FONT', (0, 1), (-1, -1), 'Helvetica', 7),
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7D3C98')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT')
+                ]))
+                story.append(column_table)
+            else:
+                story.append(Paragraph("No column analysis available", styles['Normal']))
+            
+            story.append(Spacer(1, 25))
 
-        # Footer
-        footer_style = ParagraphStyle(
-            'Footer',
-            parent=styles['Normal'],
-            fontSize=9,
-            textColor=colors.grey,
-            alignment=1,
-            fontName='Helvetica-Oblique'
-        )
-        
-        story.append(Paragraph("Generated by AI Feedback Analysis System", footer_style))
-        story.append(Paragraph(f"Report generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", footer_style))
-        story.append(Paragraph("Confidential - For internal use only", footer_style))
+            # Methodology and Limitations
+            story.append(Paragraph("🔬 Analysis Methodology", section_style))
+            methodology_text = """
+            This report was generated using advanced AI analysis techniques including:
+            • Natural Language Processing for sentiment analysis and theme extraction
+            • Machine Learning for pattern recognition and categorization
+            • Statistical analysis for quantitative insights
+            • AI-powered visualization generation and interpretation
+            
+            Limitations: Analysis is based on available data and may not capture all nuances. 
+            Recommendations should be validated with additional business context.
+            """
+            story.append(Paragraph(methodology_text, styles['Normal']))
+            story.append(Spacer(1, 20))
 
-        # Build the PDF
-        doc.build(story)
-        pdf_content = buffer.getvalue()
-        buffer.close()
-        
-        return pdf_content
+            # Footer
+            footer_style = ParagraphStyle(
+                'AIFooter',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.HexColor('#7F8C8D'),
+                alignment=1,
+                fontName='Helvetica-Oblique'
+            )
+            
+            story.append(Paragraph("🤖 Generated by Advanced AI Feedback Analysis System", footer_style))
+            story.append(Paragraph(f"📄 Report generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", footer_style))
+            story.append(Paragraph("🔒 Confidential - For strategic decision making only", footer_style))
+            story.append(Paragraph("⭐ AI Confidence Level: High (Based on comprehensive pattern recognition)", footer_style))
+
+            # Build the PDF
+            doc.build(story)
+            pdf_content = buffer.getvalue()
+            buffer.close()
+            
+            return pdf_content
+                
+        except Exception as e:
+            print(f"AI Enhanced PDF Generation Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise Exception(f"Failed to generate AI-enhanced PDF: {str(e)}")
 
 class PPTGenerator:
     def create_analysis_presentation(self, gemini_output, filename, data_df=None, data_type=None):

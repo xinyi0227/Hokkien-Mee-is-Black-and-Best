@@ -139,13 +139,13 @@ export default function ComplaintUpload() {
     return (
         <>
             <Header />
-            <div className="min-h-screen bg-gray-100 pt-12 px-4">
-                <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-                    <h1 className="text-2xl font-bold mb-6">Upload Customer Complaint</h1>
+            <main className="min-h-screen bg-gray-50 pt-12 px-4 dark:bg-gray-950 dark:text-gray-200">
+                <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                    <h1 className="text-2xl font-bold mb-6 dark:bg-gray-900">Upload Customer Complaint</h1>
 
                     {error && <p className="text-red-600 mb-4">{error}</p>}
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6 dark:bg-gray-900 ">
                         {/* Complaint Date */}
                         <div>
                             <label className="block font-medium mb-1">Complaint Date</label>
@@ -153,7 +153,7 @@ export default function ComplaintUpload() {
                                 type="date"
                                 value={complaintDate}
                                 onChange={(e) => setComplaintDate(e.target.value)}
-                                className="p-2 border rounded w-full"
+                                className="p-2 border rounded w-full dark:bg-gray-900"
                                 max={new Date().toISOString().split("T")[0]}
                                 required
                             />
@@ -168,7 +168,7 @@ export default function ComplaintUpload() {
                             <input
                                 type="text"
                                 value={employeeId ? employeeId.label : ""}
-                                className="p-2 border rounded w-full bg-gray-100"
+                                className="p-2 border rounded w-full bg-gray-100 dark:bg-gray-900"
                                 disabled
                             />
                         </div>
@@ -180,7 +180,7 @@ export default function ComplaintUpload() {
                                 type="text"
                                 value={customerName}
                                 onChange={(e) => setCustomerName(e.target.value)}
-                                className="p-2 border rounded w-full"
+                                className="p-2 border rounded w-full dark:bg-gray-900"
                                 required
                             />
                             {fieldErrors.customer_name && (
@@ -195,7 +195,7 @@ export default function ComplaintUpload() {
                                 type="text"
                                 value={customerContact}
                                 onChange={(e) => setCustomerContact(e.target.value)}
-                                className="p-2 border rounded w-full"
+                                className="p-2 border rounded w-full dark:bg-gray-900"
                                 required
                             />
                             {fieldErrors.customer_contact && (
@@ -210,7 +210,7 @@ export default function ComplaintUpload() {
                                 type="file"
                                 accept="audio/*"
                                 onChange={handleComplaintAudioChange}
-                                className="w-full"
+                                className="w-full dark:bg-gray-900"
                                 required
                             />
                             {fieldErrors.complaint_audio && (
@@ -230,14 +230,14 @@ export default function ComplaintUpload() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                className="bg-[#1985a1] text-white px-5 py-2 rounded-lg hover:bg-[#89c2d9] disabled:opacity-50"
                             >
                                 {loading ? "Uploading..." : "Upload Complaint"}
                             </button>
                         </div>
                     </form>
                 </div>
-            </div>
+            </main>
         </>
     );
 }

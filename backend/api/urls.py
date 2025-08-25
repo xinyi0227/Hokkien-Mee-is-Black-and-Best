@@ -28,9 +28,8 @@ urlpatterns = [
     path('comment-reports/', views.CommentReportListView.as_view(), name='comment-report-list'),
     path('comment-reports/<uuid:pk>/', views.CommentReportRetrieveView.as_view(), name='comment-report-detail'),
     path('analyse-comment/', views.FeedbackAnalysisView.as_view(), name='analyse-comment'),
-    
     path('meeting_full/<int:meeting_id>/', views.meeting_full, name='meeting-full'),
     path('meeting_files_check/', views.meeting_files_check, name='meeting_files_check'),
-
+    path('generate-pdf-report/', views.GenerateEditedPDFView.as_view(), name='generate-pdf-report'),
 
 ]

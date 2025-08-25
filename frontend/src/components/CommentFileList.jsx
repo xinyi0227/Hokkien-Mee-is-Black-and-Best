@@ -1,7 +1,8 @@
-// FileList.jsx
+// CommentFileList.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../lib/supabase";
 import axios from 'axios';
+import EditReportModal from './FeedbackReport';
 
 const CommentFileList = ({ uploader }) => {
   const [files, setFiles] = useState([]); 
@@ -9,7 +10,67 @@ const CommentFileList = ({ uploader }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [processingFiles, setProcessingFiles] = useState({});
-  const [analysisResult, setAnalysisResult] = useState(null); 
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingReport, setEditingReport] = useState(null);
+
+  const openEditModal = (report) => {
+    setEditingReport(report);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingReport(null);
+  };
+
+  const handleSaveReport = async (reportId, updatedData) => {
+    try {
+      // Update the report in the database
+      const { error } = await supabase
+        .from('userComment_data')
+        .update({ file_content: updatedData })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      // Update the local state
+      setProcessedReports(prev => 
+        prev.map(report => 
+          report.id === reportId 
+            ? { ...report, file_content: updatedData }
+            : report
+        )
+      );
+
+      alert('Report updated successfully!');
+    } catch (err) {
+      console.error('Error updating report:', err);
+      setError('Failed to update report: ' + err.message);
+    }
+  };
+
+  const fetchReports = async (fileIds) => {
+    try {
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('userComment_data')
+        .select(`
+          *,
+          business_data (
+            id,
+            fileName
+          )
+        `)
+        .in('file_url_id', fileIds);
+
+      if (reportsError) throw reportsError;
+      
+      setProcessedReports(Array.isArray(reportsData) ? reportsData : []);
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      setProcessedReports([]);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,20 +92,7 @@ const CommentFileList = ({ uploader }) => {
         // 2. Fetch processed reports for these files
         if (fetchedFiles.length > 0) {
           const fileIds = fetchedFiles.map(file => file.id);
-          const { data: reportsData, error: reportsError } = await supabase
-            .from('userComment_data')
-            .select(`
-              *,
-              business_data (
-                id,
-                fileName
-              )
-            `)
-            .in('file_url_id', fileIds);
-
-          if (reportsError) throw reportsError;
-          
-          setProcessedReports(Array.isArray(reportsData) ? reportsData : []);
+          await fetchReports(fileIds);
         }
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -76,15 +124,9 @@ const CommentFileList = ({ uploader }) => {
       setAnalysisResult(response.data);
       alert('File processed successfully! Reports generated.');
       
-      // Refresh the reports list
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('userComment_data')
-        .select('*')
-        .eq('file_url_id', fileId);
-        
-      if (!reportsError && reportsData) {
-        setProcessedReports(prev => [...prev, ...reportsData]);
-      }
+      // Refresh the reports list for this specific file
+      await fetchReports([fileId]);
+      
     } catch (error) {
       console.error('Full error object:', error);
       console.error('Error response data:', error.response?.data);
@@ -116,6 +158,9 @@ const CommentFileList = ({ uploader }) => {
 
       // Update state instead of refetching
       setFiles(prev => prev.filter(f => f.id !== id));
+      
+      // Also remove any reports associated with this file
+      setProcessedReports(prev => prev.filter(report => report.file_url_id !== id));
     } catch (error) {
       setError('Failed to delete file: ' + error.message);
     }
@@ -143,7 +188,7 @@ const CommentFileList = ({ uploader }) => {
       <div className="space-y-4 mt-4">
         {files.length > 0 && files.map((file) => {
           const isProcessing = processingFiles[file.id];
-          const reportExists = processedReports.some(report => report.file_url === file.id);
+          const existingReport = processedReports.find(report => report.file_url_id === file.id);
           
           return (
             <div
@@ -158,7 +203,7 @@ const CommentFileList = ({ uploader }) => {
                   <p className="text-gray-600 mt-1">
                     Uploaded: {new Date(file.created_at).toLocaleDateString("en-GB")}
                   </p>
-                  {reportExists && (
+                  {existingReport && (
                     <p className="text-green-600 text-sm mt-1">
                       ✓ Report available
                     </p>
@@ -177,17 +222,30 @@ const CommentFileList = ({ uploader }) => {
                     Download
                   </a>
                   
-                  {reportExists ? (
-                    <a
-                      href={`/report/${file.id}`} // Link to view the report
-                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 inline-flex items-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
-                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                        <path fillRule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clipRule="evenodd" />
-                      </svg>
-                      View Report
-                    </a>
+                  {existingReport ? (
+                    <>
+                      
+                      <button
+                        onClick={() => processFileWithGemini(file.id)}
+                        disabled={isProcessing}
+                        className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50 inline-flex items-center"
+                        title="Re-process with AI (will replace existing report)"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Reprocessing...
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            Reprocess AI
+                          </>
+                        )}
+                      </button>
+                    </>
                   ) : (
                     <button
                       onClick={() => processFileWithGemini(file.id)}
@@ -238,24 +296,41 @@ const CommentFileList = ({ uploader }) => {
           <h3 className="text-lg font-semibold mb-4">Generated Reports</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {processedReports.map((report) => (
-              <div key={report.id} className="bg-gray-50 p-4 rounded-lg">
+              <div key={report.id} className="bg-gray-50 p-4 rounded-lg relative">
                 <h4 className="font-medium">{report.filename}</h4>
                 <p className="text-sm text-gray-600">
                   Generated: {new Date(report.created_at).toLocaleDateString()}
                 </p>
-                {report.pdf_url && (
-                  <a 
-                    href={report.pdf_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-800 text-sm mt-2 inline-block"
+                <div className="mt-3 flex space-x-2">
+                  {report.pdf_url && (
+                    <a 
+                      href={report.pdf_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 bg-blue-100 rounded"
+                    >
+                      PDF Report
+                    </a>
+                  )}
+                  <button 
+                    onClick={() => openEditModal(report)}
+                    className="text-green-600 hover:text-green-800 text-sm px-3 py-1 bg-green-100 rounded"
                   >
-                     PDF Report
-                  </a>
-                )}
+                    Edit
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+          
+          {/* Edit Modal */}
+          {isEditModalOpen && (
+            <EditReportModal 
+              report={editingReport} 
+              onClose={closeEditModal} 
+              onSave={handleSaveReport}
+            />
+          )}
         </div>
       )}
 

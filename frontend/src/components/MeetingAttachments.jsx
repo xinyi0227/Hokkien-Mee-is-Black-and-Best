@@ -13,11 +13,12 @@ export default function MeetingAttachments() {
 
   const fromPage = location.state?.from;
 
-  const handleBack = () => {
-    if (fromPage === "today") navigate("/meetingsToday");
-    else if (fromPage === "past") navigate("/meetingsPast");
-    else navigate(-1); // fallback if no state
-  };
+const handleBack = () => {
+  if (fromPage === "today") navigate("/meetingsToday");
+  else if (fromPage === "past") navigate("/meetingsPast");
+  else if (fromPage === "calendar") navigate("/tasks", { state: { view: "calendar" } });
+  else navigate(-1); // fallback if no state
+};
 
   useEffect(() => {
     const fetchData = async () => {

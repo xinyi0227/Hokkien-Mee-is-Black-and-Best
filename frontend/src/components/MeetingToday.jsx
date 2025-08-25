@@ -21,11 +21,11 @@ export default function MeetingToday() {
   const [currentPage, setCurrentPage] = useState(1);
   const meetingsPerPage = 6;
 
-   const isMeetingOver = (meeting) => {
-          if (!meeting.meeting_date || !meeting.meeting_time) return false;
-          const meetingDateTime = new Date(`${meeting.meeting_date}T${meeting.meeting_time}`);
-          return new Date() >= meetingDateTime;
-        };
+  const isMeetingOver = (meeting) => {
+    if (!meeting.meeting_date || !meeting.meeting_time) return false;
+    const meetingDateTime = new Date(`${meeting.meeting_date}T${meeting.meeting_time}`);
+    return new Date() >= meetingDateTime;
+  };
 
   // Fetch data
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function MeetingToday() {
     fetchData();
   }, []);
 
-   // Set manager default department filter
+  // Set manager default department filter
   useEffect(() => {
     if (currentUser?.role === "manager") {
       setFilterDept(currentUser.department_id);
@@ -134,9 +134,8 @@ export default function MeetingToday() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gray-100 pt-12 px-4">
-        <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-
+      <main className="min-h-screen pt-12 px-4 bg-gray-50 dark:bg-gray-950">
+        <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg dark:bg-gray-900 dark:text-gray-200">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">Today's Meetings</h1>
           </div>
@@ -149,7 +148,7 @@ export default function MeetingToday() {
                 <select
                   value={filterDept}
                   onChange={(e) => setFilterDept(e.target.value)}
-                  className="p-2 border rounded"
+                  className="p-2 border rounded dark:bg-gray-900"
                   disabled={currentUser?.role === "manager"} // disable for manager
                 >
                   <option value="">All Departments</option>
@@ -165,7 +164,7 @@ export default function MeetingToday() {
                 placeholder="Search by title"
                 value={filterTitle}
                 onChange={(e) => setFilterTitle(e.target.value)}
-                className="p-2 border rounded"
+                className="p-2 border rounded dark:bg-gray-900"
               />
             </div>
 
@@ -173,7 +172,7 @@ export default function MeetingToday() {
               <div className="mt-3">
                 <button
                   onClick={() => setShowAll(prev => !prev)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-4 py-2 bg-[#1985a1] text-white rounded hover:bg-[#89c2d9] "
                 >
                   {showAll ? "Show Mine" : "Show All"}
                 </button>
@@ -183,24 +182,30 @@ export default function MeetingToday() {
 
           {/* Meeting cards */}
           {currentMeetings.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 dark:bg-dark-800 dark:text-gray-200">
               {currentMeetings.map((m) => (
                 <div
                   key={m.meeting_id}
-                  className="bg-white rounded-lg shadow-md p-5 hover:shadow-lg transition cursor-pointer"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 hover:shadow-lg transition cursor-pointer dark:text-gray-200"
                   onClick={() => setSelectedMeeting(m)}
                 >
                   <h2 className="text-xl font-semibold mb-2">
                     {m.meeting_title}
                     {hasUploadedFiles(m.meeting_id) && (
-                      <span className="bg-green-200 text-green-700 text-sm px-2 py-0.5 rounded-full ml-2">
+                      <span className="bg-green-200 text-green-700 dark:bg-green-700 dark:text-green-200 text-sm px-2 py-0.5 rounded-full ml-2">
                         Uploaded
                       </span>
                     )}
                   </h2>
-                  <p className="text-gray-600"><strong>Date:</strong> {m.meeting_date}</p>
-                  <p className="text-gray-600"><strong>Time:</strong> {m.meeting_time}</p>
-                  <p className="text-gray-600"><strong>Department:</strong> {getDeptName(m.meeting_department)}</p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    <strong>Date:</strong> {m.meeting_date}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    <strong>Time:</strong> {m.meeting_time}
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    <strong>Department:</strong> {getDeptName(m.meeting_department)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -210,7 +215,7 @@ export default function MeetingToday() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-6 flex justify-center gap-2">
+            <div className="mt-6 flex justify-center gap-2 dark:bg-dark-800 dark:text-gray-200">
               <button
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage((prev) => prev - 1)}
@@ -222,7 +227,8 @@ export default function MeetingToday() {
                 <button
                   key={page}
                   onClick={() => setCurrentPage(page)}
-                  className={`px-3 py-1 rounded ${currentPage === page ? "bg-blue-600 text-white" : "bg-gray-200"}`}
+                  className={`px-3 py-1 rounded ${currentPage === page ? "bg-[#1985a1] text-white"
+                    : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"}`}
                 >
                   {page}
                 </button>
@@ -230,7 +236,7 @@ export default function MeetingToday() {
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage((prev) => prev + 1)}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50 text-gray-800 dark:text-gray-200"
               >
                 Next
               </button>
@@ -240,7 +246,7 @@ export default function MeetingToday() {
           {/* Modal */}
           {selectedMeeting && (
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+              <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative dark:bg-gray-900 border-gray-200 dark:border-gray-700">
                 <button
                   onClick={() => setSelectedMeeting(null)}
                   className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
@@ -260,32 +266,32 @@ export default function MeetingToday() {
                   .map(id => getEmployeeInfo(id))
                   .join(", ")}</p>
 
-             <div className="mt-6 flex justify-end gap-3">
-                {isMeetingOver(selectedMeeting) && (
-                  hasUploadedFiles(selectedMeeting.meeting_id) ? (
-                    <button
-                    onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`, { state: { from: "today" } })}
-                      className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
-                    >
-                      📎 Attachment
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
-                      className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
-                    >
-                      Upload Audios →
-                    </button>
-                  )
-                )}
-              </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  {isMeetingOver(selectedMeeting) && (
+                    hasUploadedFiles(selectedMeeting.meeting_id) ? (
+                      <button
+                        onClick={() => navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`, { state: { from: "today" } })}
+                        className="bg-[#1985a1] text-white px-5 py-2 rounded-lg hover:bg-[#89c2d9]"
+                      >
+                        📎 Attachment
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate("/meetingGenerator", { state: { meetingId: selectedMeeting.meeting_id } })}
+                        className="bg-[#1985a1] text-white px-5 py-2 rounded-lg hover:bg-[#89c2d9]"
+                      >
+                        Upload Audios →
+                      </button>
+                    )
+                  )}
+                </div>
 
               </div>
             </div>
           )}
 
         </div>
-      </div>
+      </main>
     </>
   );
 }

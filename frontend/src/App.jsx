@@ -186,7 +186,10 @@ function App() {
 
         {/* Comment Analyser */}
         <Route 
-          path="/feedbackAnalyser" element={<CommentFilePage />} />
+          path="/feedbackAnalyser" 
+          element={<CommentFilePage />} 
+        />
+        {/* <Route path="/report/:reportId" element={<FeedbackReportViewer />} /> */}
 
         {/* Complaint route */}
         <Route

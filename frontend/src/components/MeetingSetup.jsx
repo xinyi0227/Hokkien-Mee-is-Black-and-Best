@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import Header from './header';
 
+
+
 // Multi-select dropdown component
 function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, label, labelKey, idKey }) {
   const [open, setOpen] = useState(false);
@@ -37,7 +39,7 @@ function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, lab
     <div className="mb-4 relative" ref={ref}>
       <label className="block font-semibold mb-2">{label}</label>
       <div
-        className="border rounded p-2 cursor-pointer flex justify-between items-center"
+        className="border rounded p-2 cursor-pointer flex justify-between items-center "
         onClick={() => setOpen(!open)}
       >
         <span>
@@ -49,9 +51,9 @@ function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, lab
       </div>
 
       {open && (
-        <div className="absolute mt-1 w-full bg-white border rounded shadow-lg max-h-40 overflow-y-auto z-10">
+        <div className="absolute mt-1 w-full bg-white border rounded shadow-lg max-h-40 overflow-y-auto z-10 dark:bg-gray-900 dark:text-gray-200">
           {/* Select All */}
-          <label className="flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer">
+          <label className="flex items-center gap-2 p-2 hover:bg-blue-50 cursor-pointer dark:bg-gray-700 dark:text-gray-200">
             <input
               type="checkbox"
               checked={allSelected}
@@ -67,7 +69,7 @@ function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, lab
             return (
               <label
                 key={id}
-                className="flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer"
+                className="flex items-center gap-2 p-2 hover:bg-gray-100 cursor-pointer dark:bg-gray-900 dark:text-gray-200"
               >
                 <input
                   type="checkbox"
@@ -83,6 +85,8 @@ function MultiSelectDropdown({ options, selectedOptions, setSelectedOptions, lab
     </div>
   );
 }
+
+
 
 // Meeting setup component
 function MeetingSetup({ onSetupComplete }) {
@@ -208,22 +212,22 @@ function MeetingSetup({ onSetupComplete }) {
 
   return (
     <><Header />
-    <div className="min-h-screen bg-gray-100 pt-12 px-4">
-      <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+    <main className="min-h-screen pt-12 px-4 bg-gray-50 dark:bg-gray-950">
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg dark:bg-gray-900 dark:text-gray-200">
 
         {/* Step 1: Basic Details */}
         {step === 1 && (
           <form onSubmit={(e) => { e.preventDefault(); nextStep(); }}>
             <h1 className="text-2xl font-bold mb-6 text-center">Meeting Basic Details</h1>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-3 gap-6 ">
               <div>
-                <label className="block font-semibold mb-2">Meeting Name</label>
+                <label className="block font-semibold mb-2 ">Meeting Name</label>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded dark:bg-gray-900 dark:text-gray-200"
                   placeholder="Enter meeting title"
                 />
               </div>
@@ -234,7 +238,7 @@ function MeetingSetup({ onSetupComplete }) {
                   value={meetingDate}
                   onChange={(e) => { setMeetingDate(e.target.value); setMeetingTime(""); }}
                   min={today}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded dark:bg-gray-900 dark:text-gray-200"
                 />
               </div>
               <div>
@@ -244,7 +248,7 @@ function MeetingSetup({ onSetupComplete }) {
                   value={meetingTime}
                   onChange={(e) => setMeetingTime(e.target.value)}
                   min={isToday ? currentTime : undefined}
-                  className="w-full p-2 border rounded"
+                  className="w-full p-2 border rounded dark:bg-gray-900 dark:text-gray-200"
                 />
               </div>
             </div>
@@ -253,7 +257,7 @@ function MeetingSetup({ onSetupComplete }) {
               
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                className="bg-[#1985a1] text-white px-6 py-2 rounded hover:bg-[#89c2d9]"
               >
                 Next
               </button>
@@ -266,7 +270,7 @@ function MeetingSetup({ onSetupComplete }) {
           <form onSubmit={handleSubmit}>
             <h1 className="text-2xl font-bold mb-6 text-center">Meeting Participants & Details</h1>
 
-            <div className="grid grid-cols-2 gap-8">
+            <div className="grid grid-cols-2 gap-8 dark:bg-gray-900 dark:text-gray-200">
               {/* Left Column */}
               <div>
                 <MultiSelectDropdown
@@ -296,7 +300,7 @@ function MeetingSetup({ onSetupComplete }) {
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border rounded dark:bg-gray-900"
                     placeholder="Room 301"
                   />
                 </div>
@@ -310,7 +314,7 @@ function MeetingSetup({ onSetupComplete }) {
                         <select
                           value={micAssignments[mic]}
                           onChange={(e) => handleMicChange(mic, Number(e.target.value))}
-                          className="w-full p-2 border rounded"
+                          className="w-full p-2 border rounded dark:bg-gray-900"
                           disabled={participants.length === 0}
                         >
                           <option value="">Select participant</option>
@@ -335,7 +339,7 @@ function MeetingSetup({ onSetupComplete }) {
             <div className="mt-8 flex justify-between">
               <button
                 type="submit"
-                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+                className="bg-[#1985a1] text-white px-6 py-2 rounded hover:bg-[#89c2d9]"
               >
                 Save Meeting
               </button>
@@ -344,7 +348,8 @@ function MeetingSetup({ onSetupComplete }) {
         )}
 
       </div>
-    </div></>
+    
+    </main></>
   );
 }
 

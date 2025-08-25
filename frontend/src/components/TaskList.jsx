@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import Header from './header'
 import { FiTrash2, FiX } from 'react-icons/fi'
@@ -38,8 +39,8 @@ const normalizePriority = (p) => {
   return ['low', 'medium', 'high'].includes(x) ? x : 'low'
 }
 
-const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']           
-const STATUS_OPTIONS_FOR_EDIT = STATUS_GROUP_ORDER                                
+const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']
+const STATUS_OPTIONS_FOR_EDIT = STATUS_GROUP_ORDER
 const STATUS_META = {
   pending: { label: 'PENDING', badge: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100' },
   'in progress': { label: 'IN PROGRESS', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -106,9 +107,17 @@ const computeDiffsFromSnapshot = (beforeSnap = {}, afterObj = {}) => {
 }
 
 const TaskList = ({ currentUser }) => {
+  const navigate = useNavigate()
+  const location = useLocation()
+
   const [tasks, setTasks] = useState([])
   const [employees, setEmployees] = useState([])
   const [view, setView] = useState(VIEWS.LIST)
+
+  const [meetings, setMeetings] = useState([])
+  const [meetingFiles, setMeetingFiles] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [selectedMeeting, setSelectedMeeting] = useState(null)
 
   const [newTask, setNewTask] = useState({
     task_title: '',
@@ -138,7 +147,6 @@ const TaskList = ({ currentUser }) => {
   )
 
   const savingRef = useRef(false)
-
   const lastCommittedSnapRef = useRef(null)
 
   useEffect(() => {
@@ -151,7 +159,16 @@ const TaskList = ({ currentUser }) => {
   useEffect(() => {
     fetchTasks()
     fetchEmployees()
+    fetchDepartments()
+    fetchMeetingsAll()
+    fetchMeetingFiles()
   }, [])
+
+  useEffect(() => {
+    if (location.state?.view === 'calendar') {
+      setView(VIEWS.CAL)
+    }
+  }, [location.state])
 
   const fetchTasks = async () => {
     try {
@@ -179,6 +196,70 @@ const TaskList = ({ currentUser }) => {
     } catch (error) {
       console.error('Error fetching employees:', error)
     }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const r = await fetch('/api/departments')
+      const d = await r.json()
+      setDepartments(d || [])
+    } catch (e) { console.error('fetch departments failed:', e) }
+  }
+
+  const fetchMeetingsAll = async () => {
+    try {
+      const [r1, r2, r3] = await Promise.all([
+        fetch('/api/meetingsToday'),
+        fetch('/api/meetingsFuture'),
+        fetch('/api/meetingsPast'),
+      ])
+      const [a, b, c] = await Promise.all([r1.json(), r2.json(), r3.json()])
+      const merged = [...(a || []), ...(b || []), ...(c || [])]
+      setMeetings(merged)
+    } catch (e) { console.error('fetch meetings failed:', e) }
+  }
+
+  const fetchMeetingFiles = async () => {
+    try {
+      const r = await fetch('/api/view_meeting_files')
+      const d = await r.json()
+      setMeetingFiles(d || [])
+    } catch (e) { console.error('fetch meeting files failed:', e) }
+  }
+
+  const hasUploadedFiles = (meetingId) =>
+    meetingFiles.some(f => f.meeting === meetingId)
+
+  const getDeptName = (deptIds) => {
+    if (!deptIds) return 'Unknown'
+    return String(deptIds)
+      .split(',')
+      .map(id => id.trim())
+      .map(id => departments.find(d => String(d.department_id) === id)?.department_name || 'Unknown')
+      .join(', ')
+  }
+
+  const isParticipant = (m) => {
+    const myId = String(currentUser?.employee_id ?? '')
+    if (!myId) return false
+    const participantIds = String(m.meeting_participant || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+    return participantIds.includes(myId)
+  }
+
+  const getEmployeeInfo = (employeeId) => {
+    const emp = employees.find(e => String(e.employee_id) === String(employeeId))
+    if (!emp) return `Unknown (ID: ${employeeId})`
+    const deptName = departments.find(d => String(d.department_id) === String(emp.department_id))?.department_name || emp.department_id
+    return `${emp.employee_name} (${deptName})`
+  }
+
+  const isMeetingOver = (m) => {
+    if (!m?.meeting_date || !m?.meeting_time) return false
+    const dt = new Date(`${m.meeting_date}T${m.meeting_time}`)
+    return new Date() >= dt
   }
 
   const resetNewTask = () => {
@@ -296,7 +377,6 @@ const TaskList = ({ currentUser }) => {
     setCurrentTask(normalized)
     setShowTaskModal(true)
 
-    // 打开时建立“已提交快照”
     lastCommittedSnapRef.current = trackedSnapshotOf(normalized)
 
     try {
@@ -457,7 +537,6 @@ const TaskList = ({ currentUser }) => {
     }
   }
 
-
   const addComment = async () => {
     if (!currentTask || !newCommentBody.trim()) return
     try {
@@ -502,6 +581,7 @@ const TaskList = ({ currentUser }) => {
     })
   }, [tasks, filter, currentUser, empMap])
 
+  
   const grouped = useMemo(() => {
     const res = Object.fromEntries(STATUS_GROUP_ORDER.map((s) => [s, []]))
     for (const t of filteredTasks) {
@@ -511,6 +591,31 @@ const TaskList = ({ currentUser }) => {
     for (const k of STATUS_GROUP_ORDER) res[k].sort(compareByPriorityThenDue)
     return res
   }, [filteredTasks])
+
+const filteredMeetings = useMemo(() => {
+  if (!currentUser) return []
+
+  const list = meetings || []
+  const myId = String(currentUser.employee_id ?? '')
+  const myDeptId = String(currentUser.department_id ?? '')
+
+  const inCsv = (csv, needle) =>
+    String(csv || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .includes(String(needle || ''))
+
+    switch (filter) {
+      case FILTERS.MINE:
+        return list.filter(m => inCsv(m.meeting_participant, myId))
+      case FILTERS.DEPT:
+        return list.filter(m => inCsv(m.meeting_department, myDeptId))
+      case FILTERS.ALL:
+      default:
+        return list
+    }
+  }, [meetings, currentUser, filter])
 
   if (loading) return <div className="text-center text-gray-700 dark:text-gray-200">Loading...</div>
 
@@ -563,8 +668,10 @@ const TaskList = ({ currentUser }) => {
           {view === VIEWS.CAL ? (
             <CalendarView
               tasks={filteredTasks}
+              meetings={filteredMeetings}
               employees={employees}
               onOpenTask={openTaskModal}
+              onOpenMeeting={setSelectedMeeting}
             />
           ) : (
             <div className="space-y-10">
@@ -656,6 +763,7 @@ const TaskList = ({ currentUser }) => {
             </div>
           )}
 
+          {/* Add Task Modal */}
           {showAddModal && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
               <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 rounded-xl w-full max-w-md relative shadow-2xl">
@@ -737,6 +845,7 @@ const TaskList = ({ currentUser }) => {
             </div>
           )}
 
+          {/* Task Modal */}
           {showTaskModal && currentTask && (
             <div className="fixed inset-0 bg-black/55 z-50 flex items-center justify-center">
               <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 w-[95vw] max-w-6xl h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
@@ -882,7 +991,7 @@ const TaskList = ({ currentUser }) => {
                   <aside className="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 overflow-y-auto space-y-6">
                     <div>
                       <div className="text-sm font-semibold mb-3">Activity</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
+                      {/* <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
                       <ul className="space-y-2 mb-4">
                         <li className="text-sm">
                           Created at:{' '}
@@ -896,7 +1005,7 @@ const TaskList = ({ currentUser }) => {
                             {currentTask.updated_at ? new Date(currentTask.updated_at).toLocaleString() : '—'}
                           </span>
                         </li>
-                      </ul>
+                      </ul> */}
 
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Change log</div>
                       {activityLoading ? (
@@ -979,6 +1088,61 @@ const TaskList = ({ currentUser }) => {
                     </div>
                   </aside>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {selectedMeeting && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black/55 z-50">
+              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 rounded-2xl relative">
+                <button
+                  onClick={() => setSelectedMeeting(null)}
+                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+
+                <h2 className="text-2xl font-bold mb-4">{selectedMeeting.meeting_title}</h2>
+                <p><strong>Date:</strong> {selectedMeeting.meeting_date}</p>
+                <p><strong>Time:</strong> {selectedMeeting.meeting_time}</p>
+                <p><strong>Department:</strong> {getDeptName(selectedMeeting.meeting_department)}</p>
+                <p><strong>Location:</strong> {selectedMeeting.meeting_location}</p>
+                <p>
+                  <strong>Participants:</strong>{' '}
+                  {String(selectedMeeting.meeting_participant || '')
+                    .split(',').map(id => id.trim()).filter(Boolean)
+                    .map(id => getEmployeeInfo(id)).join(', ')}
+                </p>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  {isMeetingOver(selectedMeeting) && isParticipant(selectedMeeting) && (
+                    hasUploadedFiles(selectedMeeting.meeting_id) ? (
+                      <button
+                        onClick={() =>
+                          navigate(`/meetingAttachments/${selectedMeeting.meeting_id}`, {
+                            state: { from: 'calendar' }
+                          })
+                        }
+                        className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
+                      >
+                        📎 Attachment
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          navigate('/meetingGenerator', {
+                            state: { meetingId: selectedMeeting.meeting_id, from: 'calendar' }
+                          })
+                        }
+                        className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
+                      >
+                        Upload Audios →
+                      </button>
+                    )
+                  )}
+                </div>
+
               </div>
             </div>
           )}

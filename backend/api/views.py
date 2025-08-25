@@ -1,8 +1,10 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser
-from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, Complaint,CommentReport
-from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, ViewComplaintSerializer, ComplaintSubmitSerializer,CommentReportSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from .models import Task, BusinessData, ProcessedReport,Meeting, Employee,Department, MeetingFile, Complaint, CommentReport
+from .serializers import TaskSerializer, BusinessDataSerializer, ProcessedReportSerializer,MeetingSerializer, EmployeeSerializer,DepartmentSerializer, MeetingSubmitSerializer,MeetingFileSerializer, ViewComplaintSerializer, ComplaintSubmitSerializer, CommentReportSerializer
 
 import datetime
 from supabase import create_client, Client
@@ -30,55 +32,60 @@ class FileProcessingView(generics.CreateAPIView):
     def post(self, request, *args, **kwargs):
         file_id = request.data.get('file_id')
         analysis_type = request.data.get('analysis_type', 'full_analysis')
-        
+
         try:
             # Get file and process data
             business_data = BusinessData.objects.get(id=file_id)
             file_content = self.download_file_from_supabase(business_data.file_url)
-            
+
             # Step 1: Data Cleaning
             cleaned_data, cleaning_log = self.clean_and_preprocess_data(
                 file_content, business_data.fileName
             )
-            
+
             # Debug: Print cleaned data info
             print(f"Cleaned data shape: {cleaned_data.shape}")
             print(f"Cleaned data columns: {cleaned_data.columns.tolist()}")
-            
+
             # Step 2: Upload cleaned Excel
             cleaned_excel_url = self.upload_cleaned_excel(cleaned_data, business_data.fileName)
-            
-            # Step 3: Generate cleaning report
+
+            # Step 3: Detect the data type
+            data_type = self.detect_data_type(cleaned_data, business_data.fileName)
+            print(f"Detected data type: {data_type}")
+
+            # Step 4: Generate cleaning report
             cleaning_pdf_url = self.generate_cleaning_report(cleaning_log, business_data.fileName)
-            
-            # Step 4: Data analysis
-            analysis_results = self.analyze_and_visualize_data(cleaned_data, business_data.fileName)
-            
-            # Step 5: Generate reports WITH CHARTS - FIXED
-            pdf_url = self.generate_analysis_pdf(
-                analysis_results, business_data.fileName, cleaned_data  # Pass DataFrame!
+
+            # Step 5: Data analysis based on data type
+            analysis_results = self.analyze_data_by_type(cleaned_data, business_data.fileName, data_type)
+
+            # Step 6: Generate specialized reports WITH CHARTS
+            pdf_url = self.generate_specialized_pdf(
+                analysis_results, business_data.fileName, cleaned_data, data_type
             )
-            ppt_url = self.generate_analysis_ppt(
-                analysis_results, business_data.fileName, cleaned_data  # Pass DataFrame!
+
+            ppt_url = self.generate_specialized_ppt(
+                analysis_results, business_data.fileName, cleaned_data, data_type
             )
-            
+
             # Save results
             processed_report = ProcessedReport.objects.create(
                 original_file=business_data,
                 analysis_type=analysis_type,
                 processed_data={
+                    'data_type': data_type,
                     'cleaning_log': cleaning_log,
                     'analysis_results': analysis_results,
                     'cleaned_excel_url': cleaned_excel_url,
                     'cleaning_pdf_url': cleaning_pdf_url
                 },
-                pdf_url=pdf_url,
-                ppt_url=ppt_url
+                pdf_url=pdf_url
             )
-            
+
             serializer = ProcessedReportSerializer(processed_report)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
+
         except Exception as e:
             print(f"Processing error: {str(e)}")
             import traceback
@@ -111,6 +118,14 @@ class FileProcessingView(generics.CreateAPIView):
         
         # Apply cleaning steps
         df_cleaned = df.copy()
+
+        # Update final statistics
+        print("DEBUG: type(df):", type(df))
+        print("DEBUG: df.shape:", df.shape)
+        print("DEBUG: df.shape (nrows):", df.shape)
+        print("DEBUG: df_cleaned.shape:", df_cleaned.shape)
+        print("DEBUG: df_cleaned.shape (nrows):", df_cleaned.shape)
+        print("DEBUG: columns removed:", df.shape[1] - df_cleaned.shape[1])
         
         # 1. Handle missing values
         missing_info = df.isnull().sum()
@@ -182,11 +197,18 @@ class FileProcessingView(generics.CreateAPIView):
                 df_cleaned[col] = df_cleaned[col].clip(lower=lower_bound, upper=upper_bound)
                 cleaning_log['actions_taken'].append(f"Column '{col}': Capped {outliers} outliers to acceptable range [{lower_bound:.2f}, {upper_bound:.2f}]")
 
+        print("DEBUG: type(df):", type(df))
+        print("DEBUG: df.shape:", df.shape)
+        print("DEBUG: df.shape (nrows):", df.shape)
+        print("DEBUG: df_cleaned.shape:", df_cleaned.shape)
+        print("DEBUG: df_cleaned.shape (nrows):", df_cleaned.shape)
+        print("DEBUG: columns removed:", df.shape[1] - df_cleaned.shape[1])
+
         # Update final statistics
-        cleaning_log['final_shape'] = df_cleaned.shape
+        cleaning_log['final_shape'] = df_cleaned.shape 
         cleaning_log['columns_processed'] = list(df_cleaned.columns)
         cleaning_log['summary'] = {
-            'rows_removed': df.shape[0] - df_cleaned.shape[0],
+            'rows_removed': len(df) - len(df_cleaned),  # Alternative syntax
             'columns_cleaned': len([col for col in df.columns if col in cleaning_log['columns_processed']]),
             'total_issues_found': len(cleaning_log['issues_found']),
             'total_actions_taken': len(cleaning_log['actions_taken'])
@@ -251,6 +273,111 @@ class FileProcessingView(generics.CreateAPIView):
         )
         
         return supabase.storage.from_("business_files").get_public_url(excel_filename)
+    
+    def detect_data_type(self, df, filename):
+        """Step 3: Detect data type based on column names and content patterns"""
+        columns_lower = [col.lower() for col in df.columns]
+        column_text = ' '.join(columns_lower + [filename.lower()])
+
+        # Define data type indicators
+        data_type_indicators = {
+            'sales': {
+                'keywords': ['product', 'quantity', 'sold', 'price', 'customer', 'store', 'payment', 'category', 'unit_price', 'total_sales'],
+                'score': 0
+            },
+            'financial': {
+                'keywords': ['revenue', 'profit', 'expense', 'cost', 'margin', 'gross', 'net', 'operating', 'cogs', 'opex'],
+                'score': 0
+            },
+            'social_media': {
+                'keywords': ['views', 'likes', 'shares', 'comments', 'engagement', 'platform', 'post', 'content_type', 'followers'],
+                'score': 0
+            }
+        }
+
+        # Calculate scores for each data type
+        for data_type, info in data_type_indicators.items():
+            for keyword in info['keywords']:
+                if keyword in column_text:
+                    info['score'] += 1
+
+        # Additional pattern-based detection
+        if any('date' in col and ('sales' in col or 'revenue' in col) for col in columns_lower):
+            data_type_indicators['financial']['score'] += 2
+
+        if any('post_' in col for col in columns_lower):
+            data_type_indicators['social_media']['score'] += 2
+
+        if 'quantity_sold' in columns_lower or 'total_sales' in columns_lower:
+            data_type_indicators['sales']['score'] += 2
+
+        # Determine the data type with highest score
+        best_type = max(data_type_indicators.items(), key=lambda x: x[1]['score'])
+        if best_type[1]['score'] > 0:
+            return best_type[0]
+        else:
+            return 'general'
+
+
+    def analyze_data_by_type(self, df_cleaned, filename, data_type):
+        """Step 4: Enhanced data analysis based on detected data type"""
+        analysis_results = {
+            'data_type': data_type,
+            'statistical_summary': {},
+            'key_insights': [],
+            'business_recommendations': [],
+            'data_overview': {},
+            'visualizations': [],
+            'specialized_metrics': {}
+        }
+
+        # Common data overview
+        numeric_cols = df_cleaned.select_dtypes(include=[np.number]).columns
+        categorical_cols = df_cleaned.select_dtypes(include=['object']).columns
+
+        analysis_results['data_overview'] = {
+            'total_rows': int(df_cleaned.shape[0]),
+            'total_columns': int(df_cleaned.shape[1]),
+            'numeric_columns': len(numeric_cols),
+            'categorical_columns': len(categorical_cols),
+            'data_completeness': float((1 - df_cleaned.isnull().sum().sum() / (df_cleaned.shape[0] * df_cleaned.shape[1])) * 100),
+            'time_period': self.detect_time_period(df_cleaned),
+            'data_size_category': 'Large' if df_cleaned.shape[0] > 10000 else 'Medium' if df_cleaned.shape[0] > 1000 else 'Small'
+        }
+
+        # Statistical summary for numeric columns
+        if len(numeric_cols) > 0:
+            analysis_results['statistical_summary'] = {
+                col: {
+                    'mean': float(df_cleaned[col].mean()),
+                    'median': float(df_cleaned[col].median()),
+                    'std': float(df_cleaned[col].std()),
+                    'min': float(df_cleaned[col].min()),
+                    'max': float(df_cleaned[col].max()),
+                    'cv': float(df_cleaned[col].std() / df_cleaned[col].mean() * 100) if df_cleaned[col].mean() != 0 else 0
+                }
+                for col in numeric_cols
+            }
+
+        # Data type specific analysis
+        if data_type == 'sales':
+            analysis_results.update(self.analyze_sales_data(df_cleaned))
+        elif data_type == 'financial':
+            analysis_results.update(self.analyze_financial_data(df_cleaned))
+        elif data_type == 'social_media':
+            analysis_results.update(self.analyze_social_media_data(df_cleaned))
+        else:
+            analysis_results.update(self.analyze_general_data(df_cleaned))
+
+        # Create specialized visualizations
+        charts_info = self.create_specialized_visualizations(df_cleaned, filename, data_type)
+        analysis_results['visualizations'] = charts_info
+
+        # Get AI insights
+        ai_insights = self.get_specialized_gemini_insights(df_cleaned, analysis_results, data_type)
+        analysis_results.update(ai_insights)
+
+        return analysis_results
 
     def generate_cleaning_report(self, cleaning_log, filename):
         """Generate PDF report of cleaning process"""
@@ -438,7 +565,7 @@ class FileProcessingView(generics.CreateAPIView):
             
             # DETECT DATE COLUMNS
             is_date = False
-            if any(keyword in col_lower for keyword in ['date', 'time', 'day', 'month', 'year']):
+            if any(keyword in col_lower for keyword in ['date', 'time', 'month', 'year']):
                 try:
                     pd.to_datetime(df[col].head(5))
                     is_date = True
@@ -499,7 +626,7 @@ class FileProcessingView(generics.CreateAPIView):
                     period_label = 'Week'
                 else:  # Daily analysis
                     df_time['period'] = df_time[date_col].dt.date
-                    period_label = 'Day'
+                    period_label = 'Date'
 
                 # Aggregate money by period WITHOUT filtering out any periods
                 revenue_by_period = df_time.groupby('period')[money_col].sum().reset_index()
@@ -964,9 +1091,691 @@ class FileProcessingView(generics.CreateAPIView):
                 'chart_recommendations': [],
                 'error': str(e)
             }
+        
+    def analyze_sales_data(self, df):
+        """Specialized analysis for sales data"""
+        specialized_metrics = {}
+        
+        # Try to identify key sales columns
+        sales_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['sales', 'revenue', 'total', 'amount'])]
+        quantity_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['quantity', 'qty', 'sold'])]
+        product_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['product', 'item', 'category'])]
+        
+        if sales_cols:
+            sales_col = sales_cols[0]
+            specialized_metrics['total_sales'] = float(df[sales_col].sum())
+            specialized_metrics['average_transaction'] = float(df[sales_col].mean())
+            specialized_metrics['sales_std'] = float(df[sales_col].std())
+            
+        if quantity_cols:
+            qty_col = quantity_cols[0]
+            specialized_metrics['total_quantity_sold'] = float(df[qty_col].sum())
+            specialized_metrics['average_quantity'] = float(df[qty_col].mean())
+            
+        if product_cols:
+            product_col = product_cols[0] 
+            specialized_metrics['unique_products'] = int(df[product_col].nunique())
+            specialized_metrics['top_products'] = df[product_col].value_counts().head().to_dict()
+            
+        return {
+            'specialized_metrics': specialized_metrics,
+            'business_focus': 'sales_performance',
+            'analysis_type': 'Sales Performance Analysis'
+        }
+
+    def analyze_financial_data(self, df):
+        """Specialized analysis for financial data"""
+        specialized_metrics = {}
+        
+        # Try to identify key financial columns
+        revenue_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['revenue', 'sales', 'income'])]
+        profit_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['profit', 'margin', 'net'])]
+        cost_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['cost', 'expense', 'cogs', 'opex'])]
+        
+        revenue_col = revenue_cols[0] if revenue_cols else None
+        profit_col = profit_cols[0] if profit_cols else None
+        cost_col = cost_cols[0] if cost_cols else None
+
+        if profit_col and revenue_col:
+            specialized_metrics['profit_margin'] = float(df[profit_col].mean() / df[revenue_col].mean() * 100)
+        else:
+            specialized_metrics['profit_margin'] = 0
+        if cost_col:
+            specialized_metrics['total_costs'] = float(df[cost_col].sum())
+            specialized_metrics['cost_ratio'] = float(df[cost_col].mean() / df[revenue_col].mean() * 100) if revenue_col else 0
+        else:
+            specialized_metrics['total_costs'] = 0
+            specialized_metrics['cost_ratio'] = 0
+            
+        return {
+            'specialized_metrics': specialized_metrics,
+            'business_focus': 'financial_performance',
+            'analysis_type': 'Financial Performance Analysis'
+        }
+
+    def analyze_social_media_data(self, df):
+        """Specialized analysis for social media data"""
+        specialized_metrics = {}
+        
+        # Try to identify key social media columns
+        engagement_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['likes', 'shares', 'comments', 'views', 'engagement'])]
+        platform_cols = [col for col in df.columns if 'platform' in col.lower()]
+        content_cols = [col for col in df.columns if 'content' in col.lower()]
+
+        # engagement_cols is a list of potentially mixed-type columns
+        engagement_numeric_cols = [col for col in engagement_cols if pd.api.types.is_numeric_dtype(df[col])]
+
+        platform_col = platform_cols[0] if platform_cols else None
+
+        if platform_col and engagement_numeric_cols:
+            platform_means = df.groupby(platform_col)[engagement_numeric_cols].mean()
+            best = {col: platform_means[col].idxmax() for col in engagement_numeric_cols}
+            specialized_metrics['best_performing_platform_per_metric'] = best
+        
+        if engagement_cols:
+            for col in engagement_cols:
+                if col.lower() in ['likes', 'shares', 'comments', 'views']:
+                    specialized_metrics[f'total_{col.lower()}'] = float(df[col].sum())
+                    specialized_metrics[f'average_{col.lower()}'] = float(df[col].mean())
+            
+        if content_cols:
+            content_col = content_cols[0]
+            if engagement_numeric_cols:
+                by_content = df.groupby(content_col)[engagement_numeric_cols].mean()
+                best = {col: by_content[col].idxmax() for col in engagement_numeric_cols}
+                specialized_metrics['best_content_type_per_metric'] = best
+            # Distribution should still use all as before:
+            specialized_metrics['content_type_distribution'] = df[content_col].value_counts().to_dict()
+
+            
+        # Calculate engagement rate if possible
+        if 'Views' in df.columns and 'Likes' in df.columns:
+            specialized_metrics['average_engagement_rate'] = float((df['Likes'] / df['Views'] * 100).mean())
+            
+        return {
+            'specialized_metrics': specialized_metrics,
+            'business_focus': 'social_media_performance',
+            'analysis_type': 'Social Media Performance Analysis'
+        }
+
+    def analyze_general_data(self, df):
+        """General analysis for unspecified data types"""
+        return {
+            'specialized_metrics': {},
+            'business_focus': 'general_analysis',
+            'analysis_type': 'General Data Analysis'
+        }
+
+    def calculate_growth_rate(self, df, column):
+        """Calculate growth rate for a time series column"""
+        try:
+            # Sort by date if date column exists
+            date_cols = [col for col in df.columns if 'date' in col.lower()]
+            if date_cols:
+                df_sorted = df.sort_values(date_cols[0])
+                values = df_sorted[column].values
+                if len(values) > 1:
+                    return float((values[-1] - values) / values * 100)
+            return 0.0
+        except:
+            return 0.0
+
+    def create_specialized_visualizations(self, df, filename, data_type):
+        """Create visualizations based on data type"""
+        charts = []
+        
+        if data_type == 'sales':
+            charts.extend(self.create_sales_charts(df, filename))
+        elif data_type == 'financial':
+            charts.extend(self.create_financial_charts(df, filename))
+        elif data_type == 'social_media':
+            charts.extend(self.create_social_media_charts(df, filename))
+        else:
+            charts.extend(self.create_general_charts(df, filename))
+            
+        return charts
+
+    def create_sales_charts(self, df, filename):
+        """Create sales-specific charts"""
+        charts = []
+        
+        # Sales by product chart
+        product_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['product', 'item', 'category'])]
+        sales_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['sales', 'revenue', 'total', 'amount'])]
+        
+        if product_cols and sales_cols:
+            plt.figure(figsize=(14, 8))
+            sales_by_product = df.groupby(product_cols[0])[sales_cols[0]].sum().sort_values(ascending=False).head(10)
+            
+            colors = plt.cm.Set3(np.linspace(0, 1, len(sales_by_product)))
+            bars = plt.bar(range(len(sales_by_product)), sales_by_product.values, color=colors)
+            
+            # Add value labels on bars
+            for bar, value in zip(bars, sales_by_product.values):
+                plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(sales_by_product.values)*0.01,
+                        f'${value:,.0f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+            
+            plt.title(f'Top 10 Products by Sales Revenue', fontsize=16, fontweight='bold', pad=20)
+            plt.xlabel('Products', fontsize=12)
+            plt.ylabel('Sales Revenue ($)', fontsize=12)
+            plt.xticks(range(len(sales_by_product)), sales_by_product.index, rotation=45, ha='right')
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_sales_by_product.png")
+            charts.append({
+                'type': 'bar_chart',
+                'title': 'Sales Performance by Product',
+                'url': chart_url,
+                'description': f'Top performing product: {sales_by_product.index} with ${sales_by_product.iloc[0]:,.0f} in sales'
+            })
+            plt.close()
+        
+        # Sales trend over time if date column exists
+        date_cols = [col for col in df.columns if 'Date' in col.lower()]
+        if date_cols and sales_cols:
+            plt.figure(figsize=(14, 8))
+            df_temp = df.copy()
+            df_temp[date_cols] = pd.to_datetime(df_temp[date_cols], errors='coerce')
+            daily_sales = df_temp.groupby(df_temp[date_cols].dt.date)[sales_cols].sum()
+            
+            plt.plot(daily_sales.index, daily_sales.values, marker='o', linewidth=3, markersize=6, color='#2E86AB')
+            plt.title(f'Daily Sales Trend', fontsize=16, fontweight='bold', pad=20)
+            plt.xlabel('Date', fontsize=12)
+            plt.ylabel('Sales ($)', fontsize=12)
+            plt.xticks(rotation=45)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_sales_trend.png")
+            charts.append({
+                'type': 'line_chart',
+                'title': 'Sales Trend Over Time',
+                'url': chart_url,
+                'description': f'Sales trend showing daily performance from {daily_sales.index[0]} to {daily_sales.index[-1]}'
+            })
+            plt.close()
+        
+        return charts
+
+    def create_financial_charts(self, df, filename):
+        """Create financial-specific charts"""
+        charts = []
+        
+        # Revenue vs Profit chart
+        revenue_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['revenue', 'sales'])]
+        profit_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['profit', 'net'])]
+        
+        if revenue_cols and profit_cols:
+            plt.figure(figsize=(14, 8))
+            
+            # Create dual axis chart
+            fig, ax1 = plt.subplots(figsize=(14, 8))
+            
+            dates = range(len(df))
+            if any('date' in col.lower() for col in df.columns):
+                date_col = [col for col in df.columns if 'date' in col.lower()][0]
+                dates = pd.to_datetime(df[date_col], errors='coerce')
+                dates = dates.dt.strftime('%Y-%m-%d')
+            
+            color1 = 'tab:blue'
+            ax1.set_xlabel('Period')
+            ax1.set_ylabel('Revenue ($)', color=color1)
+            line1 = ax1.plot(dates, df[revenue_cols[0]], color=color1, linewidth=3, marker='o', markersize=6, label='Revenue')
+            ax1.tick_params(axis='y', labelcolor=color1)
+            
+            ax2 = ax1.twinx()
+            color2 = 'tab:red'
+            ax2.set_ylabel('Profit ($)', color=color2)
+            line2 = ax2.plot(dates, df[profit_cols[0]], color=color2, linewidth=3, marker='s', markersize=6, label='Profit')
+            ax2.tick_params(axis='y', labelcolor=color2)
+            
+            plt.title('Revenue vs Profit Analysis', fontsize=16, fontweight='bold', pad=20)
+            plt.xticks(rotation=45)
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_revenue_profit.png")
+            charts.append({
+                'type': 'line_chart',
+                'title': 'Revenue vs Profit Comparison',
+                'url': chart_url,
+                'description': f'Financial performance showing revenue and profit correlation over time'
+            })
+            plt.close()
+        
+        # Profit margin chart
+        if 'Profit_Margin' in df.columns:
+            plt.figure(figsize=(12, 8))
+            
+            dates = range(len(df))
+            if any('date' in col.lower() for col in df.columns):
+                date_col = [col for col in df.columns if 'date' in col.lower()][0]
+                dates = pd.to_datetime(df[date_col], errors='coerce')
+                dates = dates.dt.strftime('%Y-%m-%d')
+            
+            plt.plot(dates, df['Profit_Margin'] * 100, marker='o', linewidth=3, markersize=6, color='green')
+            plt.axhline(y=df['Profit_Margin'].mean() * 100, color='red', linestyle='--', alpha=0.7, label=f'Average: {df["Profit_Margin"].mean()*100:.1f}%')
+            
+            plt.title('Profit Margin Trend', fontsize=16, fontweight='bold', pad=20)
+            plt.xlabel('Period', fontsize=12)
+            plt.ylabel('Profit Margin (%)', fontsize=12)
+            plt.xticks(rotation=45)
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_profit_margin.png")
+            charts.append({
+                'type': 'line_chart',
+                'title': 'Profit Margin Analysis',
+                'url': chart_url,
+                'description': f'Profit margin trend with average of {df["Profit_Margin"].mean()*100:.1f}%'
+            })
+            plt.close()
+        
+        return charts
+
+    def create_social_media_charts(self, df, filename):
+        """Create social media-specific charts"""
+        charts = []
+        
+        # Platform performance chart
+        if 'Platform' in df.columns:
+            engagement_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['likes', 'views', 'shares', 'comments'])]
+            
+            if engagement_cols:
+                plt.figure(figsize=(12, 8))
+                platform_performance = df.groupby('Platform')[engagement_cols[0]].mean().sort_values(ascending=False)
+                
+                colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+                bars = plt.bar(platform_performance.index, platform_performance.values, color=colors[:len(platform_performance)])
+                
+                # Add value labels
+                for bar, value in zip(bars, platform_performance.values):
+                    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(platform_performance.values)*0.01,
+                            f'{value:,.0f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+                
+                plt.title(f'Average {engagement_cols[0]} by Platform', fontsize=16, fontweight='bold', pad=20)
+                plt.xlabel('Platform', fontsize=12)
+                plt.ylabel(f'Average {engagement_cols}', fontsize=12)
+                plt.xticks(rotation=45)
+                plt.grid(True, alpha=0.3)
+                plt.tight_layout()
+                
+                chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_platform_performance.png")
+                charts.append({
+                    'type': 'bar_chart',
+                    'title': f'Platform Performance - {engagement_cols[0]}',
+                    'url': chart_url,
+                    'description': f'Best performing platform: {platform_performance.index[0]} with avg {platform_performance.iloc[0]:,.0f} {", ".join(engagement_cols).lower()}'
+                })
+                plt.close()
+        
+        # Content type performance
+        if 'Content_Type' in df.columns:
+            plt.figure(figsize=(10, 10))
+            content_performance = df['Content_Type'].value_counts()
+            
+            colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F']
+            wedges, texts, autotexts = plt.pie(content_performance.values, labels=content_performance.index,
+                                              autopct='%1.1f%%', colors=colors, startangle=90,
+                                              textprops={'fontsize': 11})
+            
+            plt.title('Content Type Distribution', fontsize=16, fontweight='bold', pad=20)
+            
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_content_distribution.png")
+            charts.append({
+                'type': 'pie_chart',
+                'title': 'Content Type Distribution',
+                'url': chart_url,
+                'description': f'Most common content type: {content_performance.index[0]} ({content_performance.iloc[0]:,.0f} posts)'
+            })
+            plt.close()
+        
+        # Engagement correlation heatmap
+        engagement_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['likes', 'views', 'shares', 'comments'])]
+        if len(engagement_cols) >= 2:
+            plt.figure(figsize=(10, 8))
+            correlation_matrix = df[engagement_cols].corr()
+            
+            sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0,
+                       square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
+            plt.title('Engagement Metrics Correlation', fontsize=16, fontweight='bold', pad=20)
+            plt.tight_layout()
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_engagement_correlation.png")
+            charts.append({
+                'type': 'heatmap',
+                'title': 'Engagement Metrics Correlation',
+                'url': chart_url,
+                'description': 'Correlation analysis between different engagement metrics'
+            })
+            plt.close()
+        
+        return charts
+
+    def create_general_charts(self, df, filename):
+        """Create general charts for unspecified data types"""
+        charts = []
+        
+        # Generic correlation heatmap for numeric columns
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) >= 2:
+            plt.figure(figsize=(12, 8))
+            correlation_matrix = df[numeric_cols].corr()
+            
+            sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0,
+                       square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
+            plt.title('Correlation Matrix', fontsize=16, fontweight='bold', pad=20)
+            plt.tight_layout()
+            
+            chart_url = self.save_chart_to_supabase(plt, f"visualizations/{uuid.uuid4()}_correlation_matrix.png")
+            charts.append({
+                'type': 'heatmap',
+                'title': 'Data Correlation Analysis',
+                'url': chart_url,
+                'description': 'Correlation analysis between numeric variables'
+            })
+            plt.close()
+        
+        return charts
+
+    def get_specialized_gemini_insights(self, df_cleaned, analysis_results, data_type):
+        """Get AI insights specialized for each data type"""
+        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        # Create specialized prompts based on data type
+        if data_type == 'sales':
+            prompt = self.create_sales_analysis_prompt(df_cleaned, analysis_results)
+        elif data_type == 'financial':
+            prompt = self.create_financial_analysis_prompt(df_cleaned, analysis_results)
+        elif data_type == 'social_media':
+            prompt = self.create_social_media_analysis_prompt(df_cleaned, analysis_results)
+        else:
+            prompt = self.create_general_analysis_prompt(df_cleaned, analysis_results)
+
+        try:
+            response = model.generate_content(prompt)
+            return {
+                'ai_insights': response.text,
+                'analysis_focus': data_type
+            }
+        except Exception as e:
+            return {
+                'ai_insights': f"AI analysis completed for {data_type} data with {df_cleaned.shape[0]} records.",
+                'analysis_focus': data_type,
+                'error': str(e)
+            }
+
+    def create_sales_analysis_prompt(self, df, analysis_results):
+        """Create specialized prompt for sales data analysis"""
+        return f"""
+        You are a senior sales analyst. Analyze this sales dataset and provide executive-level insights.
+
+        Dataset Overview:
+        - Records: {df.shape[0]:,}
+        - Columns: {df.columns.tolist()}
+        - Specialized Metrics: {analysis_results.get('specialized_metrics', {})}
+
+        Provide a comprehensive sales analysis including:
+
+        ## Executive Summary
+        Key sales performance highlights and overall business health.
+
+        ## Sales Performance Analysis
+        - Revenue trends and patterns
+        - Product performance rankings
+        - Customer behavior insights
+        - Peak sales periods identification
+
+        ## Key Performance Indicators
+        - Total sales volume and value
+        - Average transaction size
+        - Sales conversion metrics
+        - Product mix analysis
+
+        ## Strategic Recommendations
+        ### Immediate Actions (Next 30 days)
+        1. Specific actionable recommendations
+        2. Quick wins for sales improvement
+        3. Inventory optimization suggestions
+
+        ### Strategic Initiatives (Next Quarter)
+        1. Market expansion opportunities
+        2. Product development priorities
+        3. Customer retention strategies
+
+        ## Market Opportunities
+        - Underperforming segments with potential
+        - High-value customer segments
+        - Seasonal trends to capitalize on
+
+        ## Risk Assessment
+        - Declining product lines
+        - Customer concentration risks
+        - Market saturation indicators
+
+        Focus on actionable insights that can drive sales growth and operational efficiency.
+        """
+
+    def create_financial_analysis_prompt(self, df, analysis_results):
+        """Create specialized prompt for financial data analysis"""
+        return f"""
+        You are a senior financial analyst. Analyze this financial dataset and provide executive-level insights.
+
+        Dataset Overview:
+        - Records: {df.shape[0]:,}
+        - Columns: {df.columns.tolist()}
+        - Specialized Metrics: {analysis_results.get('specialized_metrics', {})}
+
+        Provide a comprehensive financial analysis including:
+
+        ## Executive Summary
+        Overall financial health and key performance indicators.
+
+        ## Financial Performance Analysis
+        - Revenue growth trends
+        - Profitability analysis
+        - Cost structure evaluation
+        - Margin analysis and optimization
+
+        ## Key Financial Metrics
+        - Revenue growth rates
+        - Profit margins and trends
+        - Cost ratios and efficiency
+        - Return on investment indicators
+
+        ## Strategic Recommendations
+        ### Immediate Actions (Next 30 days)
+        1. Cost optimization opportunities
+        2. Revenue enhancement strategies
+        3. Cash flow improvements
+
+        ### Strategic Initiatives (Next Quarter)
+        1. Investment priorities
+        2. Cost structure optimization
+        3. Revenue diversification strategies
+
+        ## Financial Health Assessment
+        - Liquidity and solvency indicators
+        - Operational efficiency metrics
+        - Growth sustainability analysis
+
+        ## Risk Management
+        - Financial risk factors
+        - Market volatility impacts
+        - Mitigation strategies
+
+        Focus on financial metrics that drive shareholder value and business sustainability.
+        """
+
+    def create_social_media_analysis_prompt(self, df, analysis_results):
+        """Create specialized prompt for social media data analysis"""
+        return f"""
+        You are a senior social media strategist. Analyze this social media dataset and provide executive-level insights.
+
+        Dataset Overview:
+        - Records: {df.shape[0]:,}
+        - Columns: {df.columns.tolist()}
+        - Specialized Metrics: {analysis_results.get('specialized_metrics', {})}
+
+        Provide a comprehensive social media analysis including:
+
+        ## Executive Summary
+        Overall social media performance and engagement health.
+
+        ## Engagement Performance Analysis
+        - Platform-specific performance
+        - Content type effectiveness
+        - Audience engagement patterns
+        - Viral content identification
+
+        ## Key Social Media Metrics
+        - Engagement rates by platform
+        - Content performance rankings
+        - Audience growth indicators
+        - Conversion and reach metrics
+
+        ## Strategic Recommendations
+        ### Immediate Actions (Next 30 days)
+        1. Content optimization strategies
+        2. Platform-specific improvements
+        3. Engagement boosting tactics
+
+        ### Strategic Initiatives (Next Quarter)
+        1. Content strategy overhaul
+        2. Platform expansion opportunities
+        3. Influencer collaboration strategies
+
+        ## Audience Insights
+        - High-engagement content types
+        - Optimal posting schedules
+        - Platform-specific preferences
+        - Audience behavior patterns
+
+        ## Growth Opportunities
+        - Underperforming content types
+        - Platform optimization potential
+        - Viral content replication strategies
+
+        Focus on actionable insights that can increase engagement, reach, and social media ROI.
+        """
+
+    def create_general_analysis_prompt(self, df, analysis_results):
+        """Create general prompt for unspecified data types"""
+        return f"""
+        You are a senior data analyst. Analyze this dataset and provide executive-level insights.
+
+        Dataset Overview:
+        - Records: {df.shape[0]:,}
+        - Columns: {df.columns.tolist()}
+        - Analysis Results: {analysis_results}
+
+        Provide a comprehensive data analysis including:
+
+        ## Executive Summary
+        Key findings and overall data insights.
+
+        ## Data Analysis
+        - Statistical patterns and trends
+        - Key variable relationships
+        - Notable correlations and dependencies
+
+        ## Strategic Recommendations
+        - Data-driven improvement opportunities
+        - Process optimization suggestions
+        - Performance enhancement strategies
+
+        Focus on actionable insights derived from the data patterns and relationships.
+        """
+
+    def generate_specialized_pdf(self, analysis_results, filename, df_cleaned, data_type):
+        """Generate PDF report specialized for the detected data type"""
+        try:
+            from .utils.report_generators import PDFGenerator
+            pdf_generator = PDFGenerator()
+            
+            # Sanitize data_type for filename
+            if isinstance(data_type, (tuple, list)):
+                data_type_str = str(data_type)
+            else:
+                data_type_str = str(data_type)
+            
+            # Remove any invalid characters for filename
+            import re
+            data_type_str = re.sub(r'[^a-zA-Z0-9_-]', '_', data_type_str)
+
+            # Pass data type for specialized formatting
+            pdf_content = pdf_generator.create_specialized_analysis_report(
+                analysis_results, filename, df_cleaned, data_type
+            )
+
+            # Upload to Supabase
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+
+            pdf_filename = f"reports/{uuid.uuid4()}_{data_type_str}_analysis_report.pdf"
+            res = supabase.storage.from_("business_files").upload(
+                path=pdf_filename,
+                file=pdf_content,
+                file_options={"content-type": "application/pdf"}
+            )
+
+            return supabase.storage.from_("business_files").get_public_url(pdf_filename)
+
+        except Exception as e:
+            print(f"PDF Generation Error: {str(e)}")
+            raise Exception(f"Failed to generate specialized PDF: {str(e)}")
+
+
+    def generate_specialized_ppt(self, analysis_results, filename, df_cleaned, data_type):
+        """Generate PowerPoint presentation specialized for the detected data type"""
+        try:
+            from .utils.report_generators import PPTGenerator
+            ppt_generator = PPTGenerator()
+            
+            # Sanitize data_type for filename
+            if isinstance(data_type, (tuple, list)):
+                data_type_str = str(data_type[0])
+            else:
+                data_type_str = str(data_type)
+            
+            # Remove any invalid characters for filename
+            import re
+            data_type_str = re.sub(r'[^a-zA-Z0-9_-]', '_', data_type_str)
+
+            # Pass data type for specialized formatting
+            ppt_content = ppt_generator.create_specialized_analysis_presentation(
+                analysis_results, filename, df_cleaned, data_type
+            )
+
+            # Upload to Supabase
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+
+            ppt_filename = f"reports/{uuid.uuid4()}_{data_type_str}_analysis_presentation.pptx"
+            res = supabase.storage.from_("business_files").upload(
+                path=ppt_filename,
+                file=ppt_content,
+                file_options={"content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+            )
+
+            return supabase.storage.from_("business_files").get_public_url(ppt_filename)
+
+        except Exception as e:
+            print(f"PPT Generation Error: {str(e)}")
+            raise Exception(f"Failed to generate specialized PPT: {str(e)}")
 
 class FeedbackAnalysisView(generics.CreateAPIView):
-    
+    MIN_PROMPT_LEN = 100
     def post(self, request, *args, **kwargs):
         """Process feedback data with AI analysis and visualization"""
         file_id = request.data.get('file_id')
@@ -980,34 +1789,62 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             # Step 1: Read and clean feedback data
             cleaned_data, cleaning_log = self.clean_feedback_data(file_content, business_data.fileName)
             
-            # Step 2: AI analysis of column meanings and feedback content
+            # Step 2: AI analysis of column meanings
             column_analysis = self.analyze_columns_with_gemini(cleaned_data, business_data.fileName)
-            feedback_insights = self.analyze_feedback_content(cleaned_data, column_analysis)
+
+            # If we get here, column analysis was successful
+            print("Column analysis completed successfully, proceeding with feedback analysis")
             
-            # Step 3: Generate visualizations based on feedback analysis
-            visualizations = self.create_feedback_visualizations(cleaned_data, column_analysis, feedback_insights)
+            # Step 3: Comprehensive feedback analysis with Gemini
+            feedback_analysis = self.comprehensive_feedback_analysis(cleaned_data, column_analysis)
             
-            # Step 4: Generate comprehensive report
-            pdf_url = self.generate_feedback_report(
-                cleaned_data, column_analysis, feedback_insights, visualizations, business_data.fileName
+            # Step 4: Generate visualizations based on AI analysis
+            visualizations = self.create_ai_driven_visualizations(cleaned_data, column_analysis, feedback_analysis)
+            
+            # Step 5: Generate AI-powered report with descriptions
+            pdf_url = self.generate_ai_enhanced_report(
+                cleaned_data, column_analysis, feedback_analysis, visualizations, business_data.fileName
             )
             
             # Save results
-            processed_report = CommentReport.objects.create(
-                file_url=business_data,
-                filename=f"Report - {business_data.fileName}",
-                file_content={
+            try:
+                # Try to find an existing report
+                existing_report = CommentReport.objects.get(file_url=business_data)
+                
+                # Update the existing report
+                existing_report.filename = f"Report - {business_data.fileName}"
+                existing_report.file_content = {
                     'cleaning_log': cleaning_log,
                     'column_analysis': column_analysis,
-                    'feedback_insights': feedback_insights,
+                    'feedback_analysis': feedback_analysis,
                     'visualizations': [v['url'] for v in visualizations]
-                },
-                pdf_url=pdf_url
-            )
+                }
+                existing_report.pdf_url = pdf_url
+                existing_report.save()
+                
+                processed_report = existing_report
+                print("Updated existing report")
+                
+            except CommentReport.DoesNotExist:
+                # Create a new report if one doesn't exist
+                processed_report = CommentReport.objects.create(
+                    file_url=business_data,
+                    filename=f"Report - {business_data.fileName}",
+                    file_content={
+                        'cleaning_log': cleaning_log,
+                        'column_analysis': column_analysis,
+                        'feedback_analysis': feedback_analysis,
+                        'visualizations': [v['url'] for v in visualizations]
+                    },
+                    pdf_url=pdf_url
+                )
+                print("Created new report")
             
             serializer = CommentReportSerializer(processed_report)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
             
+        except BusinessData.DoesNotExist:
+            return Response({'error': 'File not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             print(f"Feedback processing error: {str(e)}")
             import traceback
@@ -1022,7 +1859,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
         elif filename.endswith(('.xlsx', '.xls')):
             df = pd.read_excel(BytesIO(file_content))
         else:
-            raise Exception("Unsupported file format")
+            raise ValueError("Unsupported file format. Only CSV and Excel files are supported.")
 
         cleaning_log = {
             'original_shape': df.shape,
@@ -1060,325 +1897,651 @@ class FeedbackAnalysisView(generics.CreateAPIView):
 
     def analyze_columns_with_gemini(self, df, filename):
         """Use Gemini AI to understand column meanings and purposes"""
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        import json
+        try:
+            # Check if API key is available
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                raise Exception("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
 
-        # Prepare column information for AI analysis
-        column_info = {}
-        for col in df.columns:
-            sample_values = df[col].dropna().head(5).tolist()
-            column_info[col] = {
-                'dtype': str(df[col].dtype),
-                'unique_values': df[col].nunique(),
-                'missing_values': df[col].isnull().sum(),
-                'sample_data': sample_values
-            }
+            # Prepare a simplified version of column information
+            column_info = []
+            for col in df.columns:
+                # Get a small sample of data
+                samples = df[col].dropna().head(3).tolist()
+                # Convert to string representation
+                sample_str = ", ".join([str(x) for x in samples[:3]])
+                
+                column_info.append({
+                    "name": col,
+                    "type": str(df[col].dtype),
+                    "sample_values": sample_str,
+                    "unique_count": int(df[col].nunique()),
+                    "missing_count": int(df[col].isnull().sum())
+                })
 
-        prompt = f"""
-        Analyze this feedback dataset and provide insights about each column:
+            # Create a simpler prompt
+            prompt = f"""
+            Analyze this dataset and classify each column's purpose.
 
-        Filename: {filename}
-        Dataset Shape: {df.shape}
-        Column Information: {column_info}
+            FILENAME: {filename}
+            ROWS: {len(df)}
+            COLUMNS: {len(df.columns)}
 
-        Please provide for each column:
-        1. What type of information this column likely contains
-        2. Its purpose in the feedback context
-        3. Potential relationships with other columns
-        4. Suggestions for visualization
+            COLUMN INFORMATION:
+            {json.dumps(column_info, indent=2)}
 
-        Format your response as JSON with this structure:
-        {{
+            For each column, classify it as one of these types:
+            - feedback_text: Contains customer comments, reviews, or feedback text
+            - numeric_rating: Contains numerical ratings (1-5, 1-10 scores)
+            - timestamp: Date/time when feedback was provided  
+            - categorical: Product categories, user types, locations, etc.
+            - demographic: Customer name, email, age, etc.
+            - irrelevant: IDs, indexes, system data (should be excluded from analysis)
+            - other: Doesn't fit above categories but might be useful
+
+            Return ONLY a JSON object with this structure:
+            {{
             "columns_analysis": [
                 {{
-                    "column_name": "column1",
-                    "likely_purpose": "description",
-                    "data_category": "category (e.g., demographic, rating, text_feedback, timestamp)",
-                    "visualization_suggestions": ["chart_type1", "chart_type2"],
-                    "key_insights": ["insight1", "insight2"]
+                "column_name": "string",
+                "detected_type": "string",
+                "confidence": "high|medium|low",
+                "reasoning": "brief explanation",
+                "include_in_analysis": true|false
                 }}
             ],
-            "overall_assessment": "brief summary"
-        }}
-        """
+            "primary_feedback_column": "column_name_or_null",
+            "primary_rating_column": "column_name_or_null",
+            "notes": "any_important_observations"
+            }}
 
-        try:
+            Focus on identifying columns that contain feedback text or ratings.
+            """
+
+            print(f"Sending column analysis request to Gemini with prompt length: {len(prompt)}")
+            
             response = model.generate_content(prompt)
+            response_text = response.text.strip()
+        
+            # Remove markdown code blocks if they exist
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]  # Remove ```json
+            elif response_text.startswith('```'):
+                response_text = response_text[3:]   # Remove ```
+                
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]  # Remove trailing ```
+                
+            response_text = response_text.strip()
+        
+            # Check if response is valid before trying to parse it as JSON
             import json
-            return json.loads(response.text)
+            try:
+                
+                result = json.loads(response_text)
+                
+                # Validate the structure
+                if isinstance(result, dict) and 'columns_analysis' in result:
+                    print(f"Successfully parsed Gemini response with {len(result.get('columns_analysis', []))} columns")
+                    return result
+                else:
+                    print("Gemini response missing expected structure; using fallback")
+                
+            except json.JSONDecodeError as json_error:
+                print(f"JSON parsing failed: {json_error}")
+                print(f"Response text (first 500 chars): {response_text[:500]}")
+                return self.fallback_column_analysis(df, filename)
+                
         except Exception as e:
-            # Fallback analysis
-            return self.fallback_column_analysis(df, filename)
+            error_msg = f"Gemini column analysis failed: {str(e)}"
+            print(f"Gemini column analysis failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            print(error_msg)
+            raise Exception(error_msg)
 
     def fallback_column_analysis(self, df, filename):
         """Fallback column analysis when Gemini fails"""
-        analysis = {"columns_analysis": [], "overall_assessment": "Basic feedback data analysis"}
+        analysis = {
+            "columns_analysis": [], 
+            "primary_feedback_column": None,
+            "primary_rating_column": None,
+            "notes": "Basic feedback data analysis (fallback)"
+        }
         
         for col in df.columns:
             col_lower = col.lower()
             col_info = {
                 "column_name": col,
-                "likely_purpose": "",
-                "data_category": "unknown",
-                "visualization_suggestions": [],
-                "key_insights": []
+                "detected_type": "other",
+                "confidence": "low",
+                "reasoning": "Fallback analysis based on column name",
+                "include_in_analysis": True
             }
             
             # Basic pattern matching for common feedback columns
             if any(keyword in col_lower for keyword in ['rating', 'score', 'rate']):
-                col_info["likely_purpose"] = "Numeric evaluation score"
-                col_info["data_category"] = "rating"
-                col_info["visualization_suggestions"] = ["histogram", "box_plot", "bar_chart"]
+                col_info["detected_type"] = "numeric_rating"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests rating data"
+                if not analysis["primary_rating_column"]:
+                    analysis["primary_rating_column"] = col
+                    
             elif any(keyword in col_lower for keyword in ['comment', 'feedback', 'review', 'suggestion']):
-                col_info["likely_purpose"] = "Textual feedback content"
-                col_info["data_category"] = "text_feedback"
-                col_info["visualization_suggestions"] = ["word_cloud", "sentiment_chart"]
+                col_info["detected_type"] = "feedback_text"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests feedback text"
+                if not analysis["primary_feedback_column"]:
+                    analysis["primary_feedback_column"] = col
+                    
             elif any(keyword in col_lower for keyword in ['date', 'time', 'timestamp']):
-                col_info["likely_purpose"] = "When feedback was provided"
-                col_info["data_category"] = "timestamp"
-                col_info["visualization_suggestions"] = ["timeline", "time_series"]
+                col_info["detected_type"] = "timestamp"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests timestamp data"
+                
             elif any(keyword in col_lower for keyword in ['name', 'user', 'customer', 'email']):
-                col_info["likely_purpose"] = "Identifier information"
-                col_info["data_category"] = "demographic"
-                col_info["visualization_suggestions"] = ["bar_chart", "pie_chart"]
-            else:
-                col_info["likely_purpose"] = "Additional feedback data"
-                col_info["data_category"] = "miscellaneous"
+                col_info["detected_type"] = "demographic"
+                col_info["confidence"] = "medium"
+                col_info["reasoning"] = "Column name suggests demographic data"
+                
+            elif any(keyword in col_lower for keyword in ['id', 'index', 'key']):
+                col_info["detected_type"] = "irrelevant"
+                col_info["include_in_analysis"] = False
+                col_info["reasoning"] = "Column name suggests ID/index data"
             
             analysis["columns_analysis"].append(col_info)
         
         return analysis
 
-    def analyze_feedback_content(self, df, column_analysis):
-        """Analyze feedback content using Gemini AI"""
-        genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-        model = genai.GenerativeModel('gemini-1.5-flash')
-
-        # Identify text feedback columns
-        text_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'text_feedback':
-                text_columns.append(col_info['column_name'])
+    def comprehensive_feedback_analysis(self, df, column_analysis):
+        """Comprehensive feedback analysis using Gemini AI"""
         
-        if not text_columns:
-            text_columns = df.select_dtypes(include=['object']).columns.tolist()
-        
-        # Sample feedback for analysis
-        sample_feedback = []
-        for col in text_columns[:2]:  # Analyze first 2 text columns max
-            sample_data = df[col].dropna().head(20).tolist()
-            sample_feedback.append({col: sample_data})
-
-        prompt = f"""
-        Analyze this customer feedback data and provide insights:
-
-        Dataset Overview:
-        - Total records: {len(df)}
-        - Text feedback columns: {text_columns}
-        
-        Sample Feedback:
-        {sample_feedback}
-
-        Please provide:
-        1. Overall sentiment analysis (positive/negative/neutral distribution)
-        2. Common themes and topics mentioned
-        3. Key pain points or areas for improvement
-        4. Positive aspects and strengths identified
-        5. Actionable recommendations based on feedback
-
-        Format your response as JSON with this structure:
-        {{
-            "sentiment_analysis": {{
-                "positive_percentage": 0,
-                "negative_percentage": 0,
-                "neutral_percentage": 0,
-                "overall_sentiment": "positive/negative/neutral"
-            }},
-            "key_themes": [
-                {{
-                    "theme": "theme_name",
-                    "frequency": "high/medium/low",
-                    "sentiment": "positive/negative/mixed",
-                    "example_quotes": ["quote1", "quote2"]
-                }}
-            ],
-            "strengths": ["strength1", "strength2", "strength3"],
-            "improvement_areas": ["area1", "area2", "area3"],
-            "recommendations": ["recommendation1", "recommendation2", "recommendation3"]
-        }}
-        """
-
-        try:
-            response = model.generate_content(prompt)
-            import json
-            return json.loads(response.text)
-        except Exception as e:
-            return self.basic_sentiment_analysis(df, text_columns)
-
-    def basic_sentiment_analysis(self, df, text_columns):
-        """Basic sentiment analysis fallback"""
-        from textblob import TextBlob
-        
-        sentiments = []
-        for col in text_columns:
-            for text in df[col].dropna():
-                if text and text != 'No feedback provided':
-                    analysis = TextBlob(text)
-                    sentiments.append(analysis.sentiment.polarity)
-        
-        positive = len([s for s in sentiments if s > 0.1])
-        negative = len([s for s in sentiments if s < -0.1])
-        neutral = len(sentiments) - positive - negative
-        
-        total = len(sentiments) if sentiments else 1
-        
-        return {
-            "sentiment_analysis": {
-                "positive_percentage": (positive / total) * 100,
-                "negative_percentage": (negative / total) * 100,
-                "neutral_percentage": (neutral / total) * 100,
-                "overall_sentiment": "positive" if positive > negative else "negative" if negative > positive else "neutral"
+        # Default structure to return if AI analysis fails
+        default_analysis = {
+            "sentiment_summary": {
+                "positive_percentage": 0.0,
+                "negative_percentage": 0.0,
+                "neutral_percentage": 0.0,
+                "overall_sentiment": "neutral"
             },
-            "key_themes": [{"theme": "General feedback", "frequency": "high", "sentiment": "mixed"}],
-            "strengths": ["Product functionality", "Customer service", "Ease of use"],
-            "improvement_areas": ["Response time", "Documentation", "Pricing"],
-            "recommendations": [
-                "Improve response time for customer inquiries",
-                "Enhance documentation with more examples",
-                "Consider tiered pricing options"
-            ]
+            "positive_feedback_analysis": {
+                "categories": []
+            },
+            "negative_feedback_analysis": {
+                "categories": []
+            },
+            "recommendations": [],
+            "analysis_status": "fallback_used",
+            "error_message": None
         }
+        
+        try:
+            # Check if API key is available
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                raise Exception("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
 
-    def create_feedback_visualizations(self, df, column_analysis, feedback_insights):
-        """Create visualizations based on feedback analysis"""
+            # Identify relevant columns for analysis
+            feedback_columns = []
+            rating_columns = []
+            
+            for col_info in column_analysis.get('columns_analysis', []):
+                if col_info.get('include_in_analysis', True):
+                    if col_info.get('detected_type') == 'feedback_text':
+                        feedback_columns.append(col_info['column_name'])
+                    elif col_info.get('detected_type') == 'numeric_rating':
+                        rating_columns.append(col_info['column_name'])
+
+            # If no feedback columns found, return default with message
+            if not feedback_columns:
+                default_analysis["analysis_status"] = "no_feedback_columns"
+                default_analysis["error_message"] = "No feedback text columns identified for analysis"
+                print("No feedback columns found for analysis")
+                return default_analysis
+
+            # Prepare sample data for analysis with JSON-serializable types
+            sample_data = []
+            max_samples = 50
+            
+            for col in feedback_columns:
+                if col in df.columns:
+                    samples = df[col].dropna().head(max_samples)
+                    # Convert to native Python types
+                    sample_list = []
+                    for sample in samples:
+                        if hasattr(sample, 'item'):
+                            sample_list.append(sample.item())
+                        else:
+                            sample_list.append(str(sample))
+                    
+                    sample_data.append({
+                        'column': col,
+                        'samples': sample_list[:10]  # First 10 samples per column
+                    })
+
+            # Get rating distribution if available - convert to native types
+            rating_info = {}
+            for col in rating_columns:
+                if col in df.columns:
+                    # Convert numpy types to native Python types
+                    avg_val = float(df[col].mean()) if not pd.isna(df[col].mean()) else 0.0
+                    
+                    dist = df[col].value_counts()
+                    dist_dict = {}
+                    for key, value in dist.items():
+                        if hasattr(key, 'item'):
+                            dist_dict[key.item()] = int(value)
+                        else:
+                            dist_dict[key] = int(value)
+                    
+                    rating_info[col] = {
+                        'average': avg_val,
+                        'distribution': dist_dict
+                    }
+
+            prompt = f"""
+            ACT as a Customer Experience (CX) Analyst with expertise in feedback analysis.
+
+            DATASET OVERVIEW:
+            - Total records: {int(len(df))}
+            - Feedback columns: {feedback_columns}
+            - Rating columns: {rating_columns}
+            - Rating statistics: {json.dumps(rating_info, indent=2, default=str)}
+
+            SAMPLE FEEDBACK DATA:
+            {json.dumps(sample_data, indent=2, default=str)}
+
+            YOUR COMPREHENSIVE ANALYSIS TASK:
+            Perform a detailed analysis of the customer feedback and provide insights in the following JSON structure:
+
+            {{
+                "sentiment_summary": {{
+                    "positive_percentage": float,
+                    "negative_percentage": float,
+                    "neutral_percentage": float,
+                    "overall_sentiment": "positive/negative/neutral"
+                }},
+                "positive_feedback_analysis": {{
+                    "categories": [
+                        {{
+                            "category": "string",
+                            "percentage": float,
+                            "examples": ["string"],
+                            "key_themes": ["string"]
+                        }}
+                    ]
+                }},
+                "negative_feedback_analysis": {{
+                    "categories": [
+                        {{
+                            "category": "string",
+                            "percentage": float,
+                            "examples": ["string"],
+                            "key_issues": ["string"]
+                        }}
+                    ]
+                }},
+                "recommendations": [
+                    {{
+                        "area": "string",
+                        "action": "string",
+                        "priority": "high/medium/low",
+                        "impact": "string",
+                        "timeline": "short/medium/long-term"
+                    }}
+                ]
+            }}
+
+            Focus on:
+            1. Identifying key themes in positive feedback
+            2. Categorizing and quantifying negative feedback
+            3. Providing actionable recommendations
+            4. Calculating sentiment distribution
+
+            Return ONLY valid JSON, no markdown or explanation.
+            """
+
+            print(f"Sending feedback analysis request to Gemini API")
+            response = model.generate_content(prompt)
+            response_text = response.text.strip()
+        
+            # Remove markdown code blocks if they exist
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]  # Remove ```json
+            elif response_text.startswith('```'):
+                response_text = response_text[3:]   # Remove ```
+                
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]  # Remove trailing ```
+                
+            response_text = response_text.strip()
+            
+            # Check if response is valid before trying to parse it as JSON
+            if response and hasattr(response, 'text') and response.text:
+                try:
+                    result = json.loads(response_text)
+                    
+                    # Validate required structure
+                    required_keys = ['sentiment_summary', 'positive_feedback_analysis', 'negative_feedback_analysis', 'recommendations']
+                    if all(key in result for key in required_keys):
+                        result["analysis_status"] = "success"
+                        print("Successfully parsed Gemini feedback analysis")
+                        return result
+                    else:
+                        print(f"Missing required keys in response: {[k for k in required_keys if k not in result]}")
+                        default_analysis["analysis_status"] = "invalid_structure"
+                        default_analysis["error_message"] = "AI response missing required fields"
+                        return default_analysis
+                        
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse Gemini response as JSON: {e}")
+                    default_analysis["analysis_status"] = "json_parse_error"
+                    default_analysis["error_message"] = f"JSON parsing failed: {str(e)}"
+                    return default_analysis
+            else:
+                print("Empty or invalid response from Gemini API")
+                default_analysis["analysis_status"] = "empty_response"
+                default_analysis["error_message"] = "Empty response from AI service"
+                return default_analysis
+                
+        except Exception as e:
+            error_msg = f"Gemini feedback analysis failed: {str(e)}"
+            print(error_msg)
+            raise Exception(error_msg)  # Re-raise the exception to stop execution
+
+    def create_ai_driven_visualizations(self, df, column_analysis, feedback_analysis):
+        """Create visualizations based on AI analysis with AI-generated descriptions"""
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         import seaborn as sns
+        import numpy as np
         
         visualizations = []
-        
-        # 1. Sentiment distribution pie chart
-        sentiment_data = feedback_insights.get('sentiment_analysis', {})
-        if sentiment_data:
-            plt.figure(figsize=(10, 8))
-            labels = ['Positive', 'Negative', 'Neutral']
-            sizes = [
-                sentiment_data.get('positive_percentage', 0),
-                sentiment_data.get('negative_percentage', 0),
-                sentiment_data.get('neutral_percentage', 0)
-            ]
-            colors = ['#4CAF50', '#F44336', '#FFC107']
-            
-            plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-            plt.title('Feedback Sentiment Distribution')
-            plt.axis('equal')
-            
-            chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_sentiment_pie.png")
-            visualizations.append({
-                'type': 'pie_chart',
-                'title': 'Feedback Sentiment Analysis',
-                'url': chart_url,
-                'description': f"Overall sentiment: {sentiment_data.get('overall_sentiment', 'unknown')}"
-            })
-            plt.close()
-
-        # 2. Rating distribution (if numeric rating columns exist)
-        rating_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'rating' and col_info['column_name'] in df.columns:
-                rating_columns.append(col_info['column_name'])
-        
-        for rating_col in rating_columns[:2]:  # First 2 rating columns max
-            if df[rating_col].dtype in ['int64', 'float64']:
-                plt.figure(figsize=(10, 6))
-                plt.hist(df[rating_col].dropna(), bins=10, alpha=0.7, color='skyblue', edgecolor='black')
-                plt.title(f'Distribution of {rating_col} Ratings')
-                plt.xlabel('Rating Value')
-                plt.ylabel('Frequency')
-                plt.grid(True, alpha=0.3)
+        try:
+            # Add validation to ensure we have the required data
+            if not feedback_analysis:
+                raise Exception("No feedback analysis data provided for visualizations")
                 
-                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_{rating_col}_distribution.png")
-                visualizations.append({
-                    'type': 'histogram',
-                    'title': f'{rating_col} Distribution',
-                    'url': chart_url,
-                    'description': f'Distribution of customer ratings for {rating_col}'
-                })
-                plt.close()
+            if not isinstance(feedback_analysis, dict):
+                raise Exception(f"Invalid feedback analysis data type: {type(feedback_analysis)}")
+            
+            # Get relevant columns for visualization
+            relevant_columns = []
+            if isinstance(column_analysis, dict):
+                for col_info in column_analysis.get('columns_analysis', []):
+                    if col_info.get('include_in_analysis', True) and col_info['column_name'] in df.columns:
+                        relevant_columns.append(col_info['column_name'])
 
-        # 3. Timeline of feedback (if date column exists)
-        date_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'timestamp' and col_info['column_name'] in df.columns:
-                date_columns.append(col_info['column_name'])
-        
-        if date_columns:
-            date_col = date_columns[0]
-            try:
-                df_date = df.copy()
-                df_date[date_col] = pd.to_datetime(df_date[date_col])
-                feedback_by_date = df_date.groupby(df_date[date_col].dt.date).size()
+            # 1. Sentiment Distribution Chart
+            sentiment_data = feedback_analysis.get('sentiment_summary', {})
+            if sentiment_data and any(sentiment_data.get(key, 0) > 0 for key in ['positive_percentage', 'negative_percentage', 'neutral_percentage']):
+                try:
+                    plt.figure(figsize=(10, 8))
+                    labels = ['Positive', 'Negative', 'Neutral']
+                    sizes = [
+                        sentiment_data.get('positive_percentage', 0),
+                        sentiment_data.get('negative_percentage', 0),
+                        sentiment_data.get('neutral_percentage', 0)
+                    ]
+                    colors = ['#4CAF50', '#F44336', '#FFC107']
+                    
+                    # Only create pie chart if we have non-zero values
+                    if sum(sizes) > 0:
+                        plt.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+                        plt.title('Feedback Sentiment Distribution')
+                        plt.axis('equal')
+                        
+                        chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_sentiment_pie.png")
+                        
+                        # Generate AI description for this chart
+                        chart_description = self.generate_chart_description(
+                            'sentiment_pie',
+                            sentiment_data,
+                            feedback_analysis
+                        )
+                        
+                        visualizations.append({
+                            'type': 'pie_chart',
+                            'title': 'Feedback Sentiment Analysis',
+                            'url': chart_url,
+                            'description': chart_description
+                        })
+                    plt.close()
+                except Exception as e:
+                    print(f"Error creating sentiment chart: {e}")
+                    plt.close()
+
+            # 2. Combined Positive/Negative Category Distribution
+            positive_cats = feedback_analysis.get('positive_feedback_analysis', {}).get('categories', [])
+            negative_cats = feedback_analysis.get('negative_feedback_analysis', {}).get('categories', [])
+            
+            # Create combined chart if we have both positive and negative categories
+            if positive_cats and negative_cats:
+                # Get top categories from both (limit to 5 each for readability)
+                top_positive = sorted(positive_cats, key=lambda x: x['percentage'], reverse=True)[:5]
+                top_negative = sorted(negative_cats, key=lambda x: x['percentage'], reverse=True)[:5]
                 
-                plt.figure(figsize=(12, 6))
-                plt.plot(feedback_by_date.index, feedback_by_date.values, marker='o', linewidth=2)
-                plt.title('Feedback Volume Over Time')
-                plt.xlabel('Date')
-                plt.ylabel('Number of Feedback Entries')
-                plt.xticks(rotation=45)
-                plt.grid(True, alpha=0.3)
+                # Get all unique category names
+                all_categories = set()
+                for cat in top_positive:
+                    all_categories.add(cat['category'])
+                for cat in top_negative:
+                    all_categories.add(cat['category'])
+                
+                # Create data for the chart
+                categories = list(all_categories)
+                positive_values = []
+                negative_values = []
+                
+                for category in categories:
+                    # Find matching positive category
+                    pos_match = next((cat for cat in top_positive if cat['category'] == category), None)
+                    positive_values.append(pos_match['percentage'] if pos_match else 0)
+                    
+                    # Find matching negative category
+                    neg_match = next((cat for cat in top_negative if cat['category'] == category), None)
+                    negative_values.append(neg_match['percentage'] if neg_match else 0)
+                
+                # Create the combined bar chart
+                plt.figure(figsize=(14, 8))
+                
+                x = np.arange(len(categories))
+                width = 0.35
+                
+                plt.bar(x - width/2, positive_values, width, label='Positive', color='#4CAF50', alpha=0.8)
+                plt.bar(x + width/2, negative_values, width, label='Negative', color='#F44336', alpha=0.8)
+                
+                plt.xlabel('Feedback Categories')
+                plt.ylabel('Percentage')
+                plt.title('Positive vs Negative Feedback by Category')
+                plt.xticks(x, categories, rotation=45, ha='right')
+                plt.legend()
                 plt.tight_layout()
                 
-                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_feedback_timeline.png")
+                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_combined_categories.png")
+                
+                # Prepare data for description
+                chart_data = {
+                    'categories': categories,
+                    'positive_values': positive_values,
+                    'negative_values': negative_values
+                }
+                
+                chart_description = self.generate_chart_description('combined_categories', chart_data, feedback_analysis)
+                
                 visualizations.append({
-                    'type': 'line_chart',
-                    'title': 'Feedback Volume Timeline',
+                    'type': 'bar_chart',
+                    'title': 'Positive vs Negative Feedback by Category',
                     'url': chart_url,
-                    'description': 'Shows how feedback volume has changed over time'
+                    'description': chart_description
                 })
                 plt.close()
-            except:
-                pass  # Skip if date conversion fails
-
-        # 4. Word cloud for text feedback (if text columns exist)
-        text_columns = []
-        for col_info in column_analysis.get('columns_analysis', []):
-            if col_info.get('data_category') == 'text_feedback' and col_info['column_name'] in df.columns:
-                text_columns.append(col_info['column_name'])
-        
-        if text_columns:
-            try:
-                from wordcloud import WordCloud
-                
-                text_data = ' '.join(df[text_columns[0]].dropna().astype(str))
-                wordcloud = WordCloud(width=800, height=400, background_color='white').generate(text_data)
-                
+            
+            # 3. Individual category charts (optional - you can keep these or remove them)
+            if positive_cats:
                 plt.figure(figsize=(12, 6))
-                plt.imshow(wordcloud, interpolation='bilinear')
-                plt.axis('off')
-                plt.title('Common Words in Feedback')
+                categories = [cat['category'] for cat in positive_cats[:5]]  # Limit to top 5
+                percentages = [cat['percentage'] for cat in positive_cats[:5]]
                 
-                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_wordcloud.png")
+                plt.barh(categories, percentages, color='green', alpha=0.7)
+                plt.title('Top Positive Feedback Categories')
+                plt.xlabel('Percentage')
+                plt.tight_layout()
+                
+                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_positive_categories.png")
+                chart_description = self.generate_chart_description('positive_categories', positive_cats[:5], feedback_analysis)
+                
                 visualizations.append({
-                    'type': 'word_cloud',
-                    'title': 'Feedback Word Cloud',
+                    'type': 'bar_chart',
+                    'title': 'Top Positive Feedback Categories',
                     'url': chart_url,
-                    'description': 'Visual representation of most common words in feedback'
+                    'description': chart_description
                 })
                 plt.close()
-            except ImportError:
-                pass  # Skip if wordcloud not installed
 
-        return visualizations
+            if negative_cats:
+                plt.figure(figsize=(12, 6))
+                categories = [cat['category'] for cat in negative_cats[:5]]  # Limit to top 5
+                percentages = [cat['percentage'] for cat in negative_cats[:5]]
+                
+                plt.barh(categories, percentages, color='red', alpha=0.7)
+                plt.title('Top Negative Feedback Categories')
+                plt.xlabel('Percentage')
+                plt.tight_layout()
+                
+                chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_negative_categories.png")
+                chart_description = self.generate_chart_description('negative_categories', negative_cats[:5], feedback_analysis)
+                
+                visualizations.append({
+                    'type': 'bar_chart',
+                    'title': 'Top Negative Feedback Categories',
+                    'url': chart_url,
+                    'description': chart_description
+                })
+                plt.close()
+            
+            # 4. Rating distribution charts (if available)
+            rating_columns = []
+            for col_info in column_analysis.get('columns_analysis', []):
+                if (col_info.get('detected_type') == 'numeric_rating' and 
+                    col_info.get('include_in_analysis', True) and 
+                    col_info['column_name'] in df.columns):
+                    rating_columns.append(col_info['column_name'])
+            
+            for rating_col in rating_columns[:2]:  # Limit to first 2 rating columns
+                if df[rating_col].dtype in ['int64', 'float64']:
+                    plt.figure(figsize=(10, 6))
+                    
+                    # Convert to native Python list for plotting
+                    rating_data = [float(x) for x in df[rating_col].dropna() if not pd.isna(x)]
+                    
+                    plt.hist(rating_data, bins=10, alpha=0.7, color='skyblue', edgecolor='black')
+                    plt.title(f'Distribution of {rating_col} Ratings')
+                    plt.xlabel('Rating Value')
+                    plt.ylabel('Frequency')
+                    plt.grid(True, alpha=0.3)
+                    
+                    chart_url = self.save_chart_to_supabase(plt, f"feedback_visualizations/{uuid.uuid4()}_{rating_col}_distribution.png")
+                    
+                    # Convert describe() to native Python types for JSON serialization
+                    desc = df[rating_col].describe()
+                    desc_dict = {}
+                    for key, value in desc.items():
+                        if hasattr(value, 'item'):
+                            desc_dict[key] = value.item()
+                        else:
+                            desc_dict[key] = value
+                    
+                    chart_description = self.generate_chart_description('rating_distribution', {
+                        'column': rating_col,
+                        'data': desc_dict
+                    }, feedback_analysis)
+                    
+                    visualizations.append({
+                        'type': 'histogram',
+                        'title': f'{rating_col} Distribution',
+                        'url': chart_url,
+                        'description': chart_description
+                    })
+                    plt.close()
 
-    def generate_feedback_report(self, df, column_analysis, feedback_insights, visualizations, filename):
-        """Generate comprehensive PDF report for feedback analysis"""
+            return visualizations
+        except Exception as e:
+            error_msg = f"Visualization creation failed: {str(e)}"
+            print(error_msg)
+            raise Exception(error_msg)  # Re-raise the exception to stop execution
+
+    def generate_chart_description(self, chart_type, chart_data, feedback_analysis):
+        """Use Gemini AI to generate descriptive analysis for charts"""
         try:
+            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            model = genai.GenerativeModel('gemini-1.5-flash')
+
+            # Ensure chart_data is JSON serializable
+            serializable_data = self.convert_to_serializable(chart_data)
+
+            prompt = f"""
+            You are a data visualization expert. Analyze this chart data and provide a concise, insightful description.
+
+            CHART TYPE: {chart_type}
+            CHART DATA: {json.dumps(serializable_data, indent=2, default=str)}
+            FEEDBACK ANALYSIS CONTEXT: {json.dumps(self.convert_to_serializable(feedback_analysis), indent=2, default=str)[:1000]}...
+
+            Provide a 2-3 sentence description that:
+            1. Explains what the chart shows
+            2. Highlights key insights or patterns
+            3. Relates it to the overall feedback analysis
+            4. Uses clear, professional language
+
+            Output only the description text, no markdown or formatting.
+            """
+
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            print(f"Chart description generation failed: {str(e)}")
+            return f"Chart showing {chart_type} data from feedback analysis."
+
+    def convert_to_serializable(self, obj):
+        """Recursively convert numpy/pandas types to native Python types"""
+        if hasattr(obj, 'item'):
+            return obj.item()
+        elif isinstance(obj, dict):
+            return {k: self.convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self.convert_to_serializable(item) for item in obj]
+        elif isinstance(obj, (np.integer, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64)):
+            return float(obj)
+        elif isinstance(obj, np.bool_):
+            return bool(obj)
+        elif pd.isna(obj):
+            return None
+        else:
+            return obj
+
+    def generate_ai_enhanced_report(self, df, column_analysis, feedback_analysis, visualizations, filename):
+        """Generate comprehensive PDF report with AI-enhanced insights"""
+        try:
+            # Import here to avoid circular imports
             from .utils.report_generators import PDFGenerator
+            
+            # Generate AI-powered executive summary
+            executive_summary = self.generate_executive_summary(feedback_analysis, visualizations)
             
             pdf_generator = PDFGenerator()
             pdf_content = pdf_generator.create_feedback_report(
-                df, column_analysis, feedback_insights, visualizations, filename
+                df, column_analysis, feedback_analysis, visualizations, 
+                executive_summary, filename
             )
             
             # Upload to Supabase
@@ -1386,7 +2549,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             supabase_key = os.getenv('SUPABASE_KEY')
             supabase = create_client(supabase_url, supabase_key)
             
-            pdf_filename = f"commentsreport/{uuid.uuid4()}_feedback_analysis_report.pdf"
+            pdf_filename = f"commentsreport/{uuid.uuid4()}_ai_feedback_analysis_report.pdf"
             res = supabase.storage.from_("business_files").upload(
                 path=pdf_filename,
                 file=pdf_content,
@@ -1396,37 +2559,232 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             return supabase.storage.from_("business_files").get_public_url(pdf_filename)
             
         except Exception as e:
-            print(f"Feedback PDF Generation Error: {str(e)}")
-            raise Exception(f"Failed to generate feedback PDF: {str(e)}")
+            print(f"AI Enhanced PDF Generation Error: {str(e)}")
+            raise Exception(f"Failed to generate AI-enhanced PDF: {str(e)}")
+
+    def generate_executive_summary(self, feedback_analysis, visualizations):
+        """Generate structured executive summary using Gemini AI"""
+        try:
+            # Check if API key is available
+            api_key = os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                return("GEMINI_API_KEY not found in environment variables")
+                
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
+
+            # Create a simplified version of the data for the prompt
+            simplified_analysis = {
+                'sentiment_summary': feedback_analysis.get('sentiment_summary', {}),
+                'positive_categories': [cat.get('category', '') for cat in 
+                                    feedback_analysis.get('positive_feedback_analysis', {}).get('categories', [])[:3]],
+                'negative_categories': [cat.get('category', '') for cat in 
+                                    feedback_analysis.get('negative_feedback_analysis', {}).get('categories', [])[:3]],
+                'recommendations': [rec.get('action', '') for rec in 
+                                feedback_analysis.get('recommendations', [])[:3]]
+            }
+
+            prompt = f"""
+            As a senior business analyst, create a structured executive summary based on this feedback analysis.
+
+            FEEDBACK ANALYSIS RESULTS:
+            {json.dumps(self.convert_to_serializable(feedback_analysis), indent=2, default=str)}
+
+            VISUALIZATIONS GENERATED:
+            {json.dumps([v['title'] for v in visualizations], indent=2, default=str)}
+
+            Create a comprehensive executive summary with the following structure:
+
+            # Executive Summary: Customer Feedback Analysis
+
+            KEY FINDINGS:
+            - Overall sentiment: {simplified_analysis['sentiment_summary'].get('overall_sentiment', 'N/A')}
+            - Positive: {simplified_analysis['sentiment_summary'].get('positive_percentage', 0)}%
+            - Negative: {simplified_analysis['sentiment_summary'].get('negative_percentage', 0)}%
+            - Neutral: {simplified_analysis['sentiment_summary'].get('neutral_percentage', 0)}%
+            
+            TOP POSITIVE CATEGORIES: {', '.join(simplified_analysis['positive_categories'])}
+            TOP NEGATIVE CATEGORIES: {', '.join(simplified_analysis['negative_categories'])}
+            KEY RECOMMENDATIONS: {', '.join(simplified_analysis['recommendations'])}
+            
+            Create a comprehensive executive summary with the following structure:
+
+            # Executive Summary: Customer Feedback Analysis
+
+            ## 📊 Overall Sentiment Distribution
+            [Provide sentiment percentages in a bullet point format]
+
+            ## 👍 Positive Feedback Highlights
+            [Key positive themes in bullet points]
+
+            ## ⚠️ Areas Needing Improvement  
+            [Key negative themes in bullet points]
+
+            ## 🎯 Recommended Actions
+            [Priority recommendations in bullet points with priority levels]
+
+            ## 📈 Expected Outcomes
+            [Potential benefits of implementing recommendations]
+
+            ## 🔜 Next Steps
+            [Actionable next steps in numbered list]
+
+            Write in professional business language suitable for executives.
+            Focus on actionable insights and strategic implications.
+            Use concise bullet points and sections as shown above.
+            Keep the response under 500 words.
+            """
+
+            print(f"Sending executive summary request to Gemini with prompt length: {len(prompt)}")
+            
+            response = model.generate_content(prompt)
+            
+            if response.text and response.text.strip():
+                print(f"Received executive summary: {response.text[:100]}...")
+                return response.text
+            else:
+                return("Empty response from Gemini for executive summary")
+                
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return (f"Executive summary generation failed: {str(e)}")
+            
+            # return self.fallback_executive_summary(feedback_analysis)
+
+    def basic_feedback_analysis(self, df, text_columns):
+        """Basic sentiment analysis fallback with proper structure"""
+        from textblob import TextBlob
+        
+        sentiments = []
+        for col in text_columns:
+            for text in df[col].dropna():
+                if text and text != 'No feedback provided':
+                    try:
+                        analysis = TextBlob(str(text))
+                        sentiments.append(analysis.sentiment.polarity)
+                    except:
+                        continue
+        
+        total = len(sentiments) if sentiments else 1
+        positive = len([s for s in sentiments if s > 0.1])
+        negative = len([s for s in sentiments if s < -0.1])
+        neutral = total - positive - negative
+
+        # Return properly structured data that matches the expected format
+        return {
+            "sentiment_summary": {
+                "positive_percentage": (positive / total) * 100,
+                "negative_percentage": (negative / total) * 100,
+                "neutral_percentage": (neutral / total) * 100,
+                "overall_sentiment": "positive" if positive > negative else "negative" if negative > positive else "neutral"
+            },
+            "positive_feedback_analysis": {
+                "categories": [
+                    {
+                        "category": "General Positive Feedback",
+                        "percentage": (positive / total) * 100,
+                        "examples": ["Satisfied customers", "Positive experiences"],
+                        "key_themes": ["satisfaction", "quality"]
+                    }
+                ]
+            },
+            "negative_feedback_analysis": {
+                "categories": [
+                    {
+                        "category": "General Concerns",
+                        "percentage": (negative / total) * 100,
+                        "examples": ["Areas for improvement", "Customer concerns"],
+                        "key_issues": ["service", "quality"]
+                    }
+                ]
+            },
+            "recommendations": [
+                {
+                    "area": "General Improvement",
+                    "action": "Address customer concerns",
+                    "priority": "Medium",
+                    "impact": "Improved customer satisfaction",
+                    "timeline": "Short-term"
+                }
+            ]
+        }
 
     def save_chart_to_supabase(self, plt_figure, chart_path):
         """Save matplotlib chart to Supabase storage"""
-        img_buffer = BytesIO()
-        plt_figure.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
-        img_content = img_buffer.getvalue()
-        
-        supabase_url = os.getenv('SUPABASE_URL')
-        supabase_key = os.getenv('SUPABASE_KEY')
-        supabase = create_client(supabase_url, supabase_key)
-        
-        res = supabase.storage.from_("business_files").upload(
-            path=chart_path,
-            file=img_content,
-            file_options={"content-type": "image/png"}
-        )
-        
-        return supabase.storage.from_("business_files").get_public_url(chart_path)
+        try:
+            img_buffer = BytesIO()
+            plt_figure.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+            img_content = img_buffer.getvalue()
+            
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+            
+            res = supabase.storage.from_("business_files").upload(
+                path=chart_path,
+                file=img_content,
+                file_options={"content-type": "image/png"}
+            )
+            
+            return supabase.storage.from_("business_files").get_public_url(chart_path)
+        except Exception as e:
+            print(f"Failed to save chart to Supabase: {str(e)}")
+            # Return a placeholder URL or handle the error appropriately
+            return "https://example.com/placeholder.png"
 
     def download_file_from_supabase(self, file_url):
         """Download file content from Supabase Storage"""
         try:
-            response = requests.get(file_url, timeout=30)
+            response = requests.get(file_url)
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to download file from Supabase: {str(e)}")
-
               
+class GenerateEditedPDFView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, *args, **kwargs):
+        report_id = request.data.get('report_id')
+        
+        try:
+            # Get the latest report data from database
+            report = CommentReport.objects.get(id=report_id)
+            business_data = report.file_url  # This is the BusinessData instance
+            
+            # Use the saved data from the database
+            report_data = report.file_content
+            
+            # Generate PDF with the latest data
+            pdf_generator = PDFGenerator()
+            pdf_content = pdf_generator.create_feedback_report(
+                report_data,  # Use the data from database
+                business_data.fileName
+            )
+            
+            # Upload to Supabase
+            supabase_url = os.getenv('SUPABASE_URL')
+            supabase_key = os.getenv('SUPABASE_KEY')
+            supabase = create_client(supabase_url, supabase_key)
+            
+            pdf_filename = f"commentsreport/{uuid.uuid4()}_edited_feedback_report.pdf"
+            res = supabase.storage.from_("business_files").upload(
+                path=pdf_filename,
+                file=pdf_content,
+                file_options={"content-type": "application/pdf"}
+            )
+            
+            pdf_url = supabase.storage.from_("business_files").get_public_url(pdf_filename)
+            
+            return Response({'pdf_url': pdf_url}, status=status.HTTP_200_OK)
+            
+        except CommentReport.DoesNotExist:
+            return Response({'error': 'Report not found'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': f'Failed to generate PDF: {str(e)}'}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 from django.http import JsonResponse
 
 def transcript_view(request):
