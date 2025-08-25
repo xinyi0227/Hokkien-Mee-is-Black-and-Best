@@ -53,21 +53,21 @@ const FilePage = () =>{
     return (
         <>
         <Header />
-            <div className="min-h-screen w-screen bg-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+            <main className="min-h-screen w-screen bg-gray-100 dark:bg-gray-950 dark:text-gray-100 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="mx-auto p-6">
                     <h1 className="text-3xl font-bold mb-8">Business Data Analyser</h1>
                     
-                    <div className="mx-auto flex flex-row w-full">
+                    <div className="mx-auto flex flex-row w-full ">
                         {user.employee_id && (
-                        <div className="basis-2/3">
+                        <div className="basis-2/3 dark:text-gray-200">
                             <FileList key={refreshKey} uploader={user.employee_id} />
                         </div>
                         )}
 
-                        <div className="basis-1/3"><FileUpload onUploadSuccess={handleUploadSuccess} /></div>
+                        <div className="basis-1/3 dark:text-gray-200"><FileUpload onUploadSuccess={handleUploadSuccess} /></div>
                     </div>
                 </div>
-            </div>
+            </main>
         </>
     );
 };

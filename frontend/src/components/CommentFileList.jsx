@@ -13,6 +13,7 @@ const CommentFileList = ({ uploader }) => {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingReport, setEditingReport] = useState(null);
+  const [newlyGeneratedReportId, setNewlyGeneratedReportId] = useState(null);
 
   const openEditModal = (report) => {
     setEditingReport(report);
@@ -22,14 +23,18 @@ const CommentFileList = ({ uploader }) => {
   const closeEditModal = () => {
     setIsEditModalOpen(false);
     setEditingReport(null);
+    setNewlyGeneratedReportId(null);
   };
 
   const handleSaveReport = async (reportId, updatedData) => {
     try {
-      // Update the report in the database
+      // Update the report in the database with edited status
       const { error } = await supabase
         .from('userComment_data')
-        .update({ file_content: updatedData })
+        .update({ 
+          file_content: updatedData,
+          editedStatus: true // Add this field to track if report has been edited
+        })
         .eq('id', reportId);
 
       if (error) throw error;
@@ -38,37 +43,16 @@ const CommentFileList = ({ uploader }) => {
       setProcessedReports(prev => 
         prev.map(report => 
           report.id === reportId 
-            ? { ...report, file_content: updatedData }
+            ? { ...report, file_content: updatedData, editedStatus: true }
             : report
         )
       );
 
       alert('Report updated successfully!');
+      closeEditModal();
     } catch (err) {
       console.error('Error updating report:', err);
       setError('Failed to update report: ' + err.message);
-    }
-  };
-
-  const fetchReports = async (fileIds) => {
-    try {
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('userComment_data')
-        .select(`
-          *,
-          business_data (
-            id,
-            fileName
-          )
-        `)
-        .in('file_url_id', fileIds);
-
-      if (reportsError) throw reportsError;
-      
-      setProcessedReports(Array.isArray(reportsData) ? reportsData : []);
-    } catch (err) {
-      console.error('Error fetching reports:', err);
-      setProcessedReports([]);
     }
   };
 
@@ -92,7 +76,20 @@ const CommentFileList = ({ uploader }) => {
         // 2. Fetch processed reports for these files
         if (fetchedFiles.length > 0) {
           const fileIds = fetchedFiles.map(file => file.id);
-          await fetchReports(fileIds);
+          const { data: reportsData, error: reportsError } = await supabase
+            .from('userComment_data')
+            .select(`
+              *,
+              business_data (
+                id,
+                fileName
+              )
+            `)
+            .in('file_url_id', fileIds);
+
+          if (reportsError) throw reportsError;
+          
+          setProcessedReports(Array.isArray(reportsData) ? reportsData : []);
         }
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -122,11 +119,22 @@ const CommentFileList = ({ uploader }) => {
       });
       
       setAnalysisResult(response.data);
-      alert('File processed successfully! Reports generated.');
       
-      // Refresh the reports list for this specific file
-      await fetchReports([fileId]);
-      
+      // Get the newly created report
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('userComment_data')
+        .select('*')
+        .eq('file_url_id', fileId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+        
+      if (!reportsError && reportsData && reportsData.length > 0) {
+        const newReport = reportsData[0];
+        setNewlyGeneratedReportId(newReport.id);
+        setProcessedReports(prev => [...prev, newReport]);
+        // Automatically open the edit modal for the new report
+        openEditModal(newReport);
+      }
     } catch (error) {
       console.error('Full error object:', error);
       console.error('Error response data:', error.response?.data);
@@ -138,7 +146,19 @@ const CommentFileList = ({ uploader }) => {
   };
 
   const deleteFile = async (id, fileUrl) => {
+    if (!window.confirm('Are you sure you want to delete this file and all its associated reports? This action cannot be undone.')) {
+      return;
+    }
+
     try {
+      // First, delete all related reports in userComment_data
+      const { error: reportsError } = await supabase
+        .from('userComment_data')
+        .delete()
+        .eq('file_url_id', id);
+
+      if (reportsError) throw reportsError;
+
       const path = fileUrl.split('/').pop();
       
       // Delete from storage
@@ -159,9 +179,12 @@ const CommentFileList = ({ uploader }) => {
       // Update state instead of refetching
       setFiles(prev => prev.filter(f => f.id !== id));
       
-      // Also remove any reports associated with this file
+      // Also remove any processed reports for this file
       setProcessedReports(prev => prev.filter(report => report.file_url_id !== id));
+      
+      alert('File and associated reports deleted successfully!');
     } catch (error) {
+      console.error('Delete error:', error);
       setError('Failed to delete file: ' + error.message);
     }
   };
@@ -188,7 +211,9 @@ const CommentFileList = ({ uploader }) => {
       <div className="space-y-4 mt-4">
         {files.length > 0 && files.map((file) => {
           const isProcessing = processingFiles[file.id];
-          const existingReport = processedReports.find(report => report.file_url_id === file.id);
+          const report = processedReports.find(report => report.file_url_id == file.id);
+          const reportExists = !!report;
+          const isEdited = report?.editedStatus;
           
           return (
             <div
@@ -203,11 +228,13 @@ const CommentFileList = ({ uploader }) => {
                   <p className="text-gray-600 mt-1">
                     Uploaded: {new Date(file.created_at).toLocaleDateString("en-GB")}
                   </p>
-                  {existingReport && (
-                    <p className="text-green-600 text-sm mt-1">
-                      ✓ Report available
+                  
+                  {reportExists && (
+                    <p className={`text-sm mt-1 ${isEdited ? 'text-green-600' : 'text-blue-600'}`}>
+                      {isEdited ? '✓ Report finalized' : 'Report needs review'}
                     </p>
                   )}
+                  
                 </div>
                 <div className="flex space-x-2">
                   <a
@@ -222,30 +249,34 @@ const CommentFileList = ({ uploader }) => {
                     Download
                   </a>
                   
-                  {existingReport ? (
-                    <>
-                      
-                      <button
-                        onClick={() => processFileWithGemini(file.id)}
-                        disabled={isProcessing}
-                        className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50 inline-flex items-center"
-                        title="Re-process with AI (will replace existing report)"
+                  {reportExists ? (
+                    isEdited ? (
+                      // Show PDF button for finalized reports
+                      <a
+                        href={report.pdf_url || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 inline-flex items-center"
                       >
-                        {isProcessing ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Reprocessing...
-                          </>
-                        ) : (
-                          <>
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 mr-2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                            </svg>
-                            Reprocess AI
-                          </>
-                        )}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
+                          <path fillRule="evenodd" d="M5.625 1.5H9a3.75 3.75 0 0 1 3.75 3.75v1.875c0 1.036.84 1.875 1.875 1.875H16.5a3.75 3.75 0 0 1 3.75 3.75v7.875c0 1.035-.84 1.875-1.875 1.875H5.625a1.875 1.875 0 0 1-1.875-1.875V3.375c0-1.036.84-1.875 1.875-1.875ZM9.75 17.25a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-.75Zm2.25-3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 .75-.75Zm3.75-1.5a.75.75 0 0 0-1.5 0V18a.75.75 0 0 0 1.5 0v-5.25Z" clipRule="evenodd" />
+                          <path d="M14.25 5.25a5.23 5.23 0 0 0-1.279-3.434 9.768 9.768 0 0 1 6.963 6.963A5.23 5.23 0 0 0 16.5 7.5h-1.875a.375.375 0 0 1-.375-.375V5.25Z" />
+                        </svg>
+                        PDF Report
+                      </a>
+                    ) : (
+                      // Show Edit button for reports that need review
+                      <button
+                        onClick={() => openEditModal(report)}
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 inline-flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-2">
+                          <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4Z" />
+                          <path d="M5.25 5.25a3 3 0 0 0-3 3v10.5a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3V13.5a.75.75 0 0 0-1.5 0v5.25a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V8.25a1.5 1.5 0 0 1 1.5-1.5h5.25a.75.75 0 0 0 0-1.5H5.25Z" />
+                        </svg>
+                        Review Report
                       </button>
-                    </>
+                    )
                   ) : (
                     <button
                       onClick={() => processFileWithGemini(file.id)}
@@ -290,50 +321,15 @@ const CommentFileList = ({ uploader }) => {
         </p>
       )}
 
-      {/* Processed Reports Section */}
-      {processedReports.length > 0 && (
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">Generated Reports</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {processedReports.map((report) => (
-              <div key={report.id} className="bg-gray-50 p-4 rounded-lg relative">
-                <h4 className="font-medium">{report.filename}</h4>
-                <p className="text-sm text-gray-600">
-                  Generated: {new Date(report.created_at).toLocaleDateString()}
-                </p>
-                <div className="mt-3 flex space-x-2">
-                  {report.pdf_url && (
-                    <a 
-                      href={report.pdf_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 bg-blue-100 rounded"
-                    >
-                      PDF Report
-                    </a>
-                  )}
-                  <button 
-                    onClick={() => openEditModal(report)}
-                    className="text-green-600 hover:text-green-800 text-sm px-3 py-1 bg-green-100 rounded"
-                  >
-                    Edit
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Edit Modal */}
-          {isEditModalOpen && (
-            <EditReportModal 
-              report={editingReport} 
-              onClose={closeEditModal} 
-              onSave={handleSaveReport}
-            />
-          )}
-        </div>
+      {/* Edit Modal */}
+      {isEditModalOpen && (
+        <EditReportModal 
+          report={editingReport} 
+          onClose={closeEditModal} 
+          onSave={handleSaveReport}
+          isNewReport={newlyGeneratedReportId === editingReport?.id}
+        />
       )}
-
     </div>
   );
 };
