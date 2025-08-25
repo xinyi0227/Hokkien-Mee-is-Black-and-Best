@@ -556,7 +556,7 @@ export default function ComplaintList() {
                 key={page}
                 onClick={() => setCurrentPage(page)}
                 className={`px-3 py-1 rounded ${currentPage === page
-                    ? "bg-blue-600 text-white dark:bg-blue-500"
+                    ? "bg-[#1985a1] text-white"
                     : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
                   }`}
               >
