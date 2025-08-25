@@ -87,6 +87,9 @@ const FileList = ({ uploader }) => {
   };
 
   const deleteFile = async (id, fileUrl) => {
+    if (!window.confirm('Are you sure you want to delete this file and all its associated reports? This action cannot be undone.')) {
+      return;
+    }
     try {
       const path = fileUrl.split('/').pop();
       
@@ -107,6 +110,7 @@ const FileList = ({ uploader }) => {
 
       // Update state instead of refetching
       setFiles(prev => prev.filter(f => f.id !== id));
+      alert('File and associated reports deleted successfully!');
     } catch (error) {
       setError('Failed to delete file: ' + error.message);
     }
@@ -125,16 +129,16 @@ const FileList = ({ uploader }) => {
   );
 
   return (
-    <div>
-      <div className="px-4 py-5 sm:px-6 border-gray-200">
-        <h2 className="text-lg leading-6 font-medium text-gray-900">Your Uploaded Files</h2>
+    <div className='' >
+      <div className="sm:px-6 border-gray-200 ">
+        <h2 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Your Uploaded Files</h2>
       </div>
       {/* File List */}
-      <div className="space-y-4">
+      <div className="space-y-4  pt-4 p-6">
         {files.length > 0 && files.map((file) => (
           <div
             key={file.id}
-            className="p-4 border rounded-lg bg-white border-gray-200"
+            className="p-6 border rounded-lg bg-white dark:border-gray-700 dark:bg-gray-900 border-gray-200"
           >
             <div className="flex items-center justify-between">
               <div className="flex-1">
@@ -191,11 +195,11 @@ const FileList = ({ uploader }) => {
 
       {/* Processed Reports */}
       {processedReports.length > 0 && (
-        <div className="mt-8 p-6 bg-gray-50 rounded-lg">
+        <div className="mt-8 p-6 bg-gray-5 rounded-lg">
           <h3 className="text-lg font-semibold mb-4">Generated Reports</h3>
           <div className="space-y-4">
             {processedReports.map(report => (
-              <div key={report.id} className="p-4 bg-white rounded border flex justify-between items-center">
+              <div key={report.id} className="p-4 bg-white dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 rounded border flex justify-between items-center">
                 <div>
                   <h4 className="font-medium">Report - {report.business_data.fileName}</h4>
                   <p className="text-sm text-gray-600">Generated on {new Date(report.created_at).toLocaleDateString("en-GB")}</p>

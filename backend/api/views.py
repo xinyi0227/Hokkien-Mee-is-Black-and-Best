@@ -2741,49 +2741,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             return response.content
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to download file from Supabase: {str(e)}")
-              
-class GenerateEditedPDFView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, *args, **kwargs):
-        report_id = request.data.get('report_id')
         
-        try:
-            # Get the latest report data from database
-            report = CommentReport.objects.get(id=report_id)
-            business_data = report.file_url  # This is the BusinessData instance
-            
-            # Use the saved data from the database
-            report_data = report.file_content
-            
-            # Generate PDF with the latest data
-            pdf_generator = PDFGenerator()
-            pdf_content = pdf_generator.create_feedback_report(
-                report_data,  # Use the data from database
-                business_data.fileName
-            )
-            
-            # Upload to Supabase
-            supabase_url = os.getenv('SUPABASE_URL')
-            supabase_key = os.getenv('SUPABASE_KEY')
-            supabase = create_client(supabase_url, supabase_key)
-            
-            pdf_filename = f"commentsreport/{uuid.uuid4()}_edited_feedback_report.pdf"
-            res = supabase.storage.from_("business_files").upload(
-                path=pdf_filename,
-                file=pdf_content,
-                file_options={"content-type": "application/pdf"}
-            )
-            
-            pdf_url = supabase.storage.from_("business_files").get_public_url(pdf_filename)
-            
-            return Response({'pdf_url': pdf_url}, status=status.HTTP_200_OK)
-            
-        except CommentReport.DoesNotExist:
-            return Response({'error': 'Report not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': f'Failed to generate PDF: {str(e)}'}, 
-                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 from django.http import JsonResponse
 

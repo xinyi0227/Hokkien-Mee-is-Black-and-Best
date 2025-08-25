@@ -127,10 +127,10 @@ const FileUpload = ({ onUploadSuccess }) => {
 
 
   return (
-    <div className="mx-auto p-6">
+    <div className="mx-auto p-6 ">
       
       {/* Upload Form */}
-      <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 rounded-lg">
+      <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 dark:bg-gray-900 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Upload New File</h2>
         
         {error && (
@@ -139,7 +139,7 @@ const FileUpload = ({ onUploadSuccess }) => {
           </div>
         )}
         
-        <div className="mb-4">
+        <div className="mb-4 ">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Select File (CSV/Excel):
           </label>
