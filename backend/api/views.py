@@ -1807,17 +1807,38 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             )
             
             # Save results
-            processed_report = CommentReport.objects.create(
-                file_url=business_data,
-                filename=f"Report - {business_data.fileName}",
-                file_content={
+            try:
+                # Try to find an existing report
+                existing_report = CommentReport.objects.get(file_url=business_data)
+                
+                # Update the existing report
+                existing_report.filename = f"Report - {business_data.fileName}"
+                existing_report.file_content = {
                     'cleaning_log': cleaning_log,
                     'column_analysis': column_analysis,
                     'feedback_analysis': feedback_analysis,
                     'visualizations': [v['url'] for v in visualizations]
-                },
-                pdf_url=pdf_url
-            )
+                }
+                existing_report.pdf_url = pdf_url
+                existing_report.save()
+                
+                processed_report = existing_report
+                print("Updated existing report")
+                
+            except CommentReport.DoesNotExist:
+                # Create a new report if one doesn't exist
+                processed_report = CommentReport.objects.create(
+                    file_url=business_data,
+                    filename=f"Report - {business_data.fileName}",
+                    file_content={
+                        'cleaning_log': cleaning_log,
+                        'column_analysis': column_analysis,
+                        'feedback_analysis': feedback_analysis,
+                        'visualizations': [v['url'] for v in visualizations]
+                    },
+                    pdf_url=pdf_url
+                )
+                print("Created new report")
             
             serializer = CommentReportSerializer(processed_report)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
