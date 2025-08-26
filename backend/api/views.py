@@ -26,6 +26,11 @@ from django.utils import timezone
 import json
 import re
 import time
+# from django.shortcuts import render
+
+# def landing_page(request):
+#     return render(request, 'index.html')
+
 
 class FileProcessingView(generics.CreateAPIView):
 

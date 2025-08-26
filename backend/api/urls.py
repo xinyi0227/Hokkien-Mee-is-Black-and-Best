@@ -31,5 +31,6 @@ urlpatterns = [
     path('meeting_full/<int:meeting_id>/', views.meeting_full, name='meeting-full'),
     path('meeting_files_check/', views.meeting_files_check, name='meeting_files_check'),
     path('generate-pdf-report/', views.GenerateEditedPDFView.as_view(), name='generate-pdf-report'),
+    # path('landing/', views.landing_page, name='landing_page'),
 
 ]
