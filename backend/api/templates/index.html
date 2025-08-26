@@ -1,0 +1,172 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhoneHub - Premium Mobile Devices</title>
+    <link rel="stylesheet" href="{% static 'styles/landing.css' %}">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+    
+   <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // Header Component
+    function Header() {
+        return (
+            <header>
+                <div className="logo">PhoneHub</div>
+                <nav>
+                    <ul>
+                        <li><a href="#">Home</a></li>
+                        <li><a href="#">Products</a></li>
+                        <li><a href="#">About</a></li>
+                        <li><a href="#">Contact</a></li>
+                    </ul>
+                </nav>
+            </header>
+        );
+    }
+
+    // Hero Section Component
+    function Hero() {
+        return (
+            <section className="hero">
+                <h1>Discover the Future of Mobile Technology</h1>
+                <p>Explore our premium collection of smartphones with cutting-edge features, exceptional cameras, and powerful performance.</p>
+                <a href="#products" className="btn">View Products</a>
+            </section>
+        );
+    }
+
+    // Product Slider Component
+    function ProductSlider() {
+        const [currentSlide, setCurrentSlide] = useState(0);
+        
+        const products = [
+            {
+                id: 1,
+                name: "Smartphone X Pro",
+                description: "6.7-inch Super Retina display, A15 Bionic chip, Triple-camera system",
+                price: "$999",
+                image: "https://images.unsplash.com/photo-1611791484670-ce19b801d192?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=687&q=80"
+            },
+            {
+                id: 2,
+                name: "Galaxy Ultra 22",
+                description: "6.8-inch Dynamic AMOLED, Snapdragon 8 Gen 1, 108MP camera",
+                price: "$1199",
+                image: "https://images.unsplash.com/photo-1598327105854-c8674faddf74?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
+            },
+            {
+                id: 3,
+                name: "Pixel 7 Pro",
+                description: "6.7-inch QHD+ display, Google Tensor G2, Triple rear camera",
+                price: "$899",
+                image: "https://images.unsplash.com/photo-1621330396173-e41b1cafd17f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1170&q=80"
+            }
+        ];
+
+        useEffect(() => {
+            const timer = setInterval(() => {
+                setCurrentSlide((prevSlide) => 
+                    prevSlide === products.length - 1 ? 0 : prevSlide + 1
+                );
+            }, 5000);
+            
+            return () => clearInterval(timer);
+        }, []);
+
+        const nextSlide = () => {
+            setCurrentSlide(currentSlide === products.length - 1 ? 0 : currentSlide + 1);
+        };
+
+        const prevSlide = () => {
+            setCurrentSlide(currentSlide === 0 ? products.length - 1 : currentSlide - 1);
+        };
+
+        return (
+            <section id="products">
+                <div className="slider-container">
+                    <div className="slider" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+                        {products.map(product => (
+                            <div key={product.id} className="slide">
+                                <img src={product.image} alt={product.name} />
+                                <h3>{product.name}</h3>
+                                <p>{product.description}</p>
+                                <p className="price">{product.price}</p>
+                                <a href="#" className="btn">Learn More</a>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                
+                <div className="slider-controls">
+                    <button onClick={prevSlide}><i className="fas fa-chevron-left"></i></button>
+                    <button onClick={nextSlide}><i className="fas fa-chevron-right"></i></button>
+                </div>
+            </section>
+        );
+    }
+
+    // Contact Section Component
+    function ContactSection() {
+        return (
+            <section className="contact-section">
+                <h2>Contact Us</h2>
+                <div className="contact-info">
+                    <div className="contact-method">
+                        <i className="fas fa-phone"></i>
+                        <h3>Call Us</h3>
+                        <p>+1 (555) 123-4567</p>
+                        <p>Mon-Fri: 9am-6pm EST</p>
+                    </div>
+                    <div className="contact-method">
+                        <i className="fas fa-envelope"></i>
+                        <h3>Email Us</h3>
+                        <p>support@phonehub.com</p>
+                        <p>sales@phonehub.com</p>
+                    </div>
+                    <div className="contact-method">
+                        <i className="fas fa-map-marker-alt"></i>
+                        <h3>Visit Us</h3>
+                        <p>123 Tech Avenue</p>
+                        <p>New York, NY 10001</p>
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    // Footer Component
+    function Footer() {
+        return (
+            <footer>
+                <p>&copy; 2023 PhoneHub. All rights reserved.</p>
+            </footer>
+        );
+    }
+
+    // Main App Component
+    function App() {
+        return (
+            <div className="container">
+                <Header />
+                <Hero />
+                <ProductSlider />
+                <ContactSection />
+                <Footer />
+            </div>
+        );
+    }
+
+    // Render the App
+    ReactDOM.render(<App />, document.getElementById('root'));
+</script>
+</body>
+</html>

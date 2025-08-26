@@ -314,6 +314,12 @@ class PDFGenerator:
             line = raw.strip()
             if not line:
                 continue
+            # Strip Markdown bold everywhere before classification
+            try:
+                line = self.format_bold_text(line)
+            except Exception:
+                pass
+
             if line.startswith('# '):
                 story.append(Spacer(1, 6))
                 story.append(Paragraph(line[2:].strip(), title_style))
@@ -690,13 +696,8 @@ class PDFGenerator:
 
         return visuals
 
-
-# ---------------------------
-# PPT Generator
-# ---------------------------
-
     def create_feedback_report(self, df, column_analysis, feedback_analysis, visualizations, executive_summary, filename):
-        """Generate comprehensive PDF report with AI-enhanced insights"""
+        """Generate comprehensive PDF report with AI-enhanced insights in markdown style"""
         try:
             from reportlab.lib.pagesizes import A4, letter
             from reportlab.lib import colors
@@ -735,7 +736,7 @@ class PDFGenerator:
                 fontSize=16,
                 spaceAfter=12,
                 spaceBefore=15,
-                textColor=colors.HexColor('#34495E'),
+                textColor=colors.HexColor("#090909"),
                 fontName='Helvetica-Bold'
             )
 
@@ -745,17 +746,29 @@ class PDFGenerator:
                 fontSize=13,
                 spaceAfter=8,
                 spaceBefore=10,
-                textColor=colors.HexColor('#2C3E50'),
+                textColor=colors.HexColor('#4c5c68'),
                 fontName='Helvetica-Bold'
+            )
+
+            bullet_style = ParagraphStyle(
+                'AIBullet',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=4,
+                leftIndent=20,
+                bulletIndent=10,
+                textColor=colors.HexColor("#000000"),
+                fontName='Helvetica'
             )
 
             insight_style = ParagraphStyle(
                 'AIInsight',
                 parent=styles['Normal'],
                 fontSize=11,
-                spaceAfter=6,
-                leftIndent=15,
-                textColor=colors.HexColor('#27AE60'),
+                spaceAfter=4,
+                leftIndent=30,
+                bulletIndent=15,
+                textColor=colors.HexColor("#000000"),
                 fontName='Helvetica'
             )
 
@@ -763,9 +776,10 @@ class PDFGenerator:
                 'AIRecommendation',
                 parent=styles['Normal'],
                 fontSize=11,
-                spaceAfter=6,
-                leftIndent=15,
-                textColor=colors.HexColor('#E74C3C'),
+                spaceAfter=4,
+                leftIndent=30,
+                bulletIndent=15,
+                textColor=colors.HexColor("#000000"),
                 fontName='Helvetica'
             )
 
@@ -773,204 +787,175 @@ class PDFGenerator:
                 'AIQuote',
                 parent=styles['Italic'],
                 fontSize=10,
-                spaceAfter=5,
-                leftIndent=25,
-                textColor=colors.HexColor('#7D3C98'),
+                spaceAfter=4,
+                leftIndent=40,
+                textColor=colors.HexColor("#000000"),
                 fontName='Helvetica-Oblique'
             )
 
+            highlight_style = ParagraphStyle(
+                'AIHighlight',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=4,
+                leftIndent=20,
+                textColor=colors.HexColor('#E67E22'),
+                fontName='Helvetica-Bold'
+            )
+
             # Title and Executive Summary
-            story.append(Paragraph("🤖 AI-Powered Customer Feedback Analysis Report", title_style))
+            story.append(Paragraph("AI-Powered Customer Feedback Analysis Report", title_style))
             story.append(Spacer(1, 15))
             
-            # Executive Summary from AI analysis
-            # exec_summary = feedback_analysis.get('executive_summary', 'Comprehensive analysis of customer feedback revealing key insights and improvement opportunities.')
-            story.append(Paragraph("📋 Executive Summary", section_style))
-            story.append(Paragraph(executive_summary, styles['Normal']))
+            # Executive Summary from AI analysis - Parse markdown format
+            story.append(Paragraph("Executive Summary", section_style))
+            
+            if executive_summary:
+                self.parse_markdown_executive_summary(executive_summary, story, subsection_style, bullet_style, insight_style, recommendation_style, highlight_style)
+            else:
+                story.append(Paragraph("• Comprehensive analysis of customer feedback revealing key insights", bullet_style))
+                story.append(Paragraph("• Identification of improvement opportunities", bullet_style))
+            
             story.append(Spacer(1, 20))
 
-            # Metadata table
-            metadata_data = [
-                ["📄 File Name:", filename],
-                ["📊 Total Records:", f"{len(df):,}"],
-                ["📅 Analysis Date:", datetime.now().strftime('%Y-%m-%d %H:%M')],
-                ["⭐ Data Quality Score:", f"{(df.notna().sum().sum() / (df.shape[0] * df.shape[1]) * 100):.1f}%"],
-                ["🔍 Columns Analyzed:", str(len([col for col in column_analysis.get('columns_analysis', []) 
-                                            if col.get('include_in_analysis', True)]))]
-            ]
-            
-            metadata_table = Table(metadata_data, colWidths=[1.5*inch, 4*inch])
-            metadata_table.setStyle(TableStyle([
-                ('FONT', (0, 0), (-1, -1), 'Helvetica', 10),
-                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#F8F9F9')),
-                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D5D8DC'))
-            ]))
-            story.append(metadata_table)
+            # Metadata in bullet format
+            story.append(Paragraph("Report Overview", section_style))
+            story.append(Paragraph(f"• File Name: {filename}", bullet_style))
+            story.append(Paragraph(f"• Total Records: {len(df):,}", bullet_style))
+            story.append(Paragraph(f"• Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", bullet_style))
+            story.append(Paragraph(f"• Data Quality Score: {(df.notna().sum().sum() / (df.shape[0] * df.shape[1]) * 100):.1f}%", bullet_style))
+            story.append(Paragraph(f"• Columns Analyzed: {len([col for col in column_analysis.get('columns_analysis', []) if col.get('include_in_analysis', True)])}", bullet_style))
             story.append(Spacer(1, 25))
 
-            # Sentiment Analysis Section
+            # Sentiment Analysis Section - Bullet Format
             sentiment_data = feedback_analysis.get('sentiment_summary', {})
-            story.append(Paragraph("🎭 Comprehensive Sentiment Analysis", section_style))
+            story.append(Paragraph("Comprehensive Sentiment Analysis", section_style))
             
             if sentiment_data:
-                # Sentiment distribution table
-                sentiment_table_data = [
-                    ["Sentiment", "Percentage", "Key Characteristics"],
-                    ["😊 Positive", f"{sentiment_data.get('positive_percentage', 0):.1f}%", 
-                    "Satisfaction, praise, positive experiences"],
-                    ["😠 Negative", f"{sentiment_data.get('negative_percentage', 0):.1f}%", 
-                    "Issues, complaints, dissatisfaction"],
-                    ["😐 Neutral", f"{sentiment_data.get('neutral_percentage', 0):.1f}%", 
-                    "Factual information, suggestions, mixed feedback"],
-                    ["📊 Overall", sentiment_data.get('overall_sentiment', 'N/A').title(), 
-                    "General sentiment trend across all feedback"]
-                ]
-                
-                sentiment_table = Table(sentiment_table_data, colWidths=[1.2*inch, 1*inch, 3.3*inch])
-                sentiment_table.setStyle(TableStyle([
-                    ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
-                    ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498DB')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-                ]))
-                story.append(sentiment_table)
-                story.append(Spacer(1, 15))
+                story.append(Paragraph("Sentiment Distribution:", subsection_style))
+                story.append(Paragraph(f"• Positive: {sentiment_data.get('positive_percentage', 0):.1f}% - Satisfaction, praise, positive experiences", insight_style))
+                story.append(Paragraph(f"• Negative: {sentiment_data.get('negative_percentage', 0):.1f}% - Issues, complaints, dissatisfaction", recommendation_style))
+                story.append(Paragraph(f"• Neutral: {sentiment_data.get('neutral_percentage', 0):.1f}% - Factual information, suggestions, mixed feedback", bullet_style))
+                story.append(Paragraph(f"• Overall Sentiment: {sentiment_data.get('overall_sentiment', 'N/A').title()}", highlight_style))
+                story.append(Spacer(1, 10))
 
                 # Example quotes from each sentiment
                 sentiment_examples = sentiment_data.get('sentiment_distribution', {})
                 if sentiment_examples:
-                    story.append(Paragraph("💬 Representative Feedback Examples", subsection_style))
+                    story.append(Paragraph("Representative Feedback Examples:", subsection_style))
                     
                     for sentiment, examples in sentiment_examples.items():
                         if examples and len(examples) > 0:
-                            story.append(Paragraph(f"{sentiment.title()} Examples:", styles['Normal']))
+                            story.append(Paragraph(f"{sentiment.title()} Examples:", bullet_style))
                             for example in examples[:2]:  # Show 2 examples per sentiment
                                 story.append(Paragraph(f'"{example}"', quote_style))
                             story.append(Spacer(1, 5))
             else:
-                story.append(Paragraph("No sentiment data available", styles['Normal']))
+                story.append(Paragraph("• No sentiment data available", bullet_style))
             
             story.append(Spacer(1, 20))
 
-            # Positive Feedback Analysis
+            # Positive Feedback Analysis - Bullet Format
             positive_analysis = feedback_analysis.get('positive_feedback_analysis', {})
-            story.append(Paragraph("✅ Positive Feedback Analysis", section_style))
+            story.append(Paragraph("Positive Feedback Analysis", section_style))
             
             if positive_analysis:
                 positive_cats = positive_analysis.get('categories', [])
                 
                 if positive_cats:
-                    # Positive categories table
-                    pos_table_data = [["Category", "Percentage", "Key Strengths"]]
-                    for cat in positive_cats:
-                        pos_table_data.append([
-                            cat.get('category', 'N/A'),
-                            f"{cat.get('percentage', 0):.1f}%",
-                            ', '.join(cat.get('key_themes', []))[:40] + '...'
-                        ])
-                    
-                    pos_table = Table(pos_table_data, colWidths=[1.5*inch, 1*inch, 3*inch])
-                    pos_table.setStyle(TableStyle([
-                        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
-                        ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#27AE60')),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-                    ]))
-                    story.append(pos_table)
-                    story.append(Spacer(1, 15))
+                    story.append(Paragraph("Top Positive Categories:", subsection_style))
+                    for cat in positive_cats[:5]:  # Show top 5
+                        category_name = cat.get('category', 'N/A')
+                        percentage = cat.get('percentage', 0)
+                        themes = ', '.join(cat.get('key_themes', [])[:3])  # Show top 3 themes
+                        story.append(Paragraph(f"• {category_name}: {percentage:.1f}%", insight_style))
+                        if themes:
+                            story.append(Paragraph(f"  - Key themes: {themes}", bullet_style))
+                    story.append(Spacer(1, 10))
 
                 # Top positive aspects
                 top_positives = positive_analysis.get('top_positive_aspects', [])
                 if top_positives:
-                    story.append(Paragraph("🏆 Top Positive Aspects:", subsection_style))
+                    story.append(Paragraph("Top Positive Aspects:", subsection_style))
                     for aspect in top_positives[:5]:
                         story.append(Paragraph(f"• {aspect}", insight_style))
             else:
-                story.append(Paragraph("No positive feedback analysis available", styles['Normal']))
+                story.append(Paragraph("• No positive feedback analysis available", bullet_style))
             
             story.append(Spacer(1, 20))
 
-            # Negative Feedback Analysis
+            # Negative Feedback Analysis - Bullet Format
             negative_analysis = feedback_analysis.get('negative_feedback_analysis', {})
-            story.append(Paragraph("❌ Negative Feedback Analysis", section_style))
+            story.append(Paragraph("Negative Feedback Analysis", section_style))
             
             if negative_analysis:
                 negative_cats = negative_analysis.get('categories', [])
                 
                 if negative_cats:
-                    # Negative categories table
-                    neg_table_data = [["Category", "Percentage", "Main Issues"]]
-                    for cat in negative_cats:
-                        neg_table_data.append([
-                            cat.get('category', 'N/A'),
-                            f"{cat.get('percentage', 0):.1f}%",
-                            ', '.join(cat.get('key_issues', []))[:40] + '...'
-                        ])
-                    
-                    neg_table = Table(neg_table_data, colWidths=[1.5*inch, 1*inch, 3*inch])
-                    neg_table.setStyle(TableStyle([
-                        ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
-                        ('FONT', (0, 1), (-1, -1), 'Helvetica', 9),
-                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E74C3C')),
-                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
-                    ]))
-                    story.append(neg_table)
-                    story.append(Spacer(1, 15))
+                    story.append(Paragraph("Top Negative Categories:", subsection_style))
+                    for cat in negative_cats[:5]:  # Show top 5
+                        category_name = cat.get('category', 'N/A')
+                        percentage = cat.get('percentage', 0)
+                        issues = ', '.join(cat.get('key_issues', [])[:3])  # Show top 3 issues
+                        story.append(Paragraph(f"• {category_name}: {percentage:.1f}%", recommendation_style))
+                        if issues:
+                            story.append(Paragraph(f"  - Main issues: {issues}", bullet_style))
+                    story.append(Spacer(1, 10))
 
                 # Top improvement areas
                 top_improvements = negative_analysis.get('top_improvement_areas', [])
                 if top_improvements:
-                    story.append(Paragraph("🔧 Top Improvement Areas:", subsection_style))
+                    story.append(Paragraph("Top Improvement Areas:", subsection_style))
                     for area in top_improvements[:5]:
                         story.append(Paragraph(f"• {area}", recommendation_style))
             else:
-                story.append(Paragraph("No negative feedback analysis available", styles['Normal']))
+                story.append(Paragraph("• No negative feedback analysis available", bullet_style))
             
             story.append(Spacer(1, 20))
 
-            # Actionable Recommendations
+            # Actionable Recommendations - Bullet Format
             recommendations = feedback_analysis.get('recommendations', [])
-            story.append(Paragraph("💡 AI-Generated Recommendations", section_style))
+            story.append(Paragraph("AI-Generated Recommendations", section_style))
             
             if recommendations:
-                rec_table_data = [["Area", "Action", "Priority", "Timeline"]]
+                # Group recommendations by priority
+                high_priority = [r for r in recommendations if r.get('priority', '').lower() == 'high']
+                medium_priority = [r for r in recommendations if r.get('priority', '').lower() == 'medium']
+                low_priority = [r for r in recommendations if r.get('priority', '').lower() == 'low']
                 
-                for rec in recommendations[:8]:  # Show top 8 recommendations
-                    rec_table_data.append([
-                        rec.get('area', 'General'),
-                        rec.get('action', 'No action specified'),
-                        rec.get('priority', 'Medium'),
-                        rec.get('timeline', 'Short-term')
-                    ])
+                if high_priority:
+                    story.append(Paragraph("High Priority Actions:", subsection_style))
+                    for rec in high_priority[:5]:
+                        area = rec.get('area', 'General')
+                        action = rec.get('action', 'No action specified')
+                        timeline = rec.get('timeline', 'Short-term')
+                        story.append(Paragraph(f"• {area}: {action}", recommendation_style))
+                        story.append(Paragraph(f"  - Timeline: {timeline}", bullet_style))
+                    story.append(Spacer(1, 10))
                 
-                rec_table = Table(rec_table_data, colWidths=[1.2*inch, 2.5*inch, 0.8*inch, 1*inch])
-                rec_table.setStyle(TableStyle([
-                    ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 9),
-                    ('FONT', (0, 1), (-1, -1), 'Helvetica', 8),
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F39C12')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT')
-                ]))
-                story.append(rec_table)
+                if medium_priority:
+                    story.append(Paragraph("Medium Priority Actions:", subsection_style))
+                    for rec in medium_priority[:3]:
+                        area = rec.get('area', 'General')
+                        action = rec.get('action', 'No action specified')
+                        timeline = rec.get('timeline', 'Medium-term')
+                        story.append(Paragraph(f"• {area}: {action}", bullet_style))
+                        story.append(Paragraph(f"  - Timeline: {timeline}", bullet_style))
+                    story.append(Spacer(1, 10))
+                
+                if low_priority:
+                    story.append(Paragraph("Low Priority Actions:", subsection_style))
+                    for rec in low_priority[:3]:
+                        area = rec.get('area', 'General')
+                        action = rec.get('action', 'No action specified')
+                        story.append(Paragraph(f"• {area}: {action}", bullet_style))
             else:
-                story.append(Paragraph("No specific recommendations available", styles['Normal']))
+                story.append(Paragraph("• No specific recommendations available", bullet_style))
             
             story.append(Spacer(1, 25))
 
             # Data Visualizations Section
-            story.append(Paragraph("📊 AI-Enhanced Visualizations", section_style))
+            story.append(Paragraph("AI-Enhanced Visualizations", section_style))
             story.append(Spacer(1, 10))
 
             if visualizations:
@@ -991,64 +976,59 @@ class PDFGenerator:
                                 chart_image.hAlign = 'CENTER'
                                 story.append(chart_image)
                                 
-                                # Add AI-generated chart description
+                                # Add AI-generated chart description as bullet points
                                 description = viz.get('description', 'No description available')
-                                story.append(Paragraph(f"📝 Analysis: {description}", styles['Italic']))
+                                # Split description into key points
+                                desc_points = description.split('. ')
+                                story.append(Paragraph("📝 Key Insights:", bullet_style))
+                                for point in desc_points[:3]:  # Show top 3 insights
+                                    if point.strip():
+                                        clean_point = point.strip().rstrip('.')
+                                        story.append(Paragraph(f"• {clean_point}", insight_style))
                                 story.append(Spacer(1, 15))
                     except Exception as e:
                         print(f"Error loading chart {i}: {e}")
                         continue
             else:
-                story.append(Paragraph("No visualizations available for this analysis", styles['Normal']))
+                story.append(Paragraph("• No visualizations available for this analysis", bullet_style))
             
             story.append(Spacer(1, 25))
 
-            # Column Analysis Summary
-            story.append(Paragraph("🔍 Data Structure Insights", section_style))
+            # Column Analysis Summary - Bullet Format
+            # story.append(Paragraph("Data Structure Insights", section_style))
             
-            columns_analysis = column_analysis.get('columns_analysis', [])
-            relevant_columns = [col for col in columns_analysis if col.get('include_in_analysis', True)]
+            # columns_analysis = column_analysis.get('columns_analysis', [])
+            # relevant_columns = [col for col in columns_analysis if col.get('include_in_analysis', True)]
             
-            if relevant_columns:
-                column_data = [["Column", "Type", "Purpose", "Analysis Relevance"]]
+            # if relevant_columns:
+            #     story.append(Paragraph("Key Analyzed Columns:", subsection_style))
                 
-                for col_analysis in relevant_columns[:10]:  # Show top 10 relevant columns
-                    column_data.append([
-                        col_analysis.get('column_name', 'N/A'),
-                        col_analysis.get('detected_type', 'unknown'),
-                        col_analysis.get('reasoning', 'No purpose specified')[:30] + '...',
-                        "✅ Included" if col_analysis.get('include_in_analysis', True) else "❌ Excluded"
-                    ])
-                
-                column_table = Table(column_data, colWidths=[1.2*inch, 1.2*inch, 2.1*inch, 1*inch])
-                column_table.setStyle(TableStyle([
-                    ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),
-                    ('FONT', (0, 1), (-1, -1), 'Helvetica', 7),
-                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7D3C98')),
-                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('ALIGN', (0, 0), (-1, -1), 'LEFT')
-                ]))
-                story.append(column_table)
-            else:
-                story.append(Paragraph("No column analysis available", styles['Normal']))
+            #     for col_analysis in relevant_columns[:8]:  # Show top 8 relevant columns
+            #         col_name = col_analysis.get('column_name', 'N/A')
+            #         col_type = col_analysis.get('detected_type', 'unknown')
+            #         reasoning = col_analysis.get('reasoning', 'No purpose specified')[:50] + '...'
+                    
+            #         story.append(Paragraph(f"• {col_name} ({col_type})", bullet_style))
+            #         story.append(Paragraph(f"  - Purpose: {reasoning}", bullet_style))
+            #         story.append(Spacer(1, 2))
+            # else:
+            #     story.append(Paragraph("• No column analysis available", bullet_style))
             
-            story.append(Spacer(1, 25))
+            # story.append(Spacer(1, 25))
 
-            # Methodology and Limitations
-            story.append(Paragraph("🔬 Analysis Methodology", section_style))
-            methodology_text = """
-            This report was generated using advanced AI analysis techniques including:
-            • Natural Language Processing for sentiment analysis and theme extraction
-            • Machine Learning for pattern recognition and categorization
-            • Statistical analysis for quantitative insights
-            • AI-powered visualization generation and interpretation
+            # Methodology and Limitations - Bullet Format
+            story.append(Paragraph("Analysis Methodology", section_style))
+            story.append(Paragraph("Advanced AI Techniques Used:", subsection_style))
+            story.append(Paragraph("• Natural Language Processing for sentiment analysis and theme extraction", bullet_style))
+            story.append(Paragraph("• Machine Learning for pattern recognition and categorization", bullet_style))
+            story.append(Paragraph("• Statistical analysis for quantitative insights", bullet_style))
+            story.append(Paragraph("• AI-powered visualization generation and interpretation", bullet_style))
+            story.append(Spacer(1, 10))
             
-            Limitations: Analysis is based on available data and may not capture all nuances. 
-            Recommendations should be validated with additional business context.
-            """
-            story.append(Paragraph(methodology_text, styles['Normal']))
+            story.append(Paragraph("Important Limitations:", subsection_style))
+            story.append(Paragraph("• Analysis is based on available data and may not capture all nuances", bullet_style))
+            story.append(Paragraph("• Recommendations should be validated with additional business context", bullet_style))
+            story.append(Paragraph("• AI confidence varies based on data quality and volume", bullet_style))
             story.append(Spacer(1, 20))
 
             # Footer
@@ -1061,10 +1041,10 @@ class PDFGenerator:
                 fontName='Helvetica-Oblique'
             )
             
-            story.append(Paragraph("🤖 Generated by Advanced AI Feedback Analysis System", footer_style))
-            story.append(Paragraph(f"📄 Report generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", footer_style))
-            story.append(Paragraph("🔒 Confidential - For strategic decision making only", footer_style))
-            story.append(Paragraph("⭐ AI Confidence Level: High (Based on comprehensive pattern recognition)", footer_style))
+            story.append(Paragraph("Generated by Advanced AI Feedback Analysis System", footer_style))
+            story.append(Paragraph(f"Report generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", footer_style))
+            story.append(Paragraph("Confidential - For strategic decision making only", footer_style))
+            story.append(Paragraph("AI Confidence Level: High (Based on comprehensive pattern recognition)", footer_style))
 
             # Build the PDF
             doc.build(story)
@@ -1072,14 +1052,112 @@ class PDFGenerator:
             buffer.close()
             
             return pdf_content
-                
+        
         except Exception as e:
             print(f"AI Enhanced PDF Generation Error: {str(e)}")
             import traceback
             traceback.print_exc()
             raise Exception(f"Failed to generate AI-enhanced PDF: {str(e)}")
+    
+    def parse_markdown_executive_summary(self, executive_summary, story, subsection_style, bullet_style, insight_style, recommendation_style, highlight_style):
+        """Parse markdown formatted executive summary and convert to ReportLab format"""
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.platypus import Paragraph, Spacer
+        
+        # Create bold style for **text**
+        bold_style = ParagraphStyle(
+            'Bold',
+            parent=bullet_style,
+            fontName='Helvetica-Bold'
+        )
+        title, h2, h3, normal, bullet, note = _styles()
+        lines = executive_summary.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Handle headers (##, ###, etc.)
+            if line.startswith('## '):
+                header_text = line.replace('## ', '').replace('■ ', '').strip()
+                story.append(Spacer(1, 6))
+                story.append(Paragraph(f"{header_text}", subsection_style))
+            elif line.startswith('###'):
+                sub_style = ParagraphStyle(
+                    'SubH3', parent=normal, fontName='Helvetica-Bold',
+                    fontSize=12, textColor=colors.HexColor("#9B2C2C"), spaceBefore=8, spaceAfter=6
+                )
+                story.append(Paragraph(line[4:].strip(), sub_style)) 
+            # Handle main bullets (*)
+            elif line.startswith('* ') and not line.startswith('** '):
+                bullet_text = line.replace('* ', '').strip()
+                # Handle bold text within bullets
+                bullet_text = self.format_bold_text(bullet_text)
+                
+                # Use different styles based on content
+                if 'High Priority' in bullet_text or 'Medium Priority' in bullet_text:
+                    story.append(Paragraph(f"• {bullet_text}", recommendation_style))
+                elif any(word in bullet_text.lower() for word in ['positive', 'excellent', 'high-quality', 'praised']):
+                    story.append(Paragraph(f"• {bullet_text}", insight_style))
+                else:
+                    story.append(Paragraph(f"• {bullet_text}", bullet_style))
+                    
+            # Handle numbered lists
+            elif line[0].isdigit() and line[1:3] == '. ':
+                numbered_text = line[3:].strip()
+                numbered_text = self.format_bold_text(numbered_text)
+                story.append(Paragraph(f"{line[:2]} {numbered_text}", bullet_style))
+                
+            # Handle regular paragraphs (not starting with * or #)
+            elif not line.startswith(('# ', '* ')):
+                formatted_text = self.format_bold_text(line)
+                story.append(Paragraph(formatted_text, bullet_style))
+                story.append(Spacer(1, 3))
+    
+    def format_bold_text(self, text):
+        """Convert **text** to <b>text</b> for ReportLab"""
+        import re
+        # Replace **text** with <b>text</b>
+        return re.sub(r'\*\*(.*?)\*\*', r'\1', text)
+              
+
+
+# ---------------------------
+# PPT Generator
+# ---------------------------
+
 
 class PPTGenerator:
+    def create_generic_notes_slide(self, slide, chart_title, data_insights, recommendations):
+        """Helper method to create standardized notes for any chart slide"""
+        notes_slide = slide.notes_slide
+        
+        notes_text = f"""CHART: {chart_title}
+
+        KEY DATA INSIGHTS:
+        {data_insights}
+
+        PRESENTATION RECOMMENDATIONS:
+        {recommendations}
+
+        DISCUSSION PROMPTS:
+        • What trends or patterns do you observe in this data?
+        • How does this compare to previous periods or benchmarks?
+        • What factors might be driving these results?
+        • What actions should we take based on these insights?
+        • Are there any risks or opportunities highlighted by this data?
+
+        ADDITIONAL CONTEXT TO CONSIDER:
+        • Industry benchmarks and competitive landscape
+        • Seasonal or cyclical factors
+        • External market conditions
+        • Internal operational changes
+        • Strategic goals and objectives"""
+        
+        notes_slide.notes_text_frame.text = notes_text
+
     def create_analysis_presentation(self, gemini_output, filename, data_df=None, data_type=None):
         if data_df is not None and isinstance(data_df, pd.DataFrame) and not data_df.empty:
             return self.create_analysis_presentation_with_charts(gemini_output, data_df, filename, data_type)
@@ -1317,152 +1395,410 @@ class PPTGenerator:
             p.font.color.rgb = RGBColor(30, 158, 106)
 
     def create_chart_slides(self, prs, df, data_type=None):
-        # Use native pptx charts where feasible; otherwise embed rendered images
-        # We’ll create 3-4 slides tailored by data type
+        """Create chart slides with detailed notes for each chart - FIXED VERSION"""
+        
+        print(f"DEBUG: Creating chart slides for data_type: {data_type}")
+        print(f"DEBUG: DataFrame shape: {df.shape}")
+        print(f"DEBUG: DataFrame columns: {df.columns.tolist()}")
+        
+        if df is None or df.empty:
+            print("ERROR: DataFrame is None or empty!")
+            return
+        
         cols = {c.lower(): c for c in df.columns}
-
-        def add_line_chart(title, categories, series_label, series_values):
-            slide = prs.slides.add_slide(prs.slide_layouts[5])
-            slide.shapes.title.text = title
-            chart_data = CategoryChartData()
-            chart_data.categories = categories
-            chart_data.add_series(series_label, series_values)
-            x, y, cx, cy = Inches(1), Inches(1.8), Inches(8), Inches(4.5)
-            chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE_MARKERS, x, y, cx, cy, chart_data).chart
-            chart.has_legend = True
-            chart.legend.position = XL_LEGEND_POSITION.BOTTOM
-
-        def add_bar_chart(title, cats, label, vals):
-            slide = prs.slides.add_slide(prs.slide_layouts[5])
-            slide.shapes.title.text = title
-            chart_data = CategoryChartData()
-            chart_data.categories = cats
-            chart_data.add_series(label, vals)
-            x, y, cx, cy = Inches(1), Inches(1.8), Inches(8), Inches(4.5)
-            chart = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data).chart
-            chart.has_legend = False
-
-        def add_pie_chart(title, cats, vals):
-            slide = prs.slides.add_slide(prs.slide_layouts[5])
-            slide.shapes.title.text = title
-            chart_data = CategoryChartData()
-            chart_data.categories = cats
-            chart_data.add_series('Share', vals)
-            x, y, cx, cy = Inches(2), Inches(1.8), Inches(6), Inches(4.5)
-            chart = slide.shapes.add_chart(XL_CHART_TYPE.PIE, x, y, cx, cy, chart_data).chart
-            chart.has_legend = True
-            chart.legend.position = XL_LEGEND_POSITION.RIGHT
-
-        # Date handling
-        date_col = next((cols[c] for c in cols if 'date' in c or 'time' in c), None)
-        date_series = None
-        if date_col is not None:
+        charts_created = 0
+        
+        def add_line_chart_with_notes(title, categories, series_label, series_values, notes_text):
+            nonlocal charts_created
             try:
-                date_series = pd.to_datetime(df[date_col], errors='coerce')
-            except Exception:
-                date_series = None
+                print(f"DEBUG: Creating line chart: {title}")
+                slide = prs.slides.add_slide(prs.slide_layouts[5])
+                slide.shapes.title.text = title
+                
+                # Convert data to ensure compatibility
+                categories = [str(cat)[:50] for cat in categories]  # Limit length
+                series_values = [float(val) if pd.notna(val) else 0.0 for val in series_values]
+                
+                if len(categories) != len(series_values):
+                    print(f"ERROR: Categories length {len(categories)} != Values length {len(series_values)}")
+                    return
+                
+                chart_data = CategoryChartData()
+                chart_data.categories = categories
+                chart_data.add_series(series_label, series_values)
+                
+                x, y, cx, cy = Inches(1), Inches(1.8), Inches(8), Inches(4.5)
+                chart = slide.shapes.add_chart(XL_CHART_TYPE.LINE_MARKERS, x, y, cx, cy, chart_data).chart
+                chart.has_legend = True
+                chart.legend.position = XL_LEGEND_POSITION.BOTTOM
+                
+                # Add notes
+                notes_slide = slide.notes_slide
+                notes_slide.notes_text_frame.text = notes_text
+                
+                charts_created += 1
+                print(f"SUCCESS: Line chart created: {title}")
+                
+            except Exception as e:
+                print(f"ERROR creating line chart '{title}': {str(e)}")
+                import traceback
+                traceback.print_exc()
 
-        # Sales
+        def add_bar_chart_with_notes(title, cats, label, vals, notes_text):
+            nonlocal charts_created
+            try:
+                print(f"DEBUG: Creating bar chart: {title}")
+                slide = prs.slides.add_slide(prs.slide_layouts[5])
+                slide.shapes.title.text = title
+                
+                # Convert and validate data
+                cats = [str(cat)[:50] for cat in cats]  # Limit length
+                vals = [float(val) if pd.notna(val) else 0.0 for val in vals]
+                
+                if len(cats) != len(vals):
+                    print(f"ERROR: Categories length {len(cats)} != Values length {len(vals)}")
+                    return
+                
+                chart_data = CategoryChartData()
+                chart_data.categories = cats
+                chart_data.add_series(label, vals)
+                
+                x, y, cx, cy = Inches(1), Inches(1.8), Inches(8), Inches(4.5)
+                chart = slide.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, x, y, cx, cy, chart_data).chart
+                chart.has_legend = False
+                
+                # Add notes
+                notes_slide = slide.notes_slide
+                notes_slide.notes_text_frame.text = notes_text
+                
+                charts_created += 1
+                print(f"SUCCESS: Bar chart created: {title}")
+                
+            except Exception as e:
+                print(f"ERROR creating bar chart '{title}': {str(e)}")
+                import traceback
+                traceback.print_exc()
+
+        def add_pie_chart_with_notes(title, cats, vals, notes_text):
+            nonlocal charts_created
+            try:
+                print(f"DEBUG: Creating pie chart: {title}")
+                slide = prs.slides.add_slide(prs.slide_layouts[5])
+                slide.shapes.title.text = title
+                
+                # Convert and validate data
+                cats = [str(cat)[:50] for cat in cats]
+                vals = [float(val) if pd.notna(val) and val > 0 else 0.1 for val in vals]  # Ensure positive values
+                
+                if len(cats) != len(vals):
+                    print(f"ERROR: Categories length {len(cats)} != Values length {len(vals)}")
+                    return
+                
+                chart_data = CategoryChartData()
+                chart_data.categories = cats
+                chart_data.add_series('Share', vals)
+                
+                x, y, cx, cy = Inches(2), Inches(1.8), Inches(6), Inches(4.5)
+                chart = slide.shapes.add_chart(XL_CHART_TYPE.PIE, x, y, cx, cy, chart_data).chart
+                chart.has_legend = True
+                chart.legend.position = XL_LEGEND_POSITION.RIGHT
+                
+                # Add notes
+                notes_slide = slide.notes_slide
+                notes_slide.notes_text_frame.text = notes_text
+                
+                charts_created += 1
+                print(f"SUCCESS: Pie chart created: {title}")
+                
+            except Exception as e:
+                print(f"ERROR creating pie chart '{title}': {str(e)}")
+                import traceback
+                traceback.print_exc()
+
+        # Date handling - IMPROVED
+        date_col = None
+        date_series = None
+        
+        for col in df.columns:
+            if any(keyword in col.lower() for keyword in ['date', 'time']):
+                try:
+                    test_series = pd.to_datetime(df[col], errors='coerce')
+                    if not test_series.isna().all():  # At least some valid dates
+                        date_col = col
+                        date_series = test_series
+                        print(f"DEBUG: Found date column: {col}")
+                        break
+                except Exception:
+                    continue
+        
+        # ALWAYS CREATE AT LEAST ONE CHART regardless of data_type
+        created_any_chart = False
+        
+        # Try to create charts based on data type
         if data_type == 'sales':
-            revenue = next((x for x in [cols.get('total_sales'), cols.get('revenue'), cols.get('sales'), cols.get('amount')] if x is not None), None)
-            product = next((x for x in [cols.get('product'), cols.get('category'), cols.get('item')] if x is not None), None)
-            payment = next((x for x in [cols.get('payment_method'), cols.get('payment_type'), cols.get('method')] if x is not None), None)
-
-            # Trend
-            if date_series is not None and revenue is not None:
-                tmp = df.copy()
-                tmp[date_col] = date_series
-                tmp = tmp.dropna(subset=[date_col])
-                daily = tmp.groupby(tmp[date_col].dt.to_period('D'))[revenue].sum()
-                if len(daily)>0:
-                    add_line_chart("Revenue Trend", [str(p) for p in daily.index], "Revenue", daily.values)
-
-            # Top products
-            if product and revenue:
-                top = df.groupby(product)[revenue].sum().nlargest(5)
-                if len(top)>0:
-                    add_bar_chart("Top Performing Products", list(top.index), "Revenue", list(top.values))
-
-            # Payment pie
-            if payment:
-                dist = df[payment].value_counts().head(6)
-                if len(dist)>0:
-                    add_pie_chart("Payment Method Distribution", list(dist.index), list(dist.values))
-            return
-
-        # Financial
-        if data_type == 'financial':
-            revenue = next((x for x in [cols.get('revenue'), cols.get('total_revenue')] if x is not None), None)
-            profit = next((x for x in [cols.get('net_profit'), cols.get('profit'), cols.get('gross_profit')] if x is not None), None)
-            margin = next((x for x in [cols.get('profit_margin'), cols.get('margin')] if x is not None), None)
-
-            if date_series is not None and revenue and profit:
-                tmp = df.copy()
-                tmp[date_col] = date_series
-                tmp = tmp.dropna(subset=[date_col])
-                daily = tmp.groupby(tmp[date_col].dt.to_period('D'))[[revenue, profit]].sum()
-                if len(daily)>0:
-                    # Revenue line
-                    add_line_chart("Revenue Trend", [str(p) for p in daily.index], "Revenue", daily[revenue].values)
-                    # Profit line
-                    add_line_chart("Profit Trend", [str(p) for p in daily.index], "Profit", daily[profit].values)
-
-            if date_series is not None and margin:
-                tmp = df.copy()
-                tmp[date_col] = date_series
-                tmp = tmp.dropna(subset=[date_col])
-                series = tmp.groupby(tmp[date_col].dt.to_period('D'))[margin].mean()*100
-                if len(series)>0:
-                    add_line_chart("Profit Margin Trend (%)", [str(p) for p in series.index], "Margin %", series.values)
-            return
-
-        # Social Media
-        if data_type == 'social_media':
-            platform = cols.get('platform')
-            metric = next((m for m in ['views','likes','shares','comments'] if m in cols), None)
+            print("DEBUG: Processing SALES data")
             
-            # Fix the content column lookup
-            content = None
-            for col in df.columns:
-                if 'content' in col.lower():
-                    content = col  
-                    break
+            # Find revenue/sales columns
+            revenue_cols = [col for col in df.columns if any(keyword in col.lower() 
+                        for keyword in ['sales', 'revenue', 'total', 'amount', 'price'])]
+            product_cols = [col for col in df.columns if any(keyword in col.lower() 
+                        for keyword in ['product', 'category', 'item', 'name'])]
             
-            if platform and metric:
-                perf = df.groupby(platform)[cols[metric]].mean().sort_values(ascending=False).head(6)
-                if len(perf) > 0:
-                    add_bar_chart(f"Average {metric.title()} by Platform", list(perf.index), metric.title(), list(perf.values))
+            print(f"DEBUG: Found revenue columns: {revenue_cols}")
+            print(f"DEBUG: Found product columns: {product_cols}")
             
-            if content:
-                cnt = df[content].value_counts().head(6)
-                if len(cnt) > 0:
-                    add_pie_chart("Content Type Distribution", list(cnt.index), list(cnt.values))
+            # Create revenue trend if we have date and revenue data
+            if date_series is not None and revenue_cols:
+                revenue_col = revenue_cols[0]
+                try:
+                    # Create time series data
+                    tmp = df.copy()
+                    tmp[date_col] = date_series
+                    tmp = tmp.dropna(subset=[date_col, revenue_col])
+                    
+                    if len(tmp) > 0:
+                        # Group by date periods
+                        daily = tmp.groupby(tmp[date_col].dt.to_period('D'))[revenue_col].sum()
+                        
+                        if len(daily) > 0:
+                            trend_direction = "increasing" if daily.iloc[-1] > daily.iloc[0] else "decreasing"
+                            avg_revenue = daily.mean()
+                            
+                            notes_text = f"""REVENUE TREND INSIGHTS:
+    • Trend Direction: Revenue is {trend_direction} over the analyzed period
+    • Average Revenue: ${avg_revenue:,.2f}
+    • Total Revenue: ${daily.sum():,.2f}
+    • Data Points: {len(daily)} periods
 
-            if date_series is not None and metric:
-                tmp = df.copy()
-                tmp[date_col] = date_series
-                tmp = tmp.dropna(subset=[date_col])
-                daily = tmp.groupby(tmp[date_col].dt.to_period('D'))[cols[metric]].sum()
-                if len(daily)>0:
-                    add_line_chart(f"Daily {metric.title()} Trend", [str(p) for p in daily.index], metric.title(), daily.values)
-            return
+    PRESENTATION TALKING POINTS:
+    • Discuss seasonal patterns and trends
+    • Compare to previous periods
+    • Identify growth opportunities
+    • Address any concerning patterns"""
 
-        # General fallback
-        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        txt_cols = df.select_dtypes(include=['object']).columns.tolist()
+                            add_line_chart_with_notes(
+                                "Revenue Trend Analysis",
+                                [str(p)[:20] for p in daily.index],  # Limit string length
+                                "Revenue",
+                                daily.values.tolist(),
+                                notes_text
+                            )
+                            created_any_chart = True
+                except Exception as e:
+                    print(f"ERROR creating revenue trend: {str(e)}")
+            
+            # Create product performance chart
+            if product_cols and revenue_cols:
+                product_col = product_cols[0]
+                revenue_col = revenue_cols[0]
+                try:
+                    product_revenue = df.groupby(product_col)[revenue_col].sum().sort_values(ascending=False).head(10)
+                    
+                    if len(product_revenue) > 0:
+                        total_revenue = df[revenue_col].sum()
+                        top_share = (product_revenue.iloc[0] / total_revenue) * 100 if total_revenue > 0 else 0
+                        
+                        notes_text = f"""TOP PRODUCTS PERFORMANCE:
+    • Leading Product: {product_revenue.index[0]} 
+    • Revenue: ${product_revenue.iloc[0]:,.2f} ({top_share:.1f}% of total)
+    • Products Analyzed: {len(product_revenue)}
 
-        if date_series is not None and num_cols:
-            tmp = df.copy()
-            tmp[date_col] = date_series
-            tmp = tmp.dropna(subset=[date_col])
-            daily = tmp.groupby(tmp[date_col].dt.to_period('D'))[num_cols[0]].sum()
-            if len(daily)>0:
-                add_line_chart(f"{num_cols.title()} Trend", [str(p) for p in daily.index], num_cols.title(), daily.values)
+    STRATEGIC INSIGHTS:
+    • Focus on top-performing products
+    • Investigate underperforming items
+    • Consider inventory optimization
+    • Explore cross-selling opportunities"""
 
-        if txt_cols and num_cols:
-            top = df.groupby(txt_cols)[num_cols].sum().nlargest(5)
-            if len(top)>0:
-                add_bar_chart(f"Top {txt_cols.title()}", list(top.index), num_cols.title(), list(top.values))
+                        add_bar_chart_with_notes(
+                            "Top Product Performance",
+                            list(product_revenue.index),
+                            "Revenue",
+                            product_revenue.values.tolist(),
+                            notes_text
+                        )
+                        created_any_chart = True
+                except Exception as e:
+                    print(f"ERROR creating product chart: {str(e)}")
+                    
+        elif data_type == 'financial':
+            print("DEBUG: Processing FINANCIAL data")
+            
+            # Find financial columns
+            revenue_cols = [col for col in df.columns if any(keyword in col.lower() 
+                        for keyword in ['revenue', 'sales', 'income'])]
+            profit_cols = [col for col in df.columns if any(keyword in col.lower() 
+                        for keyword in ['profit', 'net', 'margin'])]
+            
+            if date_series is not None and revenue_cols:
+                revenue_col = revenue_cols[0]
+                try:
+                    tmp = df.copy()
+                    tmp[date_col] = date_series
+                    tmp = tmp.dropna(subset=[date_col, revenue_col])
+                    
+                    if len(tmp) > 0:
+                        daily = tmp.groupby(tmp[date_col].dt.to_period('D'))[revenue_col].sum()
+                        
+                        if len(daily) > 0:
+                            growth_rate = ((daily.iloc[-1] - daily.iloc[0]) / daily.iloc[0] * 100) if daily.iloc[0] != 0 else 0
+                            
+                            notes_text = f"""FINANCIAL PERFORMANCE:
+    • Revenue Growth: {growth_rate:+.1f}% over period
+    • Total Revenue: ${daily.sum():,.2f}
+    • Average Daily: ${daily.mean():,.2f}
 
+    DISCUSSION POINTS:
+    • Analyze revenue trends and patterns
+    • Compare against budget/forecasts
+    • Identify seasonal variations
+    • Assess market conditions impact"""
+
+                            add_line_chart_with_notes(
+                                "Revenue Performance",
+                                [str(p)[:20] for p in daily.index],
+                                "Revenue",
+                                daily.values.tolist(),
+                                notes_text
+                            )
+                            created_any_chart = True
+                except Exception as e:
+                    print(f"ERROR creating financial chart: {str(e)}")
+        
+        elif data_type == 'social_media':
+            print("DEBUG: Processing SOCIAL MEDIA data")
+            
+            # Find social media columns
+            platform_cols = [col for col in df.columns if 'platform' in col.lower()]
+            engagement_cols = [col for col in df.columns if any(keyword in col.lower() 
+                            for keyword in ['likes', 'views', 'shares', 'comments', 'engagement'])]
+            
+            if platform_cols and engagement_cols:
+                platform_col = platform_cols[0]
+                engagement_col = engagement_cols[0]
+                try:
+                    platform_perf = df.groupby(platform_col)[engagement_col].mean().sort_values(ascending=False)
+                    
+                    if len(platform_perf) > 0:
+                        best_platform = platform_perf.index[0]
+                        
+                        notes_text = f"""PLATFORM PERFORMANCE:
+    • Top Platform: {best_platform} 
+    • Average {engagement_col}: {platform_perf.iloc[0]:,.0f}
+    • Platforms Analyzed: {len(platform_perf)}
+
+    STRATEGY POINTS:
+    • Focus resources on top platforms
+    • Analyze audience behavior differences
+    • Optimize content for each platform
+    • Consider cross-platform promotion"""
+
+                        add_bar_chart_with_notes(
+                            f"{engagement_col.title()} by Platform",
+                            list(platform_perf.index),
+                            engagement_col.title(),
+                            platform_perf.values.tolist(),
+                            notes_text
+                        )
+                        created_any_chart = True
+                except Exception as e:
+                    print(f"ERROR creating social media chart: {str(e)}")
+        
+        # FALLBACK: Create at least one chart if none created yet
+        if not created_any_chart:
+            print("DEBUG: Creating FALLBACK charts")
+            
+            # Try to create any chart from available data
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            text_cols = df.select_dtypes(include=['object']).columns.tolist()
+            
+            print(f"DEBUG: Numeric columns: {numeric_cols}")
+            print(f"DEBUG: Text columns: {text_cols}")
+            
+            # Create a simple bar chart if we have categorical and numeric data
+            if text_cols and numeric_cols:
+                try:
+                    cat_col = text_cols[0]
+                    num_col = numeric_cols[0]
+                    
+                    # Get top categories
+                    top_categories = df.groupby(cat_col)[num_col].sum().sort_values(ascending=False).head(8)
+                    
+                    if len(top_categories) > 0:
+                        notes_text = f"""GENERAL DATA ANALYSIS:
+    • Top Category: {top_categories.index[0]}
+    • Value: {top_categories.iloc[0]:,.2f}
+    • Categories: {len(top_categories)}
+
+    KEY INSIGHTS:
+    • Identify top performers
+    • Analyze distribution patterns
+    • Consider resource allocation
+    • Look for optimization opportunities"""
+
+                        add_bar_chart_with_notes(
+                            f"{num_col} by {cat_col}",
+                            list(top_categories.index),
+                            num_col,
+                            top_categories.values.tolist(),
+                            notes_text
+                        )
+                        created_any_chart = True
+                except Exception as e:
+                    print(f"ERROR creating fallback bar chart: {str(e)}")
+            
+            # If still no chart, create a simple data summary chart
+            if not created_any_chart and numeric_cols:
+                try:
+                    # Create a summary stats chart
+                    col = numeric_cols[0]
+                    stats = df[col].describe()
+                    
+                    categories = ['Count', 'Mean', 'Std', 'Min', '25%', '50%', '75%', 'Max']
+                    values = [stats['count'], stats['mean'], stats['std'], stats['min'], 
+                            stats['25%'], stats['50%'], stats['75%'], stats['max']]
+                    
+                    notes_text = f"""DATA SUMMARY - {col}:
+    • Total Records: {stats['count']:,.0f}
+    • Average: {stats['mean']:,.2f}
+    • Range: {stats['min']:,.2f} to {stats['max']:,.2f}
+
+    INSIGHTS:
+    • Review data distribution
+    • Identify outliers or patterns
+    • Consider data quality
+    • Plan further analysis"""
+
+                    add_bar_chart_with_notes(
+                        f"Statistical Summary - {col}",
+                        categories,
+                        "Value",
+                        values,
+                        notes_text
+                    )
+                    created_any_chart = True
+                except Exception as e:
+                    print(f"ERROR creating summary chart: {str(e)}")
+        
+        print(f"DEBUG: Total charts created: {charts_created}")
+        
+        if charts_created == 0:
+            print("WARNING: No charts were created! Adding a text slide...")
+            # Add at least one slide explaining the issue
+            slide = prs.slides.add_slide(prs.slide_layouts[1])
+            slide.shapes.title.text = "Data Analysis Notice"
+            tf = slide.shapes.placeholders[1].text_frame
+            tf.text = f"""Chart generation encountered issues with the provided data.
+
+    Data Summary:
+    • Rows: {len(df)}
+    • Columns: {len(df.columns)}
+    • Data Type: {data_type}
+
+    Please verify:
+    • Data format and structure
+    • Column naming conventions
+    • Data completeness
+
+    Contact support for assistance with chart generation."""
 
 # End of file

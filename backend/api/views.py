@@ -26,6 +26,11 @@ from django.utils import timezone
 import json
 import re
 import time
+# from django.shortcuts import render
+
+# def landing_page(request):
+#     return render(request, 'index.html')
+
 
 class FileProcessingView(generics.CreateAPIView):
 
@@ -80,7 +85,8 @@ class FileProcessingView(generics.CreateAPIView):
                     'cleaned_excel_url': cleaned_excel_url,
                     'cleaning_pdf_url': cleaning_pdf_url
                 },
-                pdf_url=pdf_url
+                pdf_url=pdf_url,
+                ppt_url=ppt_url
             )
 
             serializer = ProcessedReportSerializer(processed_report)
@@ -1561,6 +1567,9 @@ class FileProcessingView(generics.CreateAPIView):
         - Customer concentration risks
         - Market saturation indicators
 
+        ## Conclusion
+        Summarize business health and growth potential.
+
         Focus on actionable insights that can drive sales growth and operational efficiency.
         """
 
@@ -1739,40 +1748,43 @@ class FileProcessingView(generics.CreateAPIView):
         """Generate PowerPoint presentation specialized for the detected data type"""
         try:
             from .utils.report_generators import PPTGenerator
+            
+            print(f"DEBUG: Starting PPT generation")
+            print(f"DEBUG: Data type: {data_type}")
+            print(f"DEBUG: DataFrame shape: {df_cleaned.shape}")
+            
             ppt_generator = PPTGenerator()
             
-            # Sanitize data_type for filename
-            if isinstance(data_type, (tuple, list)):
-                data_type_str = str(data_type[0])
-            else:
-                data_type_str = str(data_type)
-            
-            # Remove any invalid characters for filename
-            import re
-            data_type_str = re.sub(r'[^a-zA-Z0-9_-]', '_', data_type_str)
-
             # Pass data type for specialized formatting
             ppt_content = ppt_generator.create_specialized_analysis_presentation(
                 analysis_results, filename, df_cleaned, data_type
             )
-
+            
+            print(f"DEBUG: PPT content size: {len(ppt_content)} bytes")
+            
             # Upload to Supabase
             supabase_url = os.getenv('SUPABASE_URL')
             supabase_key = os.getenv('SUPABASE_KEY')
             supabase = create_client(supabase_url, supabase_key)
-
+            
+            # Sanitize data_type for filename
+            data_type_str = str(data_type).replace(' ', '_')
             ppt_filename = f"reports/{uuid.uuid4()}_{data_type_str}_analysis_presentation.pptx"
+            
             res = supabase.storage.from_("business_files").upload(
                 path=ppt_filename,
                 file=ppt_content,
                 file_options={"content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
             )
-
+            
             return supabase.storage.from_("business_files").get_public_url(ppt_filename)
-
+            
         except Exception as e:
             print(f"PPT Generation Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Failed to generate specialized PPT: {str(e)}")
+
 
 class FeedbackAnalysisView(generics.CreateAPIView):
     MIN_PROMPT_LEN = 100
@@ -2741,49 +2753,7 @@ class FeedbackAnalysisView(generics.CreateAPIView):
             return response.content
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to download file from Supabase: {str(e)}")
-              
-class GenerateEditedPDFView(APIView):
-    permission_classes = [IsAuthenticated]
-    
-    def post(self, request, *args, **kwargs):
-        report_id = request.data.get('report_id')
         
-        try:
-            # Get the latest report data from database
-            report = CommentReport.objects.get(id=report_id)
-            business_data = report.file_url  # This is the BusinessData instance
-            
-            # Use the saved data from the database
-            report_data = report.file_content
-            
-            # Generate PDF with the latest data
-            pdf_generator = PDFGenerator()
-            pdf_content = pdf_generator.create_feedback_report(
-                report_data,  # Use the data from database
-                business_data.fileName
-            )
-            
-            # Upload to Supabase
-            supabase_url = os.getenv('SUPABASE_URL')
-            supabase_key = os.getenv('SUPABASE_KEY')
-            supabase = create_client(supabase_url, supabase_key)
-            
-            pdf_filename = f"commentsreport/{uuid.uuid4()}_edited_feedback_report.pdf"
-            res = supabase.storage.from_("business_files").upload(
-                path=pdf_filename,
-                file=pdf_content,
-                file_options={"content-type": "application/pdf"}
-            )
-            
-            pdf_url = supabase.storage.from_("business_files").get_public_url(pdf_filename)
-            
-            return Response({'pdf_url': pdf_url}, status=status.HTTP_200_OK)
-            
-        except CommentReport.DoesNotExist:
-            return Response({'error': 'Report not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': f'Failed to generate PDF: {str(e)}'}, 
-                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 from django.http import JsonResponse
 

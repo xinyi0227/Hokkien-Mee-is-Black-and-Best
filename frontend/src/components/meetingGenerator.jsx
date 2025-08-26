@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation,useNavigate  } from "react-router-dom";
 import Header from './header'
+import "../styles/uploadMeetingAudio.css";   // adjust path if needed
 
 
 const Meeting = () => {
@@ -248,159 +249,99 @@ const handleTranscribe = () => {
   return (
      <>
     <Header />
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Meeting Generator</h1>
+    <div className="p-6 min-h-screen bg-gray-200 dark:bg-gray-900">
+    <div className="max-w-4xl mx-auto p-6" >
+        <h1 className="text-3xl font-bold mb-6 dark:text-white">Meeting Generator</h1>
 
       {meetingData && (
-        <div className="mb-6 p-6 bg-gray-50 rounded-lg">
-          <h2 className="text-2xl font-semibold mb-2">{meetingData.meeting_title}</h2>
-          <p><strong>Date:</strong> {meetingData.meeting_date || "N/A"}</p>
-          <p><strong>Time:</strong> {meetingData.meeting_time}</p>
-          <p><strong>Location:</strong> {meetingData.meeting_location}</p>
-        </div>
+        <div className="mb-6 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow">
+            <h2 className="text-2xl font-semibold mb-2 dark:text-white">{meetingData.meeting_title}</h2>
+            <p className="dark:text-gray-200"><strong>Date:</strong> {meetingData.meeting_date || "N/A"}</p>
+            <p className="dark:text-gray-200"><strong>Time:</strong> {meetingData.meeting_time}</p>
+            <p className="dark:text-gray-200"><strong>Location:</strong> {meetingData.meeting_location}</p>
+          </div>
       )}
 
        {/* Conditional rendering */}
         {!hasUploadedFiles && !uploadSuccess ? (
-      <form  className="mb-8 p-6 bg-gray-50 rounded-lg">
-        <h2 className="text-xl font-semibold mb-4">Upload Audio Files</h2>
+      <form className="mb-8 p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 shadow">
+            <h2 className="text-xl font-semibold mb-4 dark:text-white">Upload Audio Files</h2>
 
-        {/* Main File */}
-        <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Main Meeting Audio:</label>
-           <input
-            type="file"
-            accept="audio/*"
-            onChange={handleMainFileChange}
-            className="block w-full text-sm text-gray-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-lg file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-blue-700
-              hover:file:bg-blue-100"
-          />
-        </div>
+            {/* Main File */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Main Meeting Audio:</label>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={handleMainFileChange}
+                className="block w-full text-sm text-gray-500 dark:text-gray-300
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100
+                  dark:file:bg-blue-900 dark:file:text-blue-300 dark:hover:file:bg-blue-800"
+              />
+            </div>
 
-        {/* Individual files + employee select */}
-       {individualFiles.map((_, idx) => {
-        const employeeId = meetingData[`meeting_mic${idx + 1}`];
-        const employee = employees.find(emp => emp.employee_id == employeeId);
+            {/* Individual files */}
+            {individualFiles.map((_, idx) => {
+              const employeeId = meetingData[`meeting_mic${idx + 1}`];
+              const employee = employees.find(emp => emp.employee_id == employeeId);
 
-        return (
-          <div key={idx} className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {employee ? `${employee.employee_name} Audio` : `Individual Audio ${idx + 1}`}:
-            </label>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => handleIndividualFileChange(idx, e.target.files[0])}
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-lg file:border-0
-                file:text-sm file:font-semibold
-                file:bg-green-50 file:text-green-700
-                hover:file:bg-green-100"
-            />
-          </div>
-        )
-      })}
+              return (
+                <div key={idx} className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    {employee ? `${employee.employee_name} Audio` : `Individual Audio ${idx + 1}`}:
+                  </label>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => handleIndividualFileChange(idx, e.target.files[0])}
+                    className="block w-full text-sm text-gray-500 dark:text-gray-300
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-lg file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-green-50 file:text-green-700
+                      hover:file:bg-green-100
+                      dark:file:bg-green-900 dark:file:text-green-300 dark:hover:file:bg-green-800"
+                  />
+                </div>
+              )
+            })}
 
-
-         <button
-          type="button"
-          onClick={handleUpload}
-          disabled={isUploading}
-          className={`flex items-center justify-center bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors ${
-            isUploading ? "opacity-75 cursor-not-allowed" : ""
-          }`}
-          >
-          {isUploading ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 
-                    5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 
-                    3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Uploading...
-            </>
-          ) : (
-            "Upload Files"
-          )}
-        </button>
-      </form>
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={isUploading}
+              className="btn-custom"
+            >
+              {isUploading ? "Uploading..." : "Upload Files"}
+            </button>
+          </form>
   ) : (
       //  {uploadSuccess && (
-        
-  <div className="mt-4">
-    <button
-      onClick={handleTranscribe}
-      disabled={isTranscribing}
-      className={`flex items-center justify-center bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors ${
-        isTranscribing ? "opacity-75 cursor-not-allowed" : ""
-      }`}
-    >
-      {isTranscribing ? (
-        <>
-          <svg
-            className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 
-                 0 5.373 0 12h4zm2 5.291A7.962 
-                 7.962 0 014 12H0c0 3.042 
-                 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          Transcribing...
-        </>
-      ) : (
-        "Summary the audio"
-      )}
-    </button>
-  </div>
-)}
+ <div className="mt-4">
+            <button
+              onClick={handleTranscribe}
+              disabled={isTranscribing}
+              className="btn-custom"
+            >
+              {isTranscribing ? "Transcribing..." : "Summary the audio"}
+            </button>
+          </div>
+        )}
 
-     {transcript && (
-        <div className="p-6 bg-white rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold mb-2">Transcript / Audio Files:</h3>
-          <div dangerouslySetInnerHTML={{ __html: transcript }} />
-        </div>
-      )}
-
+        {transcript && (
+          <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold mb-2 dark:text-white">Transcript / Audio Files:</h3>
+            <div className="dark:text-gray-200" dangerouslySetInnerHTML={{ __html: transcript }} />
+          </div>
+        )}
+      </div>
     </div>
-    </>
-  );
+  </>
+);
 };
 
 export default Meeting;

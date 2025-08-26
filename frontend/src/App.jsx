@@ -19,7 +19,7 @@ import ComplaintList from "./components/ComplaintList";
 import ComplaintUpload from "./components/ComplaintUpload";
 import ComplaintDetails from "./components/ComplaintDetails";
 import Login from './components/Login';
-import Details from "./components/Details";
+import Profile from './components/Profile'
 import Register from './components/Register'
 import FilePage from './components/filePage';
 import ArchiveList from './components/ArchiveList';
@@ -28,6 +28,7 @@ import FAQ from "./components/Faq";
 import FaqAdmin from "./components/FaqAdmin";
 import Transcript from "./components/Transcript";
 import MeetingAttachments from "./components/MeetingAttachments";
+import LandingPage from "./components/LandingPage";
 
 
 function App() {
@@ -86,6 +87,8 @@ function App() {
         />
 
         <Route path="/register" element={<Register />} />
+
+      
         
         {/* Task list page */}
         <Route
@@ -110,6 +113,9 @@ function App() {
             </div>
           }
         />
+
+        <Route path="/landing" element={<LandingPage />} />   {/* 👈 add this */}
+
 
         <Route 
           path="/transcript/:meetingId" 
@@ -136,10 +142,10 @@ function App() {
         /> */}
 
         <Route
-          path="/details"
+          path="/profile"
           element={
             <div className="min-h-screen bg-gray-100">
-              <Details />
+              <Profile />
             </div>
           }
         />

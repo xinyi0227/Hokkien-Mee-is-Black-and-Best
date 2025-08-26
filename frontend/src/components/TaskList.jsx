@@ -5,6 +5,15 @@ import Header from './header'
 import { FiTrash2, FiX } from 'react-icons/fi'
 import CalendarView from './CalendarView'
 
+const COLOR = {
+  del:  'bg-[#c71f37] text-white hover:bg-[#f08080] hover:text-white',
+  save: 'bg-[#aad576] text-white hover:bg-[#c1fba4] hover:text-white',
+  edit: 'bg-[#8b2fc9] text-white hover:bg-[#d2b7e5] hover:text-white',
+  other:'bg-[#1985a1] text-white hover:bg-[#89c2d9] hover:text-white',
+  otherOutline:
+    'border border-[#1985a1] bg-[#1985a1] text-white hover:bg-[#89c2d9] hover:text-white',
+}
+
 const toDateOnly = (v) => {
   if (!v) return ''
   const s = String(v)
@@ -40,7 +49,7 @@ const normalizePriority = (p) => {
 }
 
 const STATUS_GROUP_ORDER = ['done', 'review', 'in progress', 'pending']
-const STATUS_OPTIONS_FOR_EDIT = STATUS_GROUP_ORDER
+const STATUS_OPTIONS_BASE = ['pending', 'in progress', 'review', 'done']
 const STATUS_META = {
   pending: { label: 'PENDING', badge: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100' },
   'in progress': { label: 'IN PROGRESS', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' },
@@ -153,7 +162,7 @@ const TaskList = ({ currentUser }) => {
     if (currentUser?.role === 'boss' && filter !== FILTERS.ALL) {
       setFilter(FILTERS.ALL)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.role])
 
   useEffect(() => {
@@ -288,26 +297,38 @@ const TaskList = ({ currentUser }) => {
 
   const handleAddTask = async (e) => {
     e.preventDefault()
-    if (!newTask.task_title.trim()) return
+    if (!newTask.task_title.trim()) {
+      alert('Please enter a task title.')
+      return
+    }
+    if (!newTask.deadline) {
+      alert('Please select a due date.')
+      return
+    }
+    if (currentUser?.role !== 'employee' && !newTask.assignee_id) {
+      alert('Please select an assignee.')
+      return
+    }
+
     try {
       const now = new Date().toISOString()
       const taskToInsert = {
         ...newTask,
+        task_content: newTask.task_content ?? '',
         status: normalizeStatus('pending'),
         urgent_level: normalizePriority(newTask.urgent_level),
-        deadline: newTask.deadline ? `${newTask.deadline}T00:00:00` : null,
+        deadline: `${newTask.deadline}T00:00:00`,
         created_at: now,
         updated_at: now,
       }
 
       if (currentUser?.role === 'employee') {
         taskToInsert.assignee_id = currentUser.employee_id
-      }
-      if (currentUser?.role === 'manager') {
-        const allowedIds = new Set(departmentEmployees.map((e) => String(e.employee_id)))
-        if (taskToInsert.assignee_id && !allowedIds.has(String(taskToInsert.assignee_id))) {
-          alert('You can only assign tasks to employees in your department. Assignee cleared.')
-          taskToInsert.assignee_id = ''
+      } else if (currentUser?.role === 'manager') {
+        const allowedIds = new Set(departmentEmployees.map(e => String(e.employee_id)))
+        if (!allowedIds.has(String(taskToInsert.assignee_id))) {
+          alert('You can only assign tasks to employees in your department.')
+          return
         }
       }
 
@@ -324,12 +345,18 @@ const TaskList = ({ currentUser }) => {
   }
 
   const handleDeleteTask = async (task_id) => {
+    const ok = window.confirm(
+      "Are you sure you want to permanently delete this task? This action cannot be undone."
+    )
+    if (!ok) return
+
     try {
       const { error } = await supabase.from('task').delete().eq('task_id', task_id)
       if (error) throw error
       fetchTasks()
     } catch (error) {
       console.error('Error deleting task:', error)
+      alert('Delete failed.')
     }
   }
 
@@ -422,7 +449,13 @@ const TaskList = ({ currentUser }) => {
   const handleTaskField = (field, value) => {
     setCurrentTask((prev) => {
       let v = value
-      if (field === 'status') v = normalizeStatus(value)
+      if (field === 'status') {
+        v = normalizeStatus(value)
+        const prevStatus = normalizeStatus(prev.status)
+        if (v === 'archieve' && prevStatus !== 'done') {
+          return prev
+        }
+      }
       if (field === 'urgent_level') v = normalizePriority(value)
       if (field === 'deadline') v = toDateOnly(value)
       return { ...prev, [field]: v }
@@ -581,7 +614,6 @@ const TaskList = ({ currentUser }) => {
     })
   }, [tasks, filter, currentUser, empMap])
 
-  
   const grouped = useMemo(() => {
     const res = Object.fromEntries(STATUS_GROUP_ORDER.map((s) => [s, []]))
     for (const t of filteredTasks) {
@@ -592,19 +624,19 @@ const TaskList = ({ currentUser }) => {
     return res
   }, [filteredTasks])
 
-const filteredMeetings = useMemo(() => {
-  if (!currentUser) return []
+  const filteredMeetings = useMemo(() => {
+    if (!currentUser) return []
 
-  const list = meetings || []
-  const myId = String(currentUser.employee_id ?? '')
-  const myDeptId = String(currentUser.department_id ?? '')
+    const list = meetings || []
+    const myId = String(currentUser.employee_id ?? '')
+    const myDeptId = String(currentUser.department_id ?? '')
 
-  const inCsv = (csv, needle) =>
-    String(csv || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean)
-      .includes(String(needle || ''))
+    const inCsv = (csv, needle) =>
+      String(csv || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+        .includes(String(needle || ''))
 
     switch (filter) {
       case FILTERS.MINE:
@@ -620,15 +652,16 @@ const filteredMeetings = useMemo(() => {
   if (loading) return <div className="text-center text-gray-700 dark:text-gray-200">Loading...</div>
 
   const pill = (active) =>
-    `px-3 py-1.5 rounded-full text-sm border transition ${active
-      ? 'bg-gray-900 text-white border-gray-900 dark:bg-gray-100 dark:text-gray-900 dark:border-gray-100'
-      : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800 dark:border-gray-700'
-    }`
+    `px-3 py-1.5 rounded-lg text-sm border transition
+    ${active
+      ? 'bg-[#1985a1] text-white border-[#1985a1]'
+      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-[#89c2d9] hover:border-[#89c2d9] hover:text-white'}`
 
   const viewBtn = (active) =>
-    `px-3 py-1.5 rounded-lg text-sm border ${active
-      ? 'bg-blue-600 text-white border-blue-600'
-      : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+    `px-3 py-1.5 rounded-lg text-sm border transition ${
+      active
+        ? 'bg-[#1985a1] text-white border-[#1985a1] hover:bg-[#89c2d9] hover:border-[#89c2d9]'
+        : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-[#89c2d9] hover:border-[#89c2d9] hover:text-white'
     }`
 
   return (
@@ -654,7 +687,7 @@ const filteredMeetings = useMemo(() => {
               </div>
 
               <button
-                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                className={`${COLOR.other} px-4 py-2 rounded`}
                 onClick={() => {
                   resetNewTask()
                   setShowAddModal(true)
@@ -742,7 +775,7 @@ const filteredMeetings = useMemo(() => {
                                   e.stopPropagation()
                                   handleDeleteTask(task.task_id)
                                 }}
-                                className="p-1.5 rounded-md text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className={`${COLOR.del} p-1.5 rounded-md`}
                                 title="Delete"
                               >
                                 <FiTrash2 size={16} />
@@ -768,7 +801,7 @@ const filteredMeetings = useMemo(() => {
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
               <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-6 rounded-xl w-full max-w-md relative shadow-2xl">
                 <button
-                  className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  className={`${COLOR.otherOutline} absolute top-3 right-3 p-1.5 rounded`}
                   onClick={() => {
                     setShowAddModal(false)
                     resetNewTask()
@@ -811,6 +844,7 @@ const filteredMeetings = useMemo(() => {
                       onChange={(e) => setNewTask({ ...newTask, deadline: toDateOnly(e.target.value) })}
                       className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
                       min={today}
+                      required
                     />
                   </div>
 
@@ -819,11 +853,8 @@ const filteredMeetings = useMemo(() => {
                       value={newTask.assignee_id}
                       onChange={(e) => setNewTask({ ...newTask, assignee_id: e.target.value })}
                       className="w-full p-3 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                      title={
-                        currentUser?.role === 'manager'
-                          ? 'Only employees in your department'
-                          : 'All employees'
-                      }
+                      title={currentUser?.role === 'manager' ? 'Only employees in your department' : 'All employees'}
+                      required
                     >
                       <option value="">Select Assignee</option>
                       {availableAssigneesForAdd.map((emp) => (
@@ -836,7 +867,7 @@ const filteredMeetings = useMemo(() => {
 
                   <button
                     type="submit"
-                    className="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    className={`${COLOR.save} w-full px-6 py-2 rounded-lg`}
                   >
                     Add Task
                   </button>
@@ -859,13 +890,13 @@ const filteredMeetings = useMemo(() => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleSaveClick}
-                      className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      className={`${COLOR.save} px-3 py-1.5 text-sm rounded-lg`}
                     >
                       Save
                     </button>
                     <button
                       onClick={closeTaskModal}
-                      className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700"
+                      className={`${COLOR.otherOutline} p-2 rounded-lg`}
                       aria-label="Close"
                       title="Close"
                     >
@@ -886,17 +917,20 @@ const filteredMeetings = useMemo(() => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                       <div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                         <div className="text-xs uppercase text-gray-500 dark:text-gray-400 mb-2">Status</div>
-                        <select
-                          className="w-full p-2 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
-                          value={currentTask.status}
-                          onChange={(e) => handleTaskField('status', e.target.value)}
-                        >
-                          {STATUS_OPTIONS_FOR_EDIT.map((s) => (
-                            <option key={s} value={s}>
-                              {STATUS_META[s]?.label || s}
-                            </option>
-                          ))}
-                        </select>
+                          <select
+                            className="w-full p-2 border rounded-lg bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100"
+                            value={currentTask.status}
+                            onChange={(e) => handleTaskField('status', e.target.value)}
+                          >
+                            { (normalizeStatus(currentTask?.status) === 'done'
+                                ? [...STATUS_OPTIONS_BASE, 'archieve']
+                                : STATUS_OPTIONS_BASE
+                              ).map((s) => (
+                                <option key={s} value={s}>
+                                  {STATUS_META[s]?.label || s}
+                                </option>
+                            )) }
+                          </select>
                       </div>
 
                       <div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
@@ -991,22 +1025,6 @@ const filteredMeetings = useMemo(() => {
                   <aside className="border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 overflow-y-auto space-y-6">
                     <div>
                       <div className="text-sm font-semibold mb-3">Activity</div>
-                      {/* <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">System</div>
-                      <ul className="space-y-2 mb-4">
-                        <li className="text-sm">
-                          Created at:{' '}
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {currentTask.created_at ? new Date(currentTask.created_at).toLocaleString() : '—'}
-                          </span>
-                        </li>
-                        <li className="text-sm">
-                          Last updated:{' '}
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {currentTask.updated_at ? new Date(currentTask.updated_at).toLocaleString() : '—'}
-                          </span>
-                        </li>
-                      </ul> */}
-
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Change log</div>
                       {activityLoading ? (
                         <div className="text-sm text-gray-500 dark:text-gray-400">Loading…</div>
@@ -1058,7 +1076,7 @@ const filteredMeetings = useMemo(() => {
                             <button
                               onClick={addComment}
                               disabled={addingComment || !newCommentBody.trim()}
-                              className="px-3 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50"
+                              className={`${COLOR.other} px-3 py-2 rounded-lg disabled:opacity-50`}
                             >
                               Post
                             </button>
@@ -1097,10 +1115,10 @@ const filteredMeetings = useMemo(() => {
               <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 max-w-lg w-full p-6 rounded-2xl relative">
                 <button
                   onClick={() => setSelectedMeeting(null)}
-                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                  className={`${COLOR.otherOutline} absolute top-3 right-3 p-1.5 rounded`}
                   aria-label="Close"
                 >
-                  ✕
+                  <FiX />
                 </button>
 
                 <h2 className="text-2xl font-bold mb-4">{selectedMeeting.meeting_title}</h2>
@@ -1124,7 +1142,7 @@ const filteredMeetings = useMemo(() => {
                             state: { from: 'calendar' }
                           })
                         }
-                        className="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700"
+                        className={`${COLOR.other} px-5 py-2 rounded-lg`}
                       >
                         📎 Attachment
                       </button>
@@ -1135,7 +1153,7 @@ const filteredMeetings = useMemo(() => {
                             state: { meetingId: selectedMeeting.meeting_id, from: 'calendar' }
                           })
                         }
-                        className="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700"
+                        className={`${COLOR.other} px-5 py-2 rounded-lg`}
                       >
                         Upload Audios →
                       </button>

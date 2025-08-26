@@ -27,7 +27,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),  #yx add, if conflict can del
     path('', home_view),               
-
+    
 
 
     # path('api/', include('api.urls')),
