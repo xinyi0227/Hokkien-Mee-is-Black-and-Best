@@ -116,13 +116,6 @@ const Header = () => {
             Feedback Analyzer
           </a>
 
-          <a
-            href="#"
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
-          >
-            Contact
-          </a>
-
           <a 
             href="/archive" 
             className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
@@ -161,10 +154,10 @@ const Header = () => {
             />
             <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200">
               <a
-                href="/details"
+                href="/profile"
                 className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-xl"
               >
-                Details
+                Profile
               </a>
               <button
                 onClick={handleLogout}

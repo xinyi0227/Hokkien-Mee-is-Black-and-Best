@@ -19,7 +19,7 @@ import ComplaintList from "./components/ComplaintList";
 import ComplaintUpload from "./components/ComplaintUpload";
 import ComplaintDetails from "./components/ComplaintDetails";
 import Login from './components/Login';
-import Details from "./components/Details";
+import Profile from './components/Profile'
 import Register from './components/Register'
 import FilePage from './components/filePage';
 import ArchiveList from './components/ArchiveList';
@@ -142,10 +142,10 @@ function App() {
         /> */}
 
         <Route
-          path="/details"
+          path="/profile"
           element={
             <div className="min-h-screen bg-gray-100">
-              <Details />
+              <Profile />
             </div>
           }
         />
