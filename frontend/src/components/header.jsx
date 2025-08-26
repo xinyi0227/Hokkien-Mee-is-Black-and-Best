@@ -116,13 +116,6 @@ const Header = () => {
             Feedback Analyzer
           </a>
 
-          <a
-            href="#"
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
-          >
-            Contact
-          </a>
-
           <a 
             href="/archive" 
             className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
