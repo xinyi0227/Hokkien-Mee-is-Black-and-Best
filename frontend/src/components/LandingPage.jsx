@@ -96,7 +96,7 @@ export default function LandingPage() {
             <p className="text-xl text-gray-700 mb-8">
               EaSys helps teams organize, track, and follow up on meetings seamlessly, saving time and boosting productivity.
             </p>
-            <button className="px-8 py-3 rounded-full text-white font-medium text-lg shadow-lg hover:shadow-xl transition-all duration-300"
+            <button className="px-8 py-3 rounded-full text-white font-medium text-lg shadow-lg hover:shadow-xl transition-all duration-300" onClick={() => window.location = '#contact'}
               style={{ backgroundColor: "#1985a1" }}>
               Contact Us
             </button>
@@ -521,7 +521,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
-                <span>Smart task distribution with AI recommendations</span>
+                <span>Smart task distribution with AI distributed from meeting minutes</span>
               </li>
               <li className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
@@ -529,16 +529,9 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
-                <span>Custom branding</span>
-              </li>
-              <li className="flex items-start">
-                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
                 <span>24/7 dedicated support</span>
               </li>
-              <li className="flex items-start">
-                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
-                <span>Advanced analytics dashboard</span>
-              </li>
+              
             </ul>
             
             <button className="px-6 py-3 rounded-lg text-white font-medium w-full hover:bg-blue-700 transition-colors duration-300"
