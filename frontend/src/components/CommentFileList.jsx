@@ -282,7 +282,7 @@ const CommentFileList = ({ uploader }) => {
                     <button
                       onClick={() => processFileWithGemini(file.id)}
                       disabled={isProcessing}
-                      className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 inline-flex items-center"
+                      className="bg-[#8b2fc9] text-white px-4 py-2 rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 inline-flex items-center"
                     >
                       {isProcessing ? (
                         <>
