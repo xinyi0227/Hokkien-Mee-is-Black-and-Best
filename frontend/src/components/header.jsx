@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CiMenuBurger } from "react-icons/ci";
 import { FiSun, FiMoon } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import logo from "../assets/handshake.png"
 
 const Header = () => {
   const navigate = useNavigate();
@@ -35,25 +36,11 @@ const Header = () => {
 
   return (
     <header className="bg-white dark:bg-gray-900 sticky top-0 z-10 shadow-sm border-b border-gray-100 dark:border-gray-800">
-      <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-2 py-2 flex justify-between items-center">
         {/* Logo */}
         <div className="flex items-center">
-          <svg
-            className="w-8 h-8 text-blue-600 dark:text-blue-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 10V3L4 14h7v7l9-11h-7z"
-            />
-          </svg>
-          <a href="#" className="ml-2 text-xl font-bold text-gray-800 dark:text-gray-100">MyApp</a>
+          <img src={logo} alt="Logo" className="h-16 w-16" />
+          <a href="/tasks" className="ml-2 text-xl font-bold text-gray-800 dark:text-gray-100">EaSys</a>
         </div>
 
         {/* Desktop nav */}
