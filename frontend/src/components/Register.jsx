@@ -21,10 +21,8 @@ const Register = () => {
     setSuccess(null)
 
     try {
-      // 1️⃣ Hash 密码
-      const hashedPassword = bcrypt.hashSync(password, 10) // 10 是 salt rounds
+      const hashedPassword = bcrypt.hashSync(password, 10) 
 
-      // 2️⃣ 插入 employee 表
       const { data, error: insertError } = await supabase
         .from('employee')
         .insert([
@@ -55,7 +53,7 @@ const Register = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <form className="bg-white p-8 rounded shadow-md w-full max-w-md" onSubmit={handleRegister}>
-        <h2 className="text-2xl font-bold mb-6 text-center">Register Employee</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Register </h2>
         {error && <p className="text-red-500 mb-4">{error}</p>}
         {success && <p className="text-green-500 mb-4">{success}</p>}
 
