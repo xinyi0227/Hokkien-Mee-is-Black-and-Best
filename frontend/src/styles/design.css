@@ -33,5 +33,28 @@ color: black;
 
 }
 
+h3{
+  @apply dark:text-white;
+}
 
+label{
+  @apply dark:text-white;
+}
 
+input{
+  @apply dark:bg-gray-800 dark:border-gray-600;
+}
+
+textarea{
+  @apply dark:bg-gray-800 dark:border-gray-600;
+}
+
+select{
+  @apply dark:bg-gray-800 dark:border-gray-600;
+}
+
+.btn-cancel {
+  @apply  mr-3 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 ;
+  background-color: #6c757d; /* base color */
+  color: white;
+}
