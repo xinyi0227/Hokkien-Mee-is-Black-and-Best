@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../lib/supabase";
 import axios from 'axios';
 import EditReportModal from './FeedbackReport';
-import "../styles/design.css"
+import "../styles/design.css";
 
 const CommentFileList = ({ uploader }) => {
   const [files, setFiles] = useState([]); 
@@ -282,7 +282,7 @@ const CommentFileList = ({ uploader }) => {
                     <button
                       onClick={() => processFileWithGemini(file.id)}
                       disabled={isProcessing}
-                      className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50 inline-flex items-center"
+                      className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 inline-flex items-center"
                     >
                       {isProcessing ? (
                         <>
