@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Mail, Phone, MapPin, Users, Calendar, CheckCircle, FileText, Shield, Zap } from "lucide-react";
+import { ChevronLeft, ChevronRight, Mail, Phone, MapPin, Users, Calendar, CheckCircle, FileText, Shield, Zap, CreditCard, Star, Crown } from "lucide-react";
 import logo from "../assets/handshake.png"; // adjust path if needed
 
 export default function LandingPage() {
@@ -24,6 +24,7 @@ export default function LandingPage() {
   ];
 
   const [current, setCurrent] = useState(0);
+  const [billingCycle, setBillingCycle] = useState('monthly');
 
   const prevSlide = () => {
     setCurrent((prev) => (prev === 0 ? features.length - 1 : prev - 1));
@@ -75,6 +76,7 @@ export default function LandingPage() {
           <a href="#features" className="hover:text-blue-600" style={{ color: "#1985a1" }}>Features</a>
           <a href="#benefits" className="hover:text-blue-600" style={{ color: "#1985a1" }}>Benefits</a>
           <a href="#testimonials" className="hover:text-blue-600" style={{ color: "#1985a1" }}>Testimonials</a>
+          <a href="#pricing" className="hover:text-blue-600" style={{ color: "#1985a1" }}>Pricing</a>
           <a href="#contact" className="hover:text-blue-600" style={{ color: "#1985a1" }}>Contact</a>
         </nav>
       </header>
@@ -350,13 +352,211 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-16 px-6 bg-gradient-to-r bg-white">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold mb-4" style={{ color: "#1985a1" }}>Choose Your Plan</h2>
+          <p className="text-gray-700 max-w-2xl mx-auto">Flexible options for teams of all sizes</p>
+          
+          {/* Billing Toggle */}
+          <div className="flex justify-center items-center mt-8">
+            <span className={`mr-3 ${billingCycle === 'monthly' ? 'font-bold' : 'text-gray-500'}`}>Monthly</span>
+            <button 
+              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'halfYear' : 'monthly')}
+              className="relative w-12 h-6 rounded-full mx-2"
+              style={{ backgroundColor: "#1985a1" }}
+            >
+              <span 
+                className="absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform"
+                style={{ transform: billingCycle === 'monthly' ? 'translateX(0)' : 'translateX(24px)' }}
+              ></span>
+            </button>
+            <span className={`ml-3 ${billingCycle === 'halfYear' ? 'font-bold' : 'text-gray-500'}`}>
+              Half-Year (Save 15%)
+            </span>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Free Plan */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-white p-8 rounded-xl shadow-md flex flex-col"
+          >
+            <div className="mb-6">
+              <div className="flex items-center mb-4">
+                <Star className="h-6 w-6 mr-2" style={{ color: "#1985a1" }} />
+                <h3 className="text-2xl font-bold" style={{ color: "#1985a1" }}>Free</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Perfect for individuals and small teams getting started</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold" style={{ color: "#1985a1" }}>$0</span>
+                <span className="text-gray-500">/forever</span>
+              </div>
+            </div>
+            
+            <ul className="mb-8 space-y-3 flex-grow">
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Unlimited task management</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>3 AI-generated reports per month</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Meeting minutes analyzer (up to 15min)</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Basic task distribution</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>1GB storage</span>
+              </li>
+            </ul>
+            
+            <button className="px-6 py-3 rounded-lg font-medium border border-blue-500 w-full hover:bg-blue-50 transition-colors duration-300"
+              style={{ color: "#1985a1" }}>
+              Get Started
+            </button>
+          </motion.div>
+
+          {/* Standard Plan */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true }}
+            className="bg-white p-8 rounded-xl shadow-lg border-2 relative flex flex-col"
+            style={{ borderColor: "#1985a1", transform: 'scale(1.05)' }}
+          >
+            <div className="absolute top-0 right-0 bg-blue-500 text-white px-4 py-1 rounded-bl-lg rounded-tr-xl text-sm font-semibold"
+                style={{ backgroundColor: "#1985a1" }}>
+              Most Popular
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center mb-4">
+                <CreditCard className="h-6 w-6 mr-2" style={{ color: "#1985a1" }} />
+                <h3 className="text-2xl font-bold" style={{ color: "#1985a1" }}>Standard</h3>
+              </div>
+              <p className="text-gray-600 mb-4">Ideal for growing teams needing more capabilities</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold" style={{ color: "#1985a1" }}>
+                  {billingCycle === 'monthly' ? '$12' : '$61'}
+                </span>
+                <span className="text-gray-500">/{billingCycle === 'monthly' ? 'month' : 'half year'}</span>
+              </div>
+            </div>
+            
+            <ul className="mb-8 space-y-3 flex-grow">
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Everything in Free, plus:</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Unlimited AI-generated reports</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Meeting minutes analyzer (up to 2 hours)</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Advanced task distribution</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>10GB storage</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Priority support</span>
+              </li>
+            </ul>
+            
+            <button className="px-6 py-3 rounded-lg text-white font-medium w-full hover:bg-blue-700 transition-colors duration-300"
+              style={{ backgroundColor: "#1985a1" }}>
+              Get Started
+            </button>
+          </motion.div>
+
+          {/* Premium Plan */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true }}
+            className="bg-white p-8 rounded-xl shadow-md flex flex-col"
+          >
+            <div className="mb-6">
+              <div className="flex items-center mb-4">
+                <Crown className="h-6 w-6 mr-2" style={{ color: "#1985a1" }} />
+                <h3 className="text-2xl font-bold" style={{ color: "#1985a1" }}>Premium</h3>
+              </div>
+              <p className="text-gray-600 mb-4">For organizations needing enterprise-grade features</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold" style={{ color: "#1985a1" }}>
+                  {billingCycle === 'monthly' ? '$25' : '$128'}
+                </span>
+                <span className="text-gray-500">/{billingCycle === 'monthly' ? 'month' : 'half year'}</span>
+              </div>
+            </div>
+            
+            <ul className="mb-8 space-y-3 flex-grow">
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Everything in Standard, plus:</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Unlimited meeting minutes analysis</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Smart task distribution with AI recommendations</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>100GB storage</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Custom branding</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>24/7 dedicated support</span>
+              </li>
+              <li className="flex items-start">
+                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
+                <span>Advanced analytics dashboard</span>
+              </li>
+            </ul>
+            
+            <button className="px-6 py-3 rounded-lg text-white font-medium w-full hover:bg-blue-700 transition-colors duration-300"
+              style={{ backgroundColor: "#1985a1" }}>
+              Get Started
+            </button>
+          </motion.div>
+        </div>
+
+      </section>
+
       {/* Contact Section */}
-      <section id="contact" className="bg-white py-16 px-6">
+      <section id="contact" className=" py-16 px-6 bg-gradient-to-r from-blue-50 to-blue-100">
         <h3 className="text-2xl font-bold mb-12 text-center" style={{ color: "#1985a1" }}>Contact Us</h3>
 
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-8">
           {/* Contact Information - Left Side */}
-          <div className="md:w-2/5 bg-blue-50 p-8 rounded-xl">
+          <div className="md:w-2/5 bg-white p-8 rounded-xl shadow-md">
             <h4 className="text-xl font-semibold mb-6" style={{ color: "#1985a1" }}>Get in Touch</h4>
 
             <div className="space-y-6">
