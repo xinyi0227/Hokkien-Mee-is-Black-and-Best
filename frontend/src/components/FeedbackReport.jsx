@@ -23,8 +23,8 @@ const EditReportModal = ({ report, onClose, onSave, isNewReport = false }) => {
   };
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 ">
+      <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center p-6 border-b">
           <h2 className="text-xl font-semibold">
             {isNewReport ? 'Review New Report: ' : 'Edit Report: '}{report.filename}
@@ -93,7 +93,7 @@ const EditReportModal = ({ report, onClose, onSave, isNewReport = false }) => {
           <div className="mb-6">
             <h3 className="text-lg font-medium mb-3">Positive Feedback Categories</h3>
             {editedData.feedback_analysis?.positive_feedback_analysis?.categories?.map((category, index) => (
-              <div key={index} className="mb-4 p-4 bg-green-50 rounded">
+              <div key={index} className="mb-4 p-4 bg-green-50 dark:bg-green-900 rounded">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
@@ -151,7 +151,7 @@ const EditReportModal = ({ report, onClose, onSave, isNewReport = false }) => {
           <div className="mb-6">
             <h3 className="text-lg font-medium mb-3">Negative Feedback Categories</h3>
             {editedData.feedback_analysis?.negative_feedback_analysis?.categories?.map((category, index) => (
-              <div key={index} className="mb-4 p-4 bg-red-50 rounded">
+              <div key={index} className="mb-4 p-4 bg-red-50 dark:bg-red-900 rounded">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category Name</label>
@@ -209,7 +209,7 @@ const EditReportModal = ({ report, onClose, onSave, isNewReport = false }) => {
           <div className="mb-6">
             <h3 className="text-lg font-medium mb-3">Recommendations</h3>
             {editedData.feedback_analysis?.recommendations?.map((rec, index) => (
-              <div key={index} className="mb-4 p-4 bg-blue-50 rounded">
+              <div key={index} className="mb-4 p-4 bg-blue-50 dark:bg-blue-900 rounded">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
@@ -281,7 +281,7 @@ const EditReportModal = ({ report, onClose, onSave, isNewReport = false }) => {
           </button>
           <button
             onClick={handleSubmit}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            className=" px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 dark:bg-[#aad576] dark:hover:bg-[#c1fba4] dark:text-black"
           >
             {isNewReport ? 'Save & Finalize Report' : 'Save Changes'}
           </button>

@@ -159,9 +159,9 @@ export default function ComplaintDetails() {
     return (
         <>
             <Header />
-            <div className="min-h-screen bg-gray-100 pt-12 px-4">
-                <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-lg">
-                    <h1 className="text-2xl font-bold mb-4">Complaint Details</h1>
+            <main className="min-h-screen pt-2 px-4 bg-gray-50 dark:bg-gray-950">
+                <div className="max-w-7xl mx-auto p-8 rounded-lg shadow-lg dark:bg-dark-800 dark:text-gray-200">
+                   <h1 className="text-2xl font-bold mb-4">Complaint Details</h1>
 
                     <form className="space-y-4" onSubmit={handleSubmit}>
                         <div>
@@ -169,7 +169,7 @@ export default function ComplaintDetails() {
                             <input
                                 value={complaint.complaint_id}
                                 disabled
-                                className="border px-2 py-1 rounded w-full bg-gray-100"
+                                className="border px-2 py-1 rounded w-full bg-gray-100 dark:bg-gray-900 dark:text-gray-200"
                             />
                         </div>
 
@@ -178,7 +178,7 @@ export default function ComplaintDetails() {
                             <input
                                 value={complaint.complaint_date}
                                 disabled
-                                className="border px-2 py-1 rounded w-full bg-gray-100"
+                                className="border px-2 py-1 rounded w-full bg-gray-100 dark:bg-gray-900 dark:text-gray-200"
                             />
                         </div>
 
@@ -189,7 +189,7 @@ export default function ComplaintDetails() {
                                     name="employee_id"
                                     value={formData.employee_id}
                                     onChange={handleChange}
-                                    className="border px-2 py-1 rounded w-full"
+                                    className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                                 >
                                     {employees.map(e => (
                                         <option key={e.employee_id} value={e.employee_id}>
@@ -205,7 +205,7 @@ export default function ComplaintDetails() {
                                     name="status"
                                     value={formData.status}
                                     onChange={handleChange}
-                                    className="border px-2 py-1 rounded w-full"
+                                    className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                                 >
                                     <option value="Pending">Pending</option>
                                     <option value="In Progress">In Progress</option>
@@ -221,7 +221,7 @@ export default function ComplaintDetails() {
                                     name="customer_name"
                                     value={formData.customer_name}
                                     onChange={handleChange}
-                                    className="border px-2 py-1 rounded w-full"
+                                    className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                                 />
                             </div>
 
@@ -231,7 +231,7 @@ export default function ComplaintDetails() {
                                     name="customer_contact"
                                     value={formData.customer_contact}
                                     onChange={handleChange}
-                                    className="border px-2 py-1 rounded w-full"
+                                    className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                                 />
                             </div>
                         </div>
@@ -242,7 +242,7 @@ export default function ComplaintDetails() {
                                 name="solution"
                                 value={formData.solution}
                                 onChange={handleChange}
-                                className="border px-2 py-1 rounded w-full"
+                                className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                             />
                         </div>
 
@@ -252,14 +252,14 @@ export default function ComplaintDetails() {
                                 name="complaint_summary"
                                 value={formData.complaint_summary}
                                 onChange={handleChange}
-                                className="border px-2 py-1 rounded w-full"
+                                className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                             />
                         </div>
 
                         {complaint.complaint_audio && (
                             <div>
                                 <label className="block mb-1">Audio Recording</label>
-                                <audio controls className="w-full rounded border border-gray-300" src={complaint.complaint_audio} />
+                                <audio controls className="w-full rounded border border-gray-300 dark:bg-gray-900 dark:text-gray-200" src={complaint.complaint_audio} />
                             </div>
                         )}
 
@@ -269,7 +269,7 @@ export default function ComplaintDetails() {
                                 name="complaint_transcript"
                                 value={formData.complaint_transcript}
                                 onChange={handleChange}
-                                className="border px-2 py-1 rounded w-full"
+                                className="border px-2 py-1 rounded w-full dark:bg-gray-900 dark:text-gray-200"
                                 rows={6}
                             />
                         </div>
@@ -279,7 +279,7 @@ export default function ComplaintDetails() {
                                 type="button"
                                 onClick={handleGenerateAI}
                                 disabled={aiLoading}
-                                className={`px-4 py-2 rounded text-white ${aiLoading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                                className={`px-4 py-2 rounded text-white ${aiLoading ? "bg-[#1985a1] cursor-not-allowed" : "bg-[#1985a1] hover:bg-[#89c2d9]"
                                     }`}
                             >
                                 {aiLoading ? "Generating..." : "Generate AI Summary"}
@@ -291,13 +291,13 @@ export default function ComplaintDetails() {
                                 <button
                                     type="button"
                                     onClick={() => window.location.href = "/complaintList"}
-                                    className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                                    className="bg-gray-300 text-white px-4 py-2 rounded hover:bg-gray-400"
                                 >
                                     Back
                                 </button>
                                 <button
                                     type="submit"
-                                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                                    className="bg-[#aad576] text-white px-4 py-2 rounded hover:bg-[#c1fba4]"
                                 >
                                     Save
                                 </button>
@@ -307,7 +307,7 @@ export default function ComplaintDetails() {
 
                     </form>
                 </div>
-            </div>
+            </main>
         </>
     );
 }

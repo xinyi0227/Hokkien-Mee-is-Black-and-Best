@@ -130,7 +130,7 @@ const CommentFileUpload = ({ onUploadSuccess }) => {
     <div className="mx-auto p-6">
       
       {/* Upload Form */}
-      <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 rounded-lg">
+      <form onSubmit={handleSubmit} className="mb-8 p-6 bg-gray-50 dark:bg-gray-900 rounded-lg">
         <h2 className="text-xl font-semibold mb-4">Upload New File</h2>
         
         {error && (
@@ -140,7 +140,7 @@ const CommentFileUpload = ({ onUploadSuccess }) => {
         )}
         
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-200">
             Select File (CSV/Excel):
           </label>
           <input
