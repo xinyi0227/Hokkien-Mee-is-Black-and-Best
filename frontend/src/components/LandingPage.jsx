@@ -462,7 +462,7 @@ export default function LandingPage() {
               </li>
               <li className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
-                <span>Unlimited AI-generated reports</span>
+                <span>8 AI-generated reports per month</span>
               </li>
               <li className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
@@ -475,10 +475,6 @@ export default function LandingPage() {
               <li className="flex items-start">
                 <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
                 <span>10GB storage</span>
-              </li>
-              <li className="flex items-start">
-                <CheckCircle className="h-5 w-5 mr-2 mt-0.5" style={{ color: "#1985a1" }} />
-                <span>Priority support</span>
               </li>
             </ul>
             
