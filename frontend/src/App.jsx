@@ -28,6 +28,7 @@ import FAQ from "./components/Faq";
 import FaqAdmin from "./components/FaqAdmin";
 import Transcript from "./components/Transcript";
 import MeetingAttachments from "./components/MeetingAttachments";
+import LandingPage from "./components/LandingPage";
 
 
 function App() {
@@ -86,6 +87,8 @@ function App() {
         />
 
         <Route path="/register" element={<Register />} />
+
+      
         
         {/* Task list page */}
         <Route
@@ -110,6 +113,9 @@ function App() {
             </div>
           }
         />
+
+        <Route path="/landing" element={<LandingPage />} />   {/* 👈 add this */}
+
 
         <Route 
           path="/transcript/:meetingId" 

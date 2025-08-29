@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../lib/supabase";
 import axios from 'axios';
 import EditReportModal from './FeedbackReport';
-import "../styles/design.css"
+import "../styles/design.css";
 
 const CommentFileList = ({ uploader }) => {
   const [files, setFiles] = useState([]); 
@@ -205,7 +205,7 @@ const CommentFileList = ({ uploader }) => {
   return (
     <div>
       <div className="px-4 py-5 sm:px-6 border-gray-200">
-        <h2 className="text-lg leading-6 font-medium text-gray-900">Your Uploaded Files</h2>
+        <h2 className="text-lg leading-6 font-medium text-gray-900 dark:text-gray-200">Your Uploaded Files</h2>
       </div>
       
       {/* File List */}
@@ -219,7 +219,7 @@ const CommentFileList = ({ uploader }) => {
           return (
             <div
               key={file.id}
-              className="p-4 border rounded-lg bg-white border-gray-200"
+              className="p-4 border rounded-lg bg-white border-gray-200 dark:border-gray-700 dark:bg-gray-900" 
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -282,7 +282,7 @@ const CommentFileList = ({ uploader }) => {
                     <button
                       onClick={() => processFileWithGemini(file.id)}
                       disabled={isProcessing}
-                      className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 disabled:opacity-50 inline-flex items-center"
+                      className="bg-[#8b2fc9] text-white px-4 py-2 rounded hover:bg-purple-500 hover:text-black disabled:opacity-50 inline-flex items-center"
                     >
                       {isProcessing ? (
                         <>
