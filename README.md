@@ -107,15 +107,12 @@ We developed a **hybrid microservices architecture** that combines the best of m
 
 ### Prerequisites
 
-Required software
-✅ Python 3.10+
-✅ Node.js 18+
-✅ VS Code with GitHub Copilot
-✅ Git for version control
-
-Required accounts
-✅ Supabase account
-✅ Google Gemini API key
+- ✅ Python 3.10+
+- ✅ Node.js 18+
+- ✅ VS Code with GitHub Copilot
+- ✅ Git for version control
+- ✅ Supabase account
+- ✅ Google Gemini API key
 
 ### 1. Repository Setup
 
@@ -279,37 +276,32 @@ Check VS Code -> View -> Output -> MCP Servers
 ## 📁 Project Structure
 
 Hokkien-Mee-is-Black-and-Best/
-│
-├── 📁 backend/ # Django REST API
-│ ├── 📁 api/ # Core API application
-│ │ ├── 📄 models.py # Database models
-│ │ ├── 📄 views.py # API endpoints
-│ │ ├── 📄 serializers.py # Data serialization
-│ │ └── 📄 urls.py # URL routing
-│ ├── 📁 mysite/ # Django settings
-│ ├── 📄 manage.py # Django management
-│ └── 📄 requirements.txt # Python dependencies
-│
-├── 📁 frontend/ # React application
-│ ├── 📁 src/
-│ │ ├── 📁 components/ # Reusable components
-│ │ ├── 📁 pages/ # Page components
-│ │ ├── 📁 utils/ # Utility functions
-│ │ └── 📄 App.js # Main app component
-│ ├── 📁 public/ # Static assets
-│ └── 📄 package.json # Node dependencies
-│
-├── 📁 mcp-server/ # MCP microservices
-│ ├── 📁 src/
-│ │ └── 📄 server.ts # Main MCP server
-│ ├── 📁 dist/ # Compiled JavaScript
-│ ├── 📄 package.json # Node dependencies
-│ └── 📄 tsconfig.json # TypeScript config
-│
-├── 📁 .vscode/ # VS Code configuration
-│ └── 📄 mcp.json # MCP server config
-│
-└── 📄 README.md
+├── backend/ # Django REST API
+│ ├── api/ # Core API application
+│ │ ├── models.py # Database models
+│ │ ├── views.py # API endpoints
+│ │ ├── serializers.py # Data serialization
+│ │ └── urls.py # URL routing
+│ ├── mysite/ # Django settings
+│ ├── manage.py # Django management
+│ └── requirements.txt # Python dependencies
+├── frontend/ # React application
+│ ├── src/
+│ │ ├── components/ # Reusable components
+│ │ ├── pages/ # Page components
+│ │ ├── utils/ # Utility functions
+│ │ └── App.js # Main app component
+│ ├── public/ # Static assets
+│ └── package.json # Node dependencies
+├── mcp-server/ # MCP microservices
+│ ├── src/
+│ │ └── server.ts # Main MCP server
+│ ├── dist/ # Compiled JavaScript
+│ ├── package.json # Node dependencies
+│ └── tsconfig.json # TypeScript config
+├── .vscode/ # VS Code configuration
+│ └── mcp.json # MCP server config
+└── README.md # This file
 
 ## 🔧 API Endpoints
 
