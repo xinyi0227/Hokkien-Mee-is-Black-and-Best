@@ -370,8 +370,6 @@ Check VS Code -> View -> Output -> MCP Servers
 
 ## 📁 Project Structure
 
-<details>
-
 <table>
   <tr>
     <th>Directory/File</th>
@@ -584,8 +582,6 @@ Check VS Code -> View -> Output -> MCP Servers
     <td>Open source licensing</td>
   </tr>
 </table>
-
-</details>
 
 ## 🔧 API Endpoints
 
