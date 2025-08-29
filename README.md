@@ -283,23 +283,56 @@ Check VS Code -> View -> Output -> MCP Servers
 
 ## 🏗️ Project Architecture
 
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ React.js │ │ Django REST │ │ MCP Server │
-│ Frontend │◄──►│ API │◄──►│ (Node.js) │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-│ │ │
-│ │ │
-▼ ▼ ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│ User Interface│ │ PostgreSQL │ │ Gemini AI │
-│ & Components │ │ Database │ │ Processing │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-│
-▼
-┌─────────────────┐
-│ Supabase │
-│ Storage │
-└─────────────────┘
+<table>
+  <tr>
+    <td align="center"><strong>Frontend</strong></td>
+    <td align="center"><strong>Backend API</strong></td>
+    <td align="center"><strong>MCP Server</strong></td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB" /><br>
+      React.js Frontend<br>
+      Components & UI
+    </td>
+    <td align="center">
+      <img src="https://img.shields.io/badge/Django-092E20?style=flat-square&logo=django&logoColor=white" /><br>
+      Django REST API<br>
+      Business Logic
+    </td>
+    <td align="center">
+      <img src="https://img.shields.io/badge/Node.js-43853D?style=flat-square&logo=node.js&logoColor=white" /><br>
+      MCP Server<br>
+      AI Processing
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center">
+      <strong>↕️ Data Flow ↕️</strong>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white" /><br>
+      PostgreSQL<br>
+      Database
+    </td>
+    <td align="center">
+      <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white" /><br>
+      Supabase<br>
+      Storage & Auth
+    </td>
+    <td align="center">
+      <img src="https://img.shields.io/badge/Google%20AI-4285F4?style=flat-square&logo=google&logoColor=white" /><br>
+      Gemini AI<br>
+      Processing
+    </td>
+  </tr>
+</table>
+
+<div align="center">
+  <p><strong>Data Flow:</strong> React ↔️ Django API ↔️ MCP Server ↔️ AI Services</p>
+</div>
 
 ## ✨ Key Features
 
@@ -363,51 +396,57 @@ Hokkien-Mee-is-Black-and-Best/
 
 ### Authentication & Users
 
-GET /api/employees/ # List employees
-POST /api/auth/login/ # User authentication
+- GET /api/employees/ # List employees
+- POST /api/auth/login/ # User authentication
 
 ### Business Data Management
 
-GET /api/business-data/ # List business data
-POST /api/business-data/ # Upload new data
-GET /api/business-data/{id}/ # Get specific data
+- GET /api/business-data/ # List business data
+- POST /api/business-data/ # Upload new data
+- GET /api/business-data/{id}/ # Get specific data
 
 ### Meeting Management
 
-GET /api/meetings/ # List all meetings
-GET /api/meetingsToday/ # Today's meetings
-GET /api/meetingsFuture/ # Upcoming meetings
-GET /api/meetingsPast/ # Past meetings
-POST /api/meeting_files/ # Upload meeting files
+- GET /api/meetings/ # List all meetings
+- GET /api/meetingsToday/ # Today's meetings
+- GET /api/meetingsFuture/ # Upcoming meetings
+- GET /api/meetingsPast/ # Past meetings
+- POST /api/meeting_files/ # Upload meeting files
 
 ### AI Processing
 
-POST /api/analyse-comment/ # AI feedback analysis
-POST /api/process-file/ # File processing pipeline
-POST /api/complaint-upload/ # Complaint processing
+- POST /api/analyse-comment/ # AI feedback analysis
+- POST /api/process-file/ # File processing pipeline
+- POST /api/complaint-upload/ # Complaint processing
 
 ### Reports & Analytics
 
-GET /api/processed-reports/ # List generated reports
-GET /api/comment-reports/ # List comment analyses
+- GET /api/processed-reports/ # List generated reports
+- GET /api/comment-reports/ # List comment analyses
 
 ## 🧪 Testing
 
 ### Backend Testing
 
+```bash
 cd backend
 python manage.py test
+```
 
 ### Frontend Testing
 
+```bash
 cd frontend
 npm test
+```
 
 ### MCP Server Testing
 
+```bash
 cd mcp-server
 @agent Use djangoHealthCheck
 @agent Use drfSchemaValidator
+```
 
 ## 🚀 Deployment
 
@@ -418,26 +457,44 @@ Start all services
 
 Or start individually:
 Terminal 1: Django
+
+```bash
 cd backend && python manage.py runserver
+```
 
 Terminal 2: React
+
+```bash
 cd frontend && npm start
+```
 
 Terminal 3: MCP Server
+
+```bash
 cd mcp-server && node dist/server.js
+```
 
 ### Production Deployment
 
 Build for production
+
+```bash
 npm run build:prod
+```
 
 Django production settings
+
+```bash
 export DJANGO_SETTINGS_MODULE=mysite.settings.production
 python manage.py collectstatic --noinput
+```
 
 MCP server production
+
+```bash
 npm run build
 NODE_ENV=production node dist/server.js
+```
 
 ## 📊 Performance Metrics
 
@@ -597,22 +654,6 @@ We welcome contributions from the community! Here's how you can help:
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Contact & Support
-
-- **Project Repository**: [GitHub](https://github.com/xinyi0227/Hokkien-Mee-is-Black-and-Best)
-- **Documentation**: [Wiki](https://github.com/xinyi0227/Hokkien-Mee-is-Black-and-Best/wiki)
-- **Issues**: [Bug Reports](https://github.com/xinyi0227/Hokkien-Mee-is-Black-and-Best/issues)
-- **Team Lead**: [@xinyi0227](https://github.com/xinyi0227)
-
-## 🙏 Acknowledgments
-
-- **Django Community** for the excellent REST framework
-- **React Team** for the powerful frontend library
-- **Supabase Team** for the amazing backend-as-a-service platform
-- **Google AI Team** for the Gemini API
-- **VS Code Team** for MCP integration support
-- **Open Source Community** for the countless libraries and tools that made this project possible
 
 ---
 
