@@ -14,13 +14,13 @@
 
 ## 👥 Team Members
 
-| Name             | Role                                                     | GitHub                                         |
-| ---------------- | -------------------------------------------------------- | ---------------------------------------------- |
-| **Lim Xin Yi**   | Lead Developer & System Architect & MCP Server Developer | [@xinyi0227](https://github.com/xinyi0227)     |
-| **Li Yi Ting**   | Frontend Developer                                       | [@LiYiTing04](https://github.com/LiYiTing04)   |
-| **Chin Yu Xuan** | Backend Developer                                        | [@Chinyuxuan](https://github.com/Chinyuxuan)   |
-| **Tok Pei Ying** | Frontend Developer                                       | [@liona8](https://github.com/liona8)           |
-| **Lau Yong Pin** | Backend Developer                                        | [@feeder11223](https://github.com/feeder11223) |
+| Name             | Role                                    | GitHub                                         |
+| ---------------- | --------------------------------------- | ---------------------------------------------- |
+| **Lim Xin Yi**   | System Architect & MCP Server Developer | [@xinyi0227](https://github.com/xinyi0227)     |
+| **Li Yi Ting**   | Backend Developer                       | [@LiYiTing04](https://github.com/LiYiTing04)   |
+| **Chin Yu Xuan** | Frontend Developer                      | [@Chinyuxuan](https://github.com/Chinyuxuan)   |
+| **Tok Pei Ying** | Backend Developer                       | [@liona8](https://github.com/liona8)           |
+| **Lau Yong Pin** | Frontend Developer                      | [@feeder11223](https://github.com/feeder11223) |
 
 ## 🚀 Problem and Solution Summary
 
@@ -116,12 +116,10 @@ We developed a **hybrid microservices architecture** that combines the best of m
 
 ### 1. Repository Setup
 
+```bash
 git clone https://github.com/yourusername/Hokkien-Mee-is-Black-and-Best.git
 cd Hokkien-Mee-is-Black-and-Best
-
-### Running the Tests
-
-To run the unit tests and simulate these voting scenarios, follow these steps:
+```
 
 ### 2. Backend Setup (Django)
 
@@ -273,10 +271,16 @@ You should see: "Enhanced Project Tools MCP Server v2.0 running on stdio"
 ### 6. Verify Everything is Working
 
 Backend health check
+
+```bash
 curl http://localhost:8000/api/meetings/
+```
 
 Frontend accessible
+
+```bash
 curl http://localhost:3000
+```
 
 MCP server running
 Check VS Code -> View -> Output -> MCP Servers
