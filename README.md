@@ -364,33 +364,255 @@ Check VS Code -> View -> Output -> MCP Servers
 
 ## 📁 Project Structure
 
-Hokkien-Mee-is-Black-and-Best/
-├── backend/ # Django REST API
-│ ├── api/ # Core API application
-│ │ ├── models.py # Database models
-│ │ ├── views.py # API endpoints
-│ │ ├── serializers.py # Data serialization
-│ │ └── urls.py # URL routing
-│ ├── mysite/ # Django settings
-│ ├── manage.py # Django management
-│ └── requirements.txt # Python dependencies
-├── frontend/ # React application
-│ ├── src/
-│ │ ├── components/ # Reusable components
-│ │ ├── pages/ # Page components
-│ │ ├── utils/ # Utility functions
-│ │ └── App.js # Main app component
-│ ├── public/ # Static assets
-│ └── package.json # Node dependencies
-├── mcp-server/ # MCP microservices
-│ ├── src/
-│ │ └── server.ts # Main MCP server
-│ ├── dist/ # Compiled JavaScript
-│ ├── package.json # Node dependencies
-│ └── tsconfig.json # TypeScript config
-├── .vscode/ # VS Code configuration
-│ └── mcp.json # MCP server config
-└── README.md # This file
+<details>
+<summary><strong>📂 Click to expand complete project structure</strong></summary>
+
+<table>
+  <tr>
+    <th>Directory/File</th>
+    <th>Description</th>
+    <th>Key Features</th>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>🎯 ROOT DIRECTORY</strong></td>
+  </tr>
+  <tr>
+    <td><code>📁 Hokkien-Mee-is-Black-and-Best/</code></td>
+    <td>Main project root</td>
+    <td>Multi-service architecture</td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>🐍 BACKEND (Django)</strong></td>
+  </tr>
+  <tr>
+    <td><code>📁 backend/</code></td>
+    <td>Django REST API Server</td>
+    <td>Core business logic & data management</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📁 api/</code></td>
+    <td>Core API application</td>
+    <td>Main business endpoints</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 models.py</code></td>
+    <td>Database models</td>
+    <td>PostgreSQL schema definitions</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 views.py</code></td>
+    <td>API endpoints (3,500+ lines)</td>
+    <td>Business logic & AI integration</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 serializers.py</code></td>
+    <td>Data serialization</td>
+    <td>JSON API responses</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 urls.py</code></td>
+    <td>URL routing</td>
+    <td>API endpoint mapping</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📁 mysite/</code></td>
+    <td>Django settings</td>
+    <td>Configuration & middleware</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📄 manage.py</code></td>
+    <td>Django management</td>
+    <td>CLI commands & migrations</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📄 requirements.txt</code></td>
+    <td>Python dependencies</td>
+    <td>Package management</td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>⚛️ FRONTEND (React)</strong></td>
+  </tr>
+  <tr>
+    <td><code>📁 frontend/</code></td>
+    <td>React application</td>
+    <td>User interface & components</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📁 src/</code></td>
+    <td>React source code</td>
+    <td>Application logic</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📁 components/</code></td>
+    <td>Reusable React components</td>
+    <td>UI building blocks</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 Header.js</code></td>
+    <td>Navigation header</td>
+    <td>Top navigation & user menu</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 Dashboard.js</code></td>
+    <td>Main dashboard</td>
+    <td>Analytics overview</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 DataTable.js</code></td>
+    <td>Data visualization</td>
+    <td>Interactive tables & charts</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📁 pages/</code></td>
+    <td>Page components</td>
+    <td>Route-based views</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 MeetingPage.js</code></td>
+    <td>Meeting management</td>
+    <td>Meeting CRUD & transcription</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 ReportsPage.js</code></td>
+    <td>Report viewing</td>
+    <td>AI-generated reports</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 AnalyticsPage.js</code></td>
+    <td>Business analytics</td>
+    <td>Data insights & visualizations</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📁 utils/</code></td>
+    <td>Frontend utilities</td>
+    <td>Helper functions</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 api.js</code></td>
+    <td>API communication</td>
+    <td>Axios HTTP client setup</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;📄 helpers.js</code></td>
+    <td>Helper functions</td>
+    <td>Utility & formatting functions</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 App.js</code></td>
+    <td>Main app component</td>
+    <td>React Router & global state</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📁 public/</code></td>
+    <td>Static assets</td>
+    <td>Images, icons, manifest</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📄 package.json</code></td>
+    <td>Node dependencies</td>
+    <td>NPM package management</td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>🚀 MCP SERVER (Node.js)</strong></td>
+  </tr>
+  <tr>
+    <td><code>📁 mcp-server/</code></td>
+    <td>MCP microservices</td>
+    <td>AI processing & monitoring tools</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📁 src/</code></td>
+    <td>TypeScript source</td>
+    <td>MCP tool implementations</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 server.ts</code></td>
+    <td>Main MCP server (1,000+ lines)</td>
+    <td>12 custom monitoring tools</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📁 dist/</code></td>
+    <td>Compiled JavaScript</td>
+    <td>Production build output</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;&nbsp;&nbsp;📄 server.js</code></td>
+    <td>Compiled MCP server</td>
+    <td>Production executable</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📄 package.json</code></td>
+    <td>Node dependencies</td>
+    <td>MCP SDK & TypeScript deps</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📄 tsconfig.json</code></td>
+    <td>TypeScript configuration</td>
+    <td>Compilation settings</td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><strong>⚙️ CONFIGURATION</strong></td>
+  </tr>
+  <tr>
+    <td><code>📁 .vscode/</code></td>
+    <td>VS Code configuration</td>
+    <td>IDE settings & extensions</td>
+  </tr>
+  <tr>
+    <td><code>&nbsp;&nbsp;📄 mcp.json</code></td>
+    <td>MCP server config</td>
+    <td>VS Code MCP integration</td>
+  </tr>
+  <tr>
+    <td><code>📄 README.md</code></td>
+    <td>Project documentation</td>
+    <td>Setup & usage instructions</td>
+  </tr>
+  <tr>
+    <td><code>📄 .gitignore</code></td>
+    <td>Git ignore rules</td>
+    <td>Version control exclusions</td>
+  </tr>
+  <tr>
+    <td><code>📄 LICENSE</code></td>
+    <td>MIT license</td>
+    <td>Open source licensing</td>
+  </tr>
+</table>
+
+<br>
+
+<div align="center">
+  <h4>📊 Project Statistics</h4>
+  <table>
+    <tr>
+      <td><strong>Total Files</strong></td>
+      <td><strong>Lines of Code</strong></td>
+      <td><strong>Technologies</strong></td>
+      <td><strong>Services</strong></td>
+    </tr>
+    <tr>
+      <td align="center">50+</td>
+      <td align="center">5,000+</td>
+      <td align="center">8</td>
+      <td align="center">3</td>
+    </tr>
+  </table>
+</div>
+
+<br>
+
+<div align="center">
+  <p><strong>🎯 Architecture Highlights:</strong></p>
+  <ul style="text-align: left; display: inline-block;">
+    <li><strong>Backend:</strong> Django REST API with 3,500+ lines of business logic</li>
+    <li><strong>Frontend:</strong> React SPA with responsive design and modern components</li>  
+    <li><strong>MCP Server:</strong> Node.js microservice with 12 custom monitoring tools</li>
+    <li><strong>Configuration:</strong> Environment-based setup for development/production</li>
+  </ul>
+</div>
+
+</details>
 
 ## 🔧 API Endpoints
 
