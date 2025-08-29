@@ -283,6 +283,7 @@ Check VS Code -> View -> Output -> MCP Servers
 
 ## 🏗️ Project Architecture
 
+<div align="center">
 <table>
   <tr>
     <td align="center"><strong>Frontend</strong></td>
@@ -329,6 +330,7 @@ Check VS Code -> View -> Output -> MCP Servers
     </td>
   </tr>
 </table>
+</div>
 
 <div align="center">
   <p><strong>Data Flow:</strong> React ↔️ Django API ↔️ MCP Server ↔️ AI Services</p>
@@ -365,7 +367,6 @@ Check VS Code -> View -> Output -> MCP Servers
 ## 📁 Project Structure
 
 <details>
-<summary><strong>📂 Click to expand complete project structure</strong></summary>
 
 <table>
   <tr>
@@ -579,38 +580,6 @@ Check VS Code -> View -> Output -> MCP Servers
     <td>Open source licensing</td>
   </tr>
 </table>
-
-<br>
-
-<div align="center">
-  <h4>📊 Project Statistics</h4>
-  <table>
-    <tr>
-      <td><strong>Total Files</strong></td>
-      <td><strong>Lines of Code</strong></td>
-      <td><strong>Technologies</strong></td>
-      <td><strong>Services</strong></td>
-    </tr>
-    <tr>
-      <td align="center">50+</td>
-      <td align="center">5,000+</td>
-      <td align="center">8</td>
-      <td align="center">3</td>
-    </tr>
-  </table>
-</div>
-
-<br>
-
-<div align="center">
-  <p><strong>🎯 Architecture Highlights:</strong></p>
-  <ul style="text-align: left; display: inline-block;">
-    <li><strong>Backend:</strong> Django REST API with 3,500+ lines of business logic</li>
-    <li><strong>Frontend:</strong> React SPA with responsive design and modern components</li>  
-    <li><strong>MCP Server:</strong> Node.js microservice with 12 custom monitoring tools</li>
-    <li><strong>Configuration:</strong> Environment-based setup for development/production</li>
-  </ul>
-</div>
 
 </details>
 
@@ -846,32 +815,6 @@ NODE_ENV=production node dist/server.js
 4. **Invest in Developer Experience**: Good tooling leads to better code and happier developers
 
 ---
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Here's how you can help:
-
-### Getting Started
-
-1. **Fork the repository**
-2. **Clone your fork**: `git clone https://github.com/yourusername/Hokkien-Mee-is-Black-and-Best.git`
-3. **Create a branch**: `git checkout -b feature/your-feature-name`
-4. **Make your changes** and test thoroughly
-5. **Submit a pull request** with a clear description
-
-### Development Guidelines
-
-- Follow existing code style and conventions
-- Add tests for new features
-- Update documentation as needed
-- Test all three services (Django, React, MCP) before submitting
-
-### Reporting Issues
-
-- Use the GitHub issue tracker
-- Provide detailed reproduction steps
-- Include system information and error logs
-- Tag issues appropriately (bug, enhancement, documentation)
 
 ## 📄 License
 
