@@ -1,0 +1,40 @@
+{
+  "servers": [
+    {
+      "type": "stdio",
+      "id": "fs",
+      "label": "Filesystem Server",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "env": {}
+    },
+    {
+      "type": "stdio", 
+      "id": "git",
+      "label": "Git Server",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-git"],
+      "env": {}
+    },
+    {
+      "type": "stdio",
+      "id": "fetch",
+      "label": "Fetch Server", 
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "env": {}
+    },
+    {
+      "type": "stdio",
+      "id": "proj-tools",
+      "label": "Project Tools",
+      "command": "node",
+      "args": ["dist/server.js"],
+      "cwd": "./mcp-server",
+      "env": {
+        "SUPABASE_URL": "https://zceglugabglfulqxcbnh.supabase.co",
+        "SUPABASE_KEY": "sb_secret_HwF2iCK-Yziq8zmI_02GWA_R3SEwaGV"
+      }
+    }
+  ]
+}
