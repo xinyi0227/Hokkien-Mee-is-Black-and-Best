@@ -119,15 +119,22 @@ We developed a **hybrid microservices architecture** that combines the best of m
 git clone https://github.com/yourusername/Hokkien-Mee-is-Black-and-Best.git
 cd Hokkien-Mee-is-Black-and-Best
 
+### Running the Tests
+
+To run the unit tests and simulate these voting scenarios, follow these steps:
+
 ### 2. Backend Setup (Django)
 
-cd backend
-
-Create and activate virtual environment
-python -m venv venv
+    ```bash
+    cd backend
+    python -m venv venv
+    ```
 
 Windows
+
+```bash
 venv\Scripts\activate
+```
 
 macOS/Linux
 source venv/bin/activate
