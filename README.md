@@ -125,10 +125,10 @@ To run the unit tests and simulate these voting scenarios, follow these steps:
 
 ### 2. Backend Setup (Django)
 
-    ```bash
-    cd backend
-    python -m venv venv
-    ```
+```bash
+cd backend
+python -m venv venv
+```
 
 Windows
 
@@ -137,89 +137,138 @@ venv\Scripts\activate
 ```
 
 macOS/Linux
+
+```bash
 source venv/bin/activate
+```
 
 Install dependencies
+
+```bash
 pip install -r requirements.txt
+```
 
 Environment configuration
+
+```bash
 cp .env.example .env
+```
 
 Edit .env file with your credentials:
+
+```bash
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_KEY=your_supabase_anon_key
 GEMINI_API_KEY=your_gemini_api_key
 Database setup
 python manage.py migrate
 python manage.py collectstatic
+```
 
 Start Django server
+
+```bash
 python manage.py runserver
+```
 
 ### 3. Frontend Setup (React)
 
+```bash
 cd frontend
+```
 
 Install dependencies
+
+```bash
 npm install
+```
 
 Start development server
+
+```bash
 npm start
+```
 
 Application will be available at http://localhost:3000
 
 ### 4. MCP Server Setup (Node.js)
 
+```bash
 cd mcp-server
+```
 
 Install dependencies
+
+```bash
 npm install
+```
 
 Build TypeScript
-npm run build
 
-Set environment variables (same as backend)
+```bash
+npm run build
+```
+
+Set environment variables
+
+```bash
 export SUPABASE_URL=your_supabase_project_url
 export SUPABASE_KEY=your_supabase_anon_key
 export GEMINI_API_KEY=your_gemini_api_key
+```
 
 Start MCP server
+
+```bash
 node dist/server.js
+```
 
 You should see: "Enhanced Project Tools MCP Server v2.0 running on stdio"
 
 ### 5. VS Code MCP Integration
 
 1. **Create MCP Configuration**
+
+   ```bash
    mkdir -p .vscode
+   ```
 
 2. **Create `.vscode/mcp.json`**
+
+   ```bash
    {
-   "servers": {
-   "project-tools": {
-   "command": "node",
-   "args": ["dist/server.js"],
-   "cwd": "./mcp-server",
-   "env": {
-   "SUPABASE_URL": "your_supabase_project_url",
-   "SUPABASE_KEY": "your_supabase_anon_key",
-   "GEMINI_API_KEY": "your_gemini_api_key"
+    "servers": {
+        "project-tools": {
+            "command": "node",
+            "args": ["dist/server.js"],
+            "cwd": "./mcp-server",
+            "env": {
+                "SUPABASE_URL": "your_supabase_project_url",
+                "SUPABASE_KEY": "your_supabase_anon_key",
+                "GEMINI_API_KEY": "your_gemini_api_key"
+            }
+        }
+    }
    }
-   }
-   }
-   }
+   ```
 
 3. **Restart VS Code**
    Close and reopen VS Code completely
+
+   ```bash
    code .
+   ```
 
 4. **Test MCP Integration**
 
 - Open Copilot Chat (`Ctrl+Shift+I`)
 - Test your MCP tools:
+
+```bash
   @agent Use drfSchemaValidator
   @agent Use djangoHealthCheck
   @agent Use deploymentCheck
+```
 
 ### 6. Verify Everything is Working
 
