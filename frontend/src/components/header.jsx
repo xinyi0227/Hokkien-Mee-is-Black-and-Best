@@ -52,12 +52,7 @@ const Header = () => {
             Home
           </a>
 
-          <a
-            href="/files"
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
-          >
-            Report Generator
-          </a>
+          
 
           {/* Meeting + dropdown */}
           <div className="relative inline-block text-left group">
@@ -96,18 +91,19 @@ const Header = () => {
             Complaint
             <span className="ml-1"></span>
           </a>
+
+          <a
+            href="/files"
+            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
+          >
+            Data Analyzer
+          </a>
+
           <a
             href="/feedbackAnalyser"
             className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
           >
             Feedback Analyzer
-          </a>
-
-          <a 
-            href="/archive" 
-            className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition"
-          >
-            Archived
           </a>
 
           <a 
@@ -145,6 +141,12 @@ const Header = () => {
                 className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-xl"
               >
                 Profile
+              </a>
+              <a 
+                href="/archive" 
+                className="block px-4 py-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-t-xl"
+              >
+                Archived
               </a>
               <button
                 onClick={handleLogout}

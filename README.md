@@ -1,15 +1,15 @@
 # Hokkien Mee is Black and Best 🍜
 
 <div align="center">
+  <p><em>EaSys - A scalable business analytics platform with AI-driven workflows and intelligent monitoring</em></p>
+</div>
+
+<div align="center">
   <img src="https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white" />
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
   <img src="https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" />
-</div>
-
-<div align="center">
-  <p><em>A scalable business analytics platform with AI-driven workflows and intelligent monitoring</em></p>
 </div>
 
 ## 👥 Team Members
@@ -238,20 +238,20 @@ You should see: "Enhanced Project Tools MCP Server v2.0 running on stdio"
 2. **Create `.vscode/mcp.json`**
 
    ```bash
-   {
-    "servers": {
-        "project-tools": {
-            "command": "node",
-            "args": ["dist/server.js"],
-            "cwd": "./mcp-server",
-            "env": {
-                "SUPABASE_URL": "your_supabase_project_url",
-                "SUPABASE_KEY": "your_supabase_anon_key",
-                "GEMINI_API_KEY": "your_gemini_api_key"
-            }
-        }
+    {
+      "servers": {
+          "project-tools": {
+              "command": "node",
+              "args": ["dist/server.js"],
+              "cwd": "./mcp-server",
+              "env": {
+                  "SUPABASE_URL": "your_supabase_project_url",
+                  "SUPABASE_KEY": "your_supabase_anon_key",
+                  "GEMINI_API_KEY": "your_gemini_api_key"
+              }
+          }
+      }
     }
-   }
    ```
 
 3. **Restart VS Code**
