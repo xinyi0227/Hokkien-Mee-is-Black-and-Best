@@ -355,23 +355,6 @@ Check VS Code -> View -> Output -> MCP Servers
 - **👥 User Management** - Secure authentication via Supabase
 - **📱 Responsive Design** - Works seamlessly across all devices
 
-### 🛠️ MCP Tools (12 Custom Monitoring Tools)
-
-| Tool                     | Purpose                       | Status    |
-| ------------------------ | ----------------------------- | --------- |
-| `drfSchemaValidator`     | API endpoint validation       | ✅ Active |
-| `djangoHealthCheck`      | Backend system health         | ✅ Active |
-| `supabaseStorageAudit`   | Database & storage monitoring | ✅ Active |
-| `aiServiceMonitor`       | Gemini API connectivity       | ✅ Active |
-| `dataQualityCheck`       | Data integrity validation     | ✅ Active |
-| `frontendRouteValidator` | React routing consistency     | ✅ Active |
-| `authFlowTester`         | Authentication validation     | ✅ Active |
-| `deploymentCheck`        | Pre-deployment readiness      | ✅ Active |
-| `django_urls_audit`      | URL pattern validation        | ✅ Active |
-| `frontend_route_check`   | Basic route checking          | ✅ Active |
-| `supabase_audit`         | Basic table accessibility     | ✅ Active |
-| `drf_probe`              | Individual endpoint testing   | ✅ Active |
-
 ## 📁 Project Structure
 
 <table>
@@ -648,26 +631,30 @@ cd mcp-server
 ### Development Environment
 
 Start all services
+
+```bash
 ./start-dev.sh
+```
 
 Or start individually:
-Terminal 1: Django
 
-```bash
-cd backend && python manage.py runserver
-```
+- Terminal 1: Django
 
-Terminal 2: React
+  ```bash
+  cd backend && python manage.py runserver
+  ```
 
-```bash
-cd frontend && npm start
-```
+- Terminal 2: React
 
-Terminal 3: MCP Server
+  ```bash
+  cd frontend && npm start
+  ```
 
-```bash
-cd mcp-server && node dist/server.js
-```
+- Terminal 3: MCP Server
+
+  ```bash
+  cd mcp-server && node dist/server.js
+  ```
 
 ### Production Deployment
 
