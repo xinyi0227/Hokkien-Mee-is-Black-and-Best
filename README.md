@@ -158,7 +158,11 @@ Edit .env file with your credentials:
 SUPABASE_URL=your_supabase_project_url
 SUPABASE_KEY=your_supabase_anon_key
 GEMINI_API_KEY=your_gemini_api_key
+```
+
 Database setup
+
+```bash
 python manage.py migrate
 python manage.py collectstatic
 ```
