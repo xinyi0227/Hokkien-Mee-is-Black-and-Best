@@ -422,12 +422,6 @@ Check VS Code -> View -> Output -> MCP Servers
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
 <div align="center">
   <p><strong>🍜 Built with ❤️ and lots of ☕ by the Hokkien Mee Team</strong></p>
   <p><em>"Hokkien Mee is black, and that's what makes it the best - just like our scalable, robust architecture!"</em></p>
